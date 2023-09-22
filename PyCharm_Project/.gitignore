@@ -1,0 +1,7 @@
+# Ignored files.
+/.idea
+/__pycache__
+/venv
+/tokens
+/DEL2.py
+/TokensListModel.py
