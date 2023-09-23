@@ -96,6 +96,16 @@ class LimitsTreeModel(QAbstractItemModel):
         self.setToken(token)
 
     def setToken(self, token: TokenClass | None):
+        """Устанавливает токен для отображения лимитов."""
+        # def addLimitsChildren(limits_item: TreeItem):
+        #     """Создаёт и возвращает элемент TreeItem первого уровня."""
+        #     limits_items_list: list[TreeItem] = []
+        #     for row, limit in enumerate(limits_item.data):
+        #         limit_item: TreeItem = TreeItem(limits_item, limit, [], row)
+        #         limit_item.setChildren([TreeItem(limit_item, method, [], j) for j, method in enumerate(limit_item.data.methods)])
+        #         limits_items_list.append(limit_item)
+        #     limits_item.setChildren(limits_items_list)
+     
         self.beginResetModel()
         self._token = token
         if token is None:
