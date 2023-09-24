@@ -1,4 +1,5 @@
-from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse
+from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
+    InstrumentStatus, Share, LastPrice
 
 
 class MyResponse:
@@ -91,3 +92,81 @@ def getUserTariff(token: str, show_unauthenticated_error: bool = True) -> MyResp
             # self.statusbar.clearMessage()  # Очищает statusbar.
         request_occurred = True  # Флаг произведённого запроса.
     return MyResponse('get_user_tariff()', request_occurred, (unary_limits, stream_limits), exception_flag, exception, request_error_flag, request_error)
+
+
+def getShares(token: str, instrument_status: InstrumentStatus) -> MyResponse:
+    """Получает и возвращает список акций."""
+    shares_list: list[Share] = []
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            shares_list = client.instruments.shares(instrument_status=instrument_status).instruments
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse('shares()', request_occurred, shares_list, exception_flag, exception, request_error_flag, request_error)
+
+
+# def getShares(token: str, instrument_status: InstrumentStatus) -> list[Share]:
+#     """Получает и возвращает список акций."""
+#     shares_list: list[Share] = []
+#     with Client(token) as client:
+#         try:
+#             shares_list = client.instruments.shares(instrument_status=instrument_status).instruments
+#         except RequestError as error:
+#             self.showRequestError('shares()', error)  # Отображает исключение RequestError.
+#         except Exception as error:
+#             self.showException('shares()', error)  # Отображает исключение.
+#         else:  # Если исключения не было.
+#             self.statusbar.clearMessage()  # Очищает statusbar.
+#     return shares_list
+
+
+def getLastPrices(token: str, figi_list: list[str]) -> MyResponse:
+    """Получает и возвращает список цен последних сделок."""
+    last_prices: list[LastPrice] = []
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            last_prices = client.market_data.get_last_prices(figi=figi_list).last_prices
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse('get_last_prices()', request_occurred, last_prices, exception_flag, exception, request_error_flag, request_error)
+
+
+# def getLastPrices(token: str, figi_list: list[str]) -> list[LastPrice]:
+#     """Получает и возвращает список цен последних сделок."""
+#     last_prices: list[LastPrice] = []
+#     with Client(token) as client:
+#         try:
+#             last_prices = client.market_data.get_last_prices(figi=figi_list).last_prices
+#         except RequestError as error:
+#             self.showRequestError('get_last_prices()', error)  # Отображает исключение RequestError.
+#         except Exception as error:
+#             self.showException('get_last_prices()', error)  # Отображает исключение.
+#         else:  # Если исключения не было.
+#             self.statusbar.clearMessage()  # Очищает statusbar.
+#     return last_prices

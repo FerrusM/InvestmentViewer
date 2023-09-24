@@ -125,7 +125,9 @@ class SharesModel(QAbstractTableModel):
 
     def setShares(self, shares_class_list: list[MyShareClass]):
         """Устанавливает данные модели."""
+        self.beginResetModel()
         self.share_class_list = shares_class_list
+        self.endResetModel()
 
 
 class SharesProxyModel(QSortFilterProxyModel):

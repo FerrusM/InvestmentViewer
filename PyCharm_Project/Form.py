@@ -2,15 +2,14 @@ from PyQt6.QtCore import pyqtSignal, pyqtSlot, QModelIndex, Qt
 from PyQt6.QtWidgets import QMessageBox
 from grpc import StatusCode
 from PyQt6 import QtCore, QtGui, QtWidgets
-from tinkoff.invest import Account, RequestError
-
+from tinkoff.invest import Account, RequestError, Share, InstrumentStatus, LastPrice
 from Classes import TokenClass, reportAccountType, reportAccountStatus, reportAccountAccessLevel
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from LimitsModel import LimitsTreeModel
 from MyDateTime import reportSignificantInfoFromDateTime
-from MyRequests import getAccounts, MyResponse, getUserTariff
+from MyRequests import getAccounts, MyResponse, getUserTariff, getShares, getLastPrices
+from MyShareClass import MyShareClass
 from SharesModel import SharesModel, SharesProxyModel
-# from TokensListModel import TokenModel, TokenListModel
 from TokenModel import TokenModel, TokenListModel
 from TreeTokenModel import TreeProxyModel, TreeItem
 
@@ -136,116 +135,18 @@ class GroupBox_InstrumentsRequest(GroupBox_Request):
         self.comboBox_status.setItemText(1, _translate('MainWindow', 'Доступные для торговли'))
         self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
 
+    def getCurrentStatus(self) -> InstrumentStatus:
+        """Возвращает выбранный в ComboBox'е статус."""
+        def getInstrumentStatus(status: str) -> InstrumentStatus:
+            """Конвертирует строку выбранного статуса в InstrumentStatus."""
+            match status:
+                case 'Не определён': return InstrumentStatus.INSTRUMENT_STATUS_UNSPECIFIED
+                case 'Доступные для торговли': return InstrumentStatus.INSTRUMENT_STATUS_BASE
+                case 'Все': return InstrumentStatus.INSTRUMENT_STATUS_ALL
+                case _: raise ValueError('Некорректное значение статуса запрашиваемых инструментов (акций): {0}!'.format(status))
 
-# class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
-#     """GroupBox с параметрами запроса инструментов."""
-#     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-#         super().__init__(parent)  # QGroupBox __init__().
-#         self.setTitle('')
-#         self.setObjectName(object_name)
-#
-#         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-#         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-#         self.verticalLayout_main.setSpacing(2)
-#         self.verticalLayout_main.setObjectName('verticalLayout_main')
-#
-#         """------------------------Заголовок------------------------"""
-#         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-#         self.horizontalLayout_title.setSpacing(0)
-#         self.horizontalLayout_title.setObjectName('horizontalLayout_title')
-#
-#         spacerItem8 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_title.addItem(spacerItem8)
-#
-#         spacerItem9 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_title.addItem(spacerItem9)
-#
-#         self.label_title = QtWidgets.QLabel(self)
-#         font = QtGui.QFont()
-#         font.setBold(True)
-#         self.label_title.setFont(font)
-#         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-#         self.label_title.setObjectName('label_title')
-#         self.horizontalLayout_title.addWidget(self.label_title)
-#
-#         self.label_request_count = QtWidgets.QLabel(self)
-#         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-#         sizePolicy.setHorizontalStretch(0)
-#         sizePolicy.setVerticalStretch(0)
-#         sizePolicy.setHeightForWidth(self.label_request_count.sizePolicy().hasHeightForWidth())
-#         self.label_request_count.setSizePolicy(sizePolicy)
-#         self.label_request_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-#         self.label_request_count.setObjectName('label_request_count')
-#         self.horizontalLayout_title.addWidget(self.label_request_count)
-#
-#         spacerItem10 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_title.addItem(spacerItem10)
-#
-#         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
-#         """---------------------------------------------------------"""
-#
-#         """---------------------------Токен---------------------------"""
-#         self.horizontalLayout_token = QtWidgets.QHBoxLayout()
-#         self.horizontalLayout_token.setSpacing(0)
-#         self.horizontalLayout_token.setObjectName('horizontalLayout_token')
-#
-#         self.label_token = QtWidgets.QLabel(self)
-#         self.label_token.setObjectName('label_token')
-#         self.horizontalLayout_token.addWidget(self.label_token)
-#
-#         spacerItem11 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_token.addItem(spacerItem11)
-#
-#         self.comboBox_token = QtWidgets.QComboBox(self)
-#         self.comboBox_token.setObjectName('comboBox_token')
-#         self.comboBox_token.addItem('')
-#         self.horizontalLayout_token.addWidget(self.comboBox_token)
-#
-#         spacerItem12 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_token.addItem(spacerItem12)
-#
-#         self.verticalLayout_main.addLayout(self.horizontalLayout_token)
-#         """-----------------------------------------------------------"""
-#
-#         '''------------------------Статус------------------------'''
-#         self.horizontalLayout_status = QtWidgets.QHBoxLayout()
-#         self.horizontalLayout_status.setSpacing(0)
-#         self.horizontalLayout_status.setObjectName('horizontalLayout_status')
-#
-#         self.label_status = QtWidgets.QLabel(self)
-#         self.label_status.setObjectName('label_status')
-#         self.horizontalLayout_status.addWidget(self.label_status)
-#
-#         spacerItem13 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_status.addItem(spacerItem13)
-#
-#         self.comboBox_status = QtWidgets.QComboBox(self)
-#         self.comboBox_status.setObjectName('shares_comboBox_status')
-#         self.comboBox_status.addItem('')
-#         self.comboBox_status.addItem('')
-#         self.comboBox_status.addItem('')
-#         self.horizontalLayout_status.addWidget(self.comboBox_status)
-#
-#         spacerItem14 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_status.addItem(spacerItem14)
-#
-#         self.verticalLayout_main.addLayout(self.horizontalLayout_status)
-#         '''------------------------------------------------------'''
-#
-#         _translate = QtCore.QCoreApplication.translate
-#         self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
-#         self.label_request_count.setText(_translate('MainWindow', '0'))
-#         self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
-#         self.label_token.setText(_translate('MainWindow', 'Токен:'))
-#         self.comboBox_token.setItemText(0, _translate('MainWindow', 'Не выбран'))
-#
-#         self.label_status.setToolTip(_translate('MainWindow', 'Статус запрашиваемых инструментов.'))
-#         self.label_status.setText(_translate('MainWindow', 'Статус:'))
-#         self.comboBox_status.setItemText(0, _translate('MainWindow', 'Все'))
-#         self.comboBox_status.setItemText(1, _translate('MainWindow', 'Доступные для торговли'))
-#         self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
-#
-#         self.comboBox_token.setCurrentIndex(0)
+        combobox_status: str = self.comboBox_status.currentText()  # Текущий статус в ComboBox'е.
+        return getInstrumentStatus(combobox_status)
 
 
 class GroupBox_CalculationDate(QtWidgets.QGroupBox):
@@ -294,7 +195,7 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
 
 
 class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
-    """GroupBox с датой расчёта."""
+    """GroupBox с фильтрами инструментов."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         self.setObjectName(object_name)
@@ -599,6 +500,120 @@ class MyTreeView(QtWidgets.QTreeView):
             self.resizeColumnToContents(i)  # Авторазмер i-го столбца под содержимое.
 
 
+'''====================Классы для страницы токенов===================='''
+
+
+class GroupBox_SavedTokens(QtWidgets.QGroupBox):
+    """Панель отображения сохранённых токенов."""
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+        self.setTitle('')
+        self.setObjectName(object_name)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 3)
+        self.verticalLayout_main.setSpacing(2)
+        self.verticalLayout_main.setObjectName('verticalLayout_main')
+
+        """------------Заголовок над отображением токенов------------"""
+        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_title.setSpacing(0)
+        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+
+        spacerItem8 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem8)
+
+        spacerItem9 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem9)
+
+        self.label_title = QtWidgets.QLabel(self)
+        font = QtGui.QFont()
+        font.setBold(True)
+        self.label_title.setFont(font)
+        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_title.setObjectName('label_title')
+        self.horizontalLayout_title.addWidget(self.label_title)
+
+        self.label_count = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
+        self.label_count.setSizePolicy(sizePolicy)
+        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.label_count.setObjectName('label_count')
+        self.horizontalLayout_title.addWidget(self.label_count)
+
+        spacerItem10 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem10)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        """----------------------------------------------------------"""
+
+        """------------------Отображение токенов------------------"""
+        self.treeView_saved_tokens = MyTreeView(self)
+        self.treeView_saved_tokens.setObjectName('treeView_saved_tokens')
+        self.verticalLayout_main.addWidget(self.treeView_saved_tokens)
+        """-------------------------------------------------------"""
+
+        _translate = QtCore.QCoreApplication.translate
+        self.label_title.setText(_translate('MainWindow', 'СОХРАНЁННЫЕ ТОКЕНЫ'))
+        self.label_count.setText(_translate('MainWindow', '0'))
+
+    def setModel(self, model: TreeProxyModel):
+        """Подключает модель сохранённых токенов."""
+        self.treeView_saved_tokens.setModel(model)
+
+        '''------------------Создаём делегат кнопки удаления токенов------------------'''
+        delete_button_delegate: TreeProxyModel.DeleteButtonDelegate = model.DeleteButtonDelegate(self.treeView_saved_tokens)
+        # delete_button_delegate.clicked.connect(lambda index: print('Номер строки: {0}'.format(str(index.row()))))
+
+        @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        def deleteTokenDialog(token: str) -> QMessageBox.StandardButton:
+            """Диалоговое окно удаления токена."""
+            msgBox = QMessageBox()
+            msgBox.setIcon(QMessageBox.Icon.Warning)  # Задаёт значок окна сообщения.
+            msgBox.setWindowTitle('Удаление токена')  # Заголовок окна сообщения.
+            msgBox.setText('Вы уверены, что хотите удалить токен {0}?'.format(token))  # Текст окна сообщения.
+            msgBox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msgBox.setDefaultButton(QMessageBox.StandardButton.No)
+            return msgBox.exec()
+
+        def getTokenFromIndex(index: QModelIndex) -> str:
+            """Получает и возвращает токен, соответствующий индексу."""
+            tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
+            assert type(tree_item) == TreeItem
+            token_class: TokenClass = tree_item.data
+            assert type(token_class) == TokenClass
+            return token_class.token
+
+        def deleteButtonFunction(index: QModelIndex):
+            token: str = getTokenFromIndex(index)
+            clicked_button: QMessageBox.StandardButton = deleteTokenDialog(token)
+            match clicked_button:
+                case QMessageBox.StandardButton.No:
+                    return
+                case QMessageBox.StandardButton.Yes:
+                    """------------------------------Удаление токена------------------------------"""
+                    deleted_flag: bool = model.deleteToken(index)
+                    # assert not deleted_flag, 'Проблема с удалением токена!'
+                    if not deleted_flag:
+                        raise ValueError('Проблема с удалением токена!')
+                    """---------------------------------------------------------------------------"""
+                    return
+                case _:
+                    assert False, 'Неверное значение нажатой кнопки в окне удаления токена ({0})!'.format(clicked_button)
+
+        delete_button_delegate.clicked.connect(lambda index: deleteButtonFunction(index))
+        '''---------------------------------------------------------------------------'''
+
+        self.treeView_saved_tokens.setItemDelegateForColumn(model.Columns.TOKEN_DELETE_BUTTON, delete_button_delegate)
+
+        self.treeView_saved_tokens.expandAll()  # Разворачивает все элементы.
+        self.treeView_saved_tokens.resizeColumnsToContents()  # Авторазмер всех столбцов под содержимое.
+        self.label_count.setText(str(model.getTokensCount()))  # Отображаем количество сохранённых токенов.
+
+
 class GroupBox_NewToken(QtWidgets.QGroupBox):
     """Панель добавления нового токена."""
 
@@ -606,7 +621,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
     add_token_signal: pyqtSignal = pyqtSignal(TokenClass)  # Сигнал, испускаемый при необходимости добавить токен в модель.
     """-------------------------------------------------------"""
 
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
 
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -615,7 +630,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
         self.setTitle('')
-        self.setObjectName('tokens_groupBox_new_token')
+        self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 3)
@@ -802,127 +817,19 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         self.lineEdit_new_token.clear()  # Очищает содержимое lineEdit.
 
 
-class GroupBox_SavedTokens(QtWidgets.QGroupBox):
-    """Панель отображения сохранённых токенов."""
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
-        self.setObjectName('tokens_groupBox_saved_tokens')
-
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 3)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
-
-        """------------Заголовок над отображением токенов------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
-
-        spacerItem8 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem8)
-
-        spacerItem9 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem9)
-
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        spacerItem10 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem10)
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
-        """----------------------------------------------------------"""
-
-        """------------------Отображение токенов------------------"""
-        self.treeView_saved_tokens = MyTreeView(self)
-        self.treeView_saved_tokens.setObjectName('treeView_saved_tokens')
-        self.verticalLayout_main.addWidget(self.treeView_saved_tokens)
-        """-------------------------------------------------------"""
-
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'СОХРАНЁННЫЕ ТОКЕНЫ'))
-        self.label_count.setText(_translate('MainWindow', '0'))
-
-    def setModel(self, model: TreeProxyModel):
-        """Подключает модель сохранённых токенов."""
-        self.treeView_saved_tokens.setModel(model)
-
-        '''------------------Создаём делегат кнопки удаления токенов------------------'''
-        delete_button_delegate: TreeProxyModel.DeleteButtonDelegate = model.DeleteButtonDelegate(self.treeView_saved_tokens)
-        # delete_button_delegate.clicked.connect(lambda index: print('Номер строки: {0}'.format(str(index.row()))))
-
-        @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
-        def deleteTokenDialog(token: str) -> QMessageBox.StandardButton:
-            """Диалоговое окно удаления токена."""
-            msgBox = QMessageBox()
-            msgBox.setIcon(QMessageBox.Icon.Warning)  # Задаёт значок окна сообщения.
-            msgBox.setWindowTitle('Удаление токена')  # Заголовок окна сообщения.
-            msgBox.setText('Вы уверены, что хотите удалить токен {0}?'.format(token))  # Текст окна сообщения.
-            msgBox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            msgBox.setDefaultButton(QMessageBox.StandardButton.No)
-            return msgBox.exec()
-
-        def getTokenFromIndex(index: QModelIndex) -> str:
-            """Получает и возвращает токен, соответствующий индексу."""
-            tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(tree_item) == TreeItem
-            token_class: TokenClass = tree_item.data
-            assert type(token_class) == TokenClass
-            return token_class.token
-
-        def deleteButtonFunction(index: QModelIndex):
-            token: str = getTokenFromIndex(index)
-            clicked_button: QMessageBox.StandardButton = deleteTokenDialog(token)
-            match clicked_button:
-                case QMessageBox.StandardButton.No:
-                    return
-                case QMessageBox.StandardButton.Yes:
-                    """------------------------------Удаление токена------------------------------"""
-                    deleted_flag: bool = model.deleteToken(index)
-                    # assert not deleted_flag, 'Проблема с удалением токена!'
-                    if not deleted_flag:
-                        raise ValueError('Проблема с удалением токена!')
-                    """---------------------------------------------------------------------------"""
-                    return
-                case _:
-                    assert False, 'Неверное значение нажатой кнопки в окне удаления токена ({0})!'.format(clicked_button)
-
-        delete_button_delegate.clicked.connect(lambda index: deleteButtonFunction(index))
-        '''---------------------------------------------------------------------------'''
-
-        self.treeView_saved_tokens.setItemDelegateForColumn(model.Columns.TOKEN_DELETE_BUTTON, delete_button_delegate)
-
-        self.treeView_saved_tokens.expandAll()  # Разворачивает все элементы.
-        self.treeView_saved_tokens.resizeColumnsToContents()  # Авторазмер всех столбцов под содержимое.
-        self.label_count.setText(str(model.getTokensCount()))  # Отображаем количество сохранённых токенов.
+'''==================================================================='''
 
 
 class GroupBox_LimitsTreeView(QtWidgets.QGroupBox):
     """Панель отображения лимитов выбранного токена."""
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         self.setAutoFillBackground(False)
         self.setStyleSheet('')
         self.setTitle('')
         self.setFlat(False)
         self.setCheckable(False)
-        self.setObjectName('limits_groupBox_view')
+        self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -1000,9 +907,240 @@ class GroupBox_LimitsTreeView(QtWidgets.QGroupBox):
         self.treeView_limits.resizeColumnsToContents()  # Авторазмер всех столбцов под содержимое.
 
 
+'''=====================Классы для страницы акций====================='''
+
+
+class GroupBox_OnlySharesFilters(QtWidgets.QGroupBox):
+    """GroupBox с фильтрами акций."""
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+        self.setObjectName(object_name)
+
+        self.gridLayout_main = QtWidgets.QGridLayout(self)
+        self.gridLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.gridLayout_main.setHorizontalSpacing(7)
+        self.gridLayout_main.setVerticalSpacing(2)
+        self.gridLayout_main.setObjectName("gridLayout_main")
+
+        """-----------------------------Тип акции-----------------------------"""
+        self.label_share_type = QtWidgets.QLabel(self)
+        self.label_share_type.setObjectName('label_share_type')
+        self.gridLayout_main.addWidget(self.label_share_type, 0, 0, 1, 1)
+
+        self.comboBox_share_type = QtWidgets.QComboBox(self)
+        self.comboBox_share_type.setObjectName('comboBox_share_type')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItem('')
+        self.gridLayout_main.addWidget(self.comboBox_share_type, 0, 1, 1, 1)
+        """-------------------------------------------------------------------"""
+
+        """---------------Признак наличия дивидендной доходности---------------"""
+        self.label_div_yield_flag = QtWidgets.QLabel(self)
+        self.label_div_yield_flag.setObjectName('label_div_yield_flag')
+        self.gridLayout_main.addWidget(self.label_div_yield_flag, 0, 2, 1, 1)
+
+        self.comboBox_div_yield_flag = QtWidgets.QComboBox(self)
+        self.comboBox_div_yield_flag.setObjectName('comboBox_div_yield_flag')
+        self.comboBox_div_yield_flag.addItem('')
+        self.comboBox_div_yield_flag.addItem('')
+        self.comboBox_div_yield_flag.addItem('')
+        self.gridLayout_main.addWidget(self.comboBox_div_yield_flag, 0, 3, 1, 1)
+        """--------------------------------------------------------------------"""
+
+        """------------------------------------retranslateUi------------------------------------"""
+        _translate = QtCore.QCoreApplication.translate
+        self.setTitle(_translate('MainWindow', 'Фильтры акций'))
+        self.label_share_type.setToolTip(_translate('MainWindow', 'Тип акции.'))
+        self.label_share_type.setText(_translate('MainWindow', 'Тип:'))
+        self.comboBox_share_type.setItemText(0, _translate('MainWindow', 'Все'))
+        self.comboBox_share_type.setItemText(1, _translate('MainWindow', 'Не определён'))
+        self.comboBox_share_type.setItemText(2, _translate('MainWindow', 'Обыкновенные'))
+        self.comboBox_share_type.setItemText(3, _translate('MainWindow', 'Привилегированные'))
+        self.comboBox_share_type.setItemText(4, _translate('MainWindow', 'АДР'))
+        self.comboBox_share_type.setItemText(5, _translate('MainWindow', 'ГДР'))
+        self.comboBox_share_type.setItemText(6, _translate('MainWindow', 'ТОО'))
+        self.comboBox_share_type.setItemText(7, _translate('MainWindow', 'Акции из Нью-Йорка'))
+        self.comboBox_share_type.setItemText(8, _translate('MainWindow', 'Закрытый ИФ'))
+        self.comboBox_share_type.setItemText(9, _translate('MainWindow', 'Траст недвижимости'))
+        self.label_div_yield_flag.setToolTip(_translate('MainWindow', 'Признак наличия дивидендной доходности.'))
+        self.label_div_yield_flag.setText(_translate('MainWindow', 'Дивиденды:'))
+        self.comboBox_div_yield_flag.setItemText(0, _translate('MainWindow', 'Все'))
+        self.comboBox_div_yield_flag.setItemText(1, _translate('MainWindow', 'True'))
+        self.comboBox_div_yield_flag.setItemText(2, _translate('MainWindow', 'False'))
+        """-------------------------------------------------------------------------------------"""
+
+
+class GroupBox_SharesFilters(QtWidgets.QGroupBox):
+    """GroupBox со всеми фильтрами акций."""
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+        self.setTitle('')
+        self.setObjectName(object_name)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.verticalLayout_main.setSpacing(0)
+        self.verticalLayout_main.setObjectName('verticalLayout_main')
+
+        """--------------------------Заголовок--------------------------"""
+        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_title.setSpacing(0)
+        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+        spacerItem16 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem16)
+        spacerItem17 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem17)
+
+        self.label_title = QtWidgets.QLabel(self)
+        font = QtGui.QFont()
+        font.setBold(True)
+        self.label_title.setFont(font)
+        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_title.setObjectName('label_title')
+        self.horizontalLayout_title.addWidget(self.label_title)
+
+        self.label_count = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
+        self.label_count.setSizePolicy(sizePolicy)
+        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.label_count.setObjectName('label_count')
+        self.horizontalLayout_title.addWidget(self.label_count)
+
+        spacerItem18 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem18)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        """-------------------------------------------------------------"""
+
+        """---------------------Фильтры инструментов---------------------"""
+        self.horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_instruments_filters.setSpacing(0)
+        self.horizontalLayout_instruments_filters.setObjectName('horizontalLayout_instruments_filters')
+
+        self.shares_groupBox_instruments_filters = GroupBox_InstrumentsFilters('shares_groupBox_instruments_filters', self)
+        self.horizontalLayout_instruments_filters.addWidget(self.shares_groupBox_instruments_filters)
+
+        spacerItem19 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_instruments_filters.addItem(spacerItem19)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_instruments_filters)
+        """--------------------------------------------------------------"""
+
+        """------------------------Фильтры акций------------------------"""
+        self.horizontalLayout_share_filters = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_share_filters.setSpacing(0)
+        self.horizontalLayout_share_filters.setObjectName('horizontalLayout_share_filters')
+
+        self.shares_groupBox_shares_filters: GroupBox_OnlySharesFilters = GroupBox_OnlySharesFilters('shares_groupBox_shares_filters', self)
+        self.horizontalLayout_share_filters.addWidget(self.shares_groupBox_shares_filters)
+
+        spacerItem20 = QtWidgets.QSpacerItem(0, 17, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_share_filters.addItem(spacerItem20)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_share_filters)
+        """-------------------------------------------------------------"""
+
+        _translate = QtCore.QCoreApplication.translate
+        self.label_title.setText(_translate('MainWindow', 'ФИЛЬТРЫ'))
+        self.label_count.setText(_translate('MainWindow', '0'))
+
+
+class GroupBox_DividendsView(QtWidgets.QGroupBox):
+    """Панель отображения дивидендов акций."""
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setTitle('')
+        self.setObjectName(object_name)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.verticalLayout_main.setSpacing(2)
+        self.verticalLayout_main.setObjectName('verticalLayout_main')
+
+        """------------------------Заголовок------------------------"""
+        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_title.setSpacing(0)
+        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+        spacerItem22 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem22)
+        spacerItem23 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem23)
+
+        self.label_title = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
+        self.label_title.setSizePolicy(sizePolicy)
+        font = QtGui.QFont()
+        font.setPointSize(9)
+        font.setBold(True)
+        self.label_title.setFont(font)
+        self.label_title.setStyleSheet('border: none;')
+        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_title.setObjectName('label_title')
+        self.horizontalLayout_title.addWidget(self.label_title)
+
+        self.label_count = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
+        self.label_count.setSizePolicy(sizePolicy)
+        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.label_count.setObjectName('label_count')
+        self.horizontalLayout_title.addWidget(self.label_count)
+
+        spacerItem24 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem24)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        """---------------------------------------------------------"""
+
+        """------------------Отображение дивидендов------------------"""
+        self.shares_tableView_dividends = QtWidgets.QTableView(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.shares_tableView_dividends.sizePolicy().hasHeightForWidth())
+        self.shares_tableView_dividends.setSizePolicy(sizePolicy)
+        self.shares_tableView_dividends.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.shares_tableView_dividends.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
+        self.shares_tableView_dividends.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+        self.shares_tableView_dividends.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.shares_tableView_dividends.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.shares_tableView_dividends.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.shares_tableView_dividends.setGridStyle(QtCore.Qt.PenStyle.SolidLine)
+        self.shares_tableView_dividends.setSortingEnabled(True)
+        self.shares_tableView_dividends.setObjectName('shares_tableView_dividends')
+        self.verticalLayout_main.addWidget(self.shares_tableView_dividends)
+        """----------------------------------------------------------"""
+
+        _translate = QtCore.QCoreApplication.translate
+        self.label_title.setText(_translate('MainWindow', 'ДИВИДЕНДЫ'))
+        self.label_count.setText(_translate('MainWindow', '0'))
+
+
 class GroupBox_SharesView(QtWidgets.QGroupBox):
     """Панель отображения акций."""
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -1011,7 +1149,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.setSizePolicy(sizePolicy)
         self.setBaseSize(QtCore.QSize(0, 0))
         self.setTitle('')
-        self.setObjectName('shares_groupBox_view')
+        self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -1096,6 +1234,101 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.tableView_shares.setModel(model)
         self.tableView_shares.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
+    def updateShares(self, token_class: TokenClass, shares: list[Share]):
+        """Обновляет данные модели акций в соответствии с указанными на форме параметрами."""
+        """
+        Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
+        всех доступных для торговли инструментов. Поэтому, если отфильтрованный список акций пуст,
+        то следует пропустить запрос цен последних сделок. 
+        """
+        if shares:
+            shares_figi_list: list[str] = [share.figi for share in shares]
+            last_prices_response: MyResponse = getLastPrices(token_class.token, shares_figi_list)
+            last_prices: list[LastPrice] = last_prices_response.response_data
+
+            # """------Проверка равенства длин списка акций и списка цен последних сделок------"""
+            # shares_len: int = len(shares)  # Длина списка акций.
+            # last_prices_len: int = len(last_prices)  # Длина списка цен последних сделок.
+            # if shares_len != last_prices_len:
+            #     raise ValueError('Длина списка акций ({0}) не совпадает с длиной списка цен последних сделок ({1})!'.
+            #                      format(shares_len, last_prices_len))
+            # """------------------------------------------------------------------------------"""
+
+            # last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+            # duplicate_flag: bool = False
+            # for share_figi in shares_figi_list:
+            #     if last_prices_figi_list.count(share_figi) > 1:
+            #         duplicate_flag = True
+            #         assert False, 'Полученный список акций содержит повторяющийся figi ({0})'.format(share_figi)
+            #         break
+            #
+            # if duplicate_flag:
+            #     list(set(ints_list))
+            #
+            #
+            #
+            # for share_figi in shares_figi_list:
+            #     figi_list
+
+
+            share_class_list: list[MyShareClass] = [MyShareClass(share, last_price) for share, last_price in zip(shares, last_prices)]
+        else:  # Если список отфильтрованных акций пуст.
+            share_class_list: list[MyShareClass] = []
+
+        self.tableView_shares.model().sourceModel().setShares(share_class_list)  # Передаём в исходную модель акций данные.
+        self.tableView_shares.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+
+class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
+    """Панель прогресса получения дивидендов."""
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setTitle('')
+        self.setObjectName(object_name)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.verticalLayout_main.setSpacing(2)
+        self.verticalLayout_main.setObjectName('verticalLayout_main')
+
+        self.label_title = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
+        self.label_title.setSizePolicy(sizePolicy)
+        font = QtGui.QFont()
+        font.setBold(True)
+        self.label_title.setFont(font)
+        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_title.setObjectName('label_title')
+        self.verticalLayout_main.addWidget(self.label_title)
+
+        self.progressBar_dividends = QtWidgets.QProgressBar(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.progressBar_dividends.sizePolicy().hasHeightForWidth())
+        self.progressBar_dividends.setSizePolicy(sizePolicy)
+        self.progressBar_dividends.setMinimumSize(QtCore.QSize(0, 26))
+        self.progressBar_dividends.setStyleSheet('text-align: center;')
+        self.progressBar_dividends.setMaximum(0)
+        self.progressBar_dividends.setProperty('value', 0)
+        self.progressBar_dividends.setObjectName('progressBar_dividends')
+        self.verticalLayout_main.addWidget(self.progressBar_dividends)
+
+        _translate = QtCore.QCoreApplication.translate
+        self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ДИВИДЕНДОВ'))
+        self.progressBar_dividends.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
+
+
+'''==================================================================='''
+
 
 class Ui_MainWindow(object):
     def setupUi(self, main_window: QtWidgets.QMainWindow):
@@ -1115,8 +1348,7 @@ class Ui_MainWindow(object):
         self.main_verticalLayout.setSpacing(0)
         self.main_verticalLayout.setObjectName('main_verticalLayout')
 
-        # Панель вкладок.
-        self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)
+        self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)  # Панель вкладок.
         self.tabWidget.setObjectName('tabWidget')
 
         """------------------------------Страница "Токены"------------------------------"""
@@ -1129,12 +1361,14 @@ class Ui_MainWindow(object):
         self.tokens_verticalLayout.setObjectName('tokens_verticalLayout')
 
         """------------Панель отображения сохранённых токенов------------"""
-        self.tokens_groupBox_tokens = GroupBox_SavedTokens(self.tab_tokens)
+        self.tokens_groupBox_tokens: GroupBox_SavedTokens = GroupBox_SavedTokens('tokens_groupBox_tokens', self.tab_tokens)
         self.tokens_verticalLayout.addWidget(self.tokens_groupBox_tokens)
         """--------------------------------------------------------------"""
 
-        self.tokens_groupBox_new_token = GroupBox_NewToken(self.tab_tokens)
+        """----------------Панель добавления нового токена----------------"""
+        self.tokens_groupBox_new_token: GroupBox_NewToken = GroupBox_NewToken('tokens_groupBox_new_token', self.tab_tokens)
         self.tokens_verticalLayout.addWidget(self.tokens_groupBox_new_token)
+        """---------------------------------------------------------------"""
 
         self.tabWidget.addTab(self.tab_tokens, '')
         """-----------------------------------------------------------------------------"""
@@ -1154,7 +1388,7 @@ class Ui_MainWindow(object):
         """-------------------------------------------------------------"""
 
         """------------------Панель отображения лимитов------------------"""
-        self.limits_groupBox_view: GroupBox_LimitsTreeView = GroupBox_LimitsTreeView(self.tab_limits)
+        self.limits_groupBox_view: GroupBox_LimitsTreeView = GroupBox_LimitsTreeView('limits_groupBox_view', self.tab_limits)
         self.limits_verticalLayout.addWidget(self.limits_groupBox_view)
         """--------------------------------------------------------------"""
 
@@ -1163,27 +1397,32 @@ class Ui_MainWindow(object):
 
         """------------------------------Страница "Акции"------------------------------"""
         self.tab_shares = QtWidgets.QWidget()
-        self.tab_shares.setStyleSheet("")
-        self.tab_shares.setObjectName("tab_shares")
-        self.verticalLayout_7 = QtWidgets.QVBoxLayout(self.tab_shares)
-        self.verticalLayout_7.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_7.setSpacing(2)
-        self.verticalLayout_7.setObjectName("verticalLayout_7")
-        self.splitter = QtWidgets.QSplitter(self.tab_shares)
-        self.splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
-        self.splitter.setObjectName("splitter")
-        self.layoutWidget = QtWidgets.QWidget(self.splitter)
-        self.layoutWidget.setObjectName("layoutWidget")
-        self.verticalLayout_6 = QtWidgets.QVBoxLayout(self.layoutWidget)
+        self.tab_shares.setStyleSheet('')
+        self.tab_shares.setObjectName('tab_shares')
+
+        self.shares_verticalLayout_main = QtWidgets.QVBoxLayout(self.tab_shares)
+        self.shares_verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.shares_verticalLayout_main.setSpacing(2)
+        self.shares_verticalLayout_main.setObjectName('shares_verticalLayout_main')
+
+        self.shares_splitter = QtWidgets.QSplitter(self.tab_shares)
+        self.shares_splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
+        self.shares_splitter.setObjectName('shares_splitter')
+
+        self.shares_layoutWidget = QtWidgets.QWidget(self.shares_splitter)
+        self.shares_layoutWidget.setObjectName('shares_layoutWidget')
+
+        self.verticalLayout_6 = QtWidgets.QVBoxLayout(self.shares_layoutWidget)
         self.verticalLayout_6.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_6.setSpacing(2)
-        self.verticalLayout_6.setObjectName("verticalLayout_6")
+        self.verticalLayout_6.setObjectName('verticalLayout_6')
+
         self.shares_horizontalLayout_requests = QtWidgets.QHBoxLayout()
         self.shares_horizontalLayout_requests.setSpacing(2)
         self.shares_horizontalLayout_requests.setObjectName('shares_horizontalLayout_requests')
 
         """------------------Панель выполнения запроса------------------"""
-        self.shares_groupBox_request = GroupBox_InstrumentsRequest('shares_groupBox_request', self.layoutWidget)
+        self.shares_groupBox_request = GroupBox_InstrumentsRequest('shares_groupBox_request', self.shares_layoutWidget)
         self.shares_horizontalLayout_requests.addWidget(self.shares_groupBox_request)
         """-------------------------------------------------------------"""
 
@@ -1191,43 +1430,10 @@ class Ui_MainWindow(object):
         self.shares_verticalLayout_dividends_receiving.setSpacing(0)
         self.shares_verticalLayout_dividends_receiving.setObjectName('shares_verticalLayout_dividends_receiving')
 
-        self.shares_groupBox_dividends_receiving = QtWidgets.QGroupBox(self.layoutWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_groupBox_dividends_receiving.sizePolicy().hasHeightForWidth())
-        self.shares_groupBox_dividends_receiving.setSizePolicy(sizePolicy)
-        self.shares_groupBox_dividends_receiving.setTitle("")
-        self.shares_groupBox_dividends_receiving.setObjectName("shares_groupBox_dividends_receiving")
-        self.verticalLayout_9 = QtWidgets.QVBoxLayout(self.shares_groupBox_dividends_receiving)
-        self.verticalLayout_9.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_9.setSpacing(2)
-        self.verticalLayout_9.setObjectName("verticalLayout_9")
-        self.label_93 = QtWidgets.QLabel(self.shares_groupBox_dividends_receiving)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_93.sizePolicy().hasHeightForWidth())
-        self.label_93.setSizePolicy(sizePolicy)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_93.setFont(font)
-        self.label_93.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_93.setObjectName("label_93")
-        self.verticalLayout_9.addWidget(self.label_93)
-        self.shares_progressBar_dividends = QtWidgets.QProgressBar(self.shares_groupBox_dividends_receiving)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_progressBar_dividends.sizePolicy().hasHeightForWidth())
-        self.shares_progressBar_dividends.setSizePolicy(sizePolicy)
-        self.shares_progressBar_dividends.setMinimumSize(QtCore.QSize(0, 26))
-        self.shares_progressBar_dividends.setStyleSheet("text-align: center;")
-        self.shares_progressBar_dividends.setMaximum(0)
-        self.shares_progressBar_dividends.setProperty("value", 0)
-        self.shares_progressBar_dividends.setObjectName("shares_progressBar_dividends")
-        self.verticalLayout_9.addWidget(self.shares_progressBar_dividends)
+        """------------Панель прогресса получения дивидендов------------"""
+        self.shares_groupBox_dividends_receiving: GroupBox_DividendsReceiving = GroupBox_DividendsReceiving('shares_groupBox_dividends_receiving', self.shares_layoutWidget)
         self.shares_verticalLayout_dividends_receiving.addWidget(self.shares_groupBox_dividends_receiving)
+        """-------------------------------------------------------------"""
 
         spacerItem15 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.shares_verticalLayout_dividends_receiving.addItem(spacerItem15)
@@ -1235,257 +1441,53 @@ class Ui_MainWindow(object):
         self.shares_horizontalLayout_requests.addLayout(self.shares_verticalLayout_dividends_receiving)
         self.shares_horizontalLayout_requests.setStretch(1, 1)
         self.verticalLayout_6.addLayout(self.shares_horizontalLayout_requests)
+
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setSpacing(2)
-        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
+        self.horizontalLayout_3.setObjectName('horizontalLayout_3')
+
         self.verticalLayout_5 = QtWidgets.QVBoxLayout()
         self.verticalLayout_5.setSpacing(0)
-        self.verticalLayout_5.setObjectName("verticalLayout_5")
+        self.verticalLayout_5.setObjectName('verticalLayout_5')
 
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setSpacing(2)
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.horizontalLayout_2.setObjectName('horizontalLayout_2')
 
         """---------------------Панель даты расчёта---------------------"""
-        self.shares_groupBox_calendar = GroupBox_CalculationDate('shares_groupBox_calendar', self.layoutWidget)
+        self.shares_groupBox_calendar = GroupBox_CalculationDate('shares_groupBox_calendar', self.shares_layoutWidget)
         self.horizontalLayout_2.addWidget(self.shares_groupBox_calendar)
         """-------------------------------------------------------------"""
 
-        self.shares_groupBox_filters = QtWidgets.QGroupBox(self.layoutWidget)
-        self.shares_groupBox_filters.setTitle("")
-        self.shares_groupBox_filters.setObjectName("shares_groupBox_filters")
-        self.verticalLayout_44 = QtWidgets.QVBoxLayout(self.shares_groupBox_filters)
-        self.verticalLayout_44.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_44.setSpacing(0)
-        self.verticalLayout_44.setObjectName("verticalLayout_44")
-        self.horizontalLayout_38 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_38.setSpacing(0)
-        self.horizontalLayout_38.setObjectName("horizontalLayout_38")
-        spacerItem16 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_38.addItem(spacerItem16)
-        spacerItem17 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_38.addItem(spacerItem17)
-        self.label_59 = QtWidgets.QLabel(self.shares_groupBox_filters)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_59.setFont(font)
-        self.label_59.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_59.setObjectName("label_59")
-        self.horizontalLayout_38.addWidget(self.label_59)
-        self.shares_label_filtered_count = QtWidgets.QLabel(self.shares_groupBox_filters)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_label_filtered_count.sizePolicy().hasHeightForWidth())
-        self.shares_label_filtered_count.setSizePolicy(sizePolicy)
-        self.shares_label_filtered_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.shares_label_filtered_count.setObjectName("shares_label_filtered_count")
-        self.horizontalLayout_38.addWidget(self.shares_label_filtered_count)
-        spacerItem18 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_38.addItem(spacerItem18)
-        self.verticalLayout_44.addLayout(self.horizontalLayout_38)
-
-        self.horizontalLayout_40 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_40.setSpacing(0)
-        self.horizontalLayout_40.setObjectName("horizontalLayout_40")
-
-        """---------------------Панель фильтров инструментов---------------------"""
-        self.shares_groupBox_instruments_filters = GroupBox_InstrumentsFilters('shares_groupBox_instruments_filters', self.shares_groupBox_filters)
-        self.horizontalLayout_40.addWidget(self.shares_groupBox_instruments_filters)
-        """----------------------------------------------------------------------"""
-
-        spacerItem19 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_40.addItem(spacerItem19)
-        self.verticalLayout_44.addLayout(self.horizontalLayout_40)
-        self.horizontalLayout_42 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_42.setSpacing(0)
-        self.horizontalLayout_42.setObjectName("horizontalLayout_42")
-        self.groupBox_12 = QtWidgets.QGroupBox(self.shares_groupBox_filters)
-        self.groupBox_12.setObjectName("groupBox_12")
-        self.gridLayout_5 = QtWidgets.QGridLayout(self.groupBox_12)
-        self.gridLayout_5.setContentsMargins(2, 2, 2, 2)
-        self.gridLayout_5.setHorizontalSpacing(7)
-        self.gridLayout_5.setVerticalSpacing(2)
-        self.gridLayout_5.setObjectName("gridLayout_5")
-        self.label_61 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_61.setObjectName("label_61")
-        self.gridLayout_5.addWidget(self.label_61, 0, 0, 1, 1)
-        self.shares_comboBox_type = QtWidgets.QComboBox(self.groupBox_12)
-        self.shares_comboBox_type.setObjectName("shares_comboBox_type")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.shares_comboBox_type.addItem("")
-        self.gridLayout_5.addWidget(self.shares_comboBox_type, 0, 1, 1, 1)
-        self.label_67 = QtWidgets.QLabel(self.groupBox_12)
-        self.label_67.setObjectName("label_67")
-        self.gridLayout_5.addWidget(self.label_67, 0, 2, 1, 1)
-        self.shares_comboBox_dividends = QtWidgets.QComboBox(self.groupBox_12)
-        self.shares_comboBox_dividends.setObjectName("shares_comboBox_dividends")
-        self.shares_comboBox_dividends.addItem("")
-        self.shares_comboBox_dividends.addItem("")
-        self.shares_comboBox_dividends.addItem("")
-        self.gridLayout_5.addWidget(self.shares_comboBox_dividends, 0, 3, 1, 1)
-        self.horizontalLayout_42.addWidget(self.groupBox_12)
-        spacerItem20 = QtWidgets.QSpacerItem(0, 17, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_42.addItem(spacerItem20)
-        self.verticalLayout_44.addLayout(self.horizontalLayout_42)
+        """-----------------------Панель фильтров-----------------------"""
+        self.shares_groupBox_filters: GroupBox_SharesFilters = GroupBox_SharesFilters('shares_groupBox_filters', self.shares_layoutWidget)
         self.horizontalLayout_2.addWidget(self.shares_groupBox_filters)
+        """-------------------------------------------------------------"""
+
         self.verticalLayout_5.addLayout(self.horizontalLayout_2)
+
         spacerItem21 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.verticalLayout_5.addItem(spacerItem21)
+
         self.verticalLayout_5.setStretch(1, 1)
         self.horizontalLayout_3.addLayout(self.verticalLayout_5)
-        self.shares_groupBox_dividends = QtWidgets.QGroupBox(self.layoutWidget)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_groupBox_dividends.sizePolicy().hasHeightForWidth())
-        self.shares_groupBox_dividends.setSizePolicy(sizePolicy)
-        self.shares_groupBox_dividends.setTitle("")
-        self.shares_groupBox_dividends.setObjectName("shares_groupBox_dividends")
-        self.verticalLayout_50 = QtWidgets.QVBoxLayout(self.shares_groupBox_dividends)
-        self.verticalLayout_50.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_50.setSpacing(2)
-        self.verticalLayout_50.setObjectName("verticalLayout_50")
-        self.horizontalLayout_44 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_44.setSpacing(0)
-        self.horizontalLayout_44.setObjectName("horizontalLayout_44")
-        spacerItem22 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_44.addItem(spacerItem22)
-        spacerItem23 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_44.addItem(spacerItem23)
-        self.label_69 = QtWidgets.QLabel(self.shares_groupBox_dividends)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_69.sizePolicy().hasHeightForWidth())
-        self.label_69.setSizePolicy(sizePolicy)
-        font = QtGui.QFont()
-        font.setPointSize(9)
-        font.setBold(True)
-        self.label_69.setFont(font)
-        self.label_69.setStyleSheet("border: none;")
-        self.label_69.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_69.setObjectName("label_69")
-        self.horizontalLayout_44.addWidget(self.label_69)
-        self.shares_label_dividends_count = QtWidgets.QLabel(self.shares_groupBox_dividends)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_label_dividends_count.sizePolicy().hasHeightForWidth())
-        self.shares_label_dividends_count.setSizePolicy(sizePolicy)
-        self.shares_label_dividends_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.shares_label_dividends_count.setObjectName("shares_label_dividends_count")
-        self.horizontalLayout_44.addWidget(self.shares_label_dividends_count)
-        spacerItem24 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_44.addItem(spacerItem24)
-        self.verticalLayout_50.addLayout(self.horizontalLayout_44)
-        self.shares_tableView_dividends = QtWidgets.QTableView(self.shares_groupBox_dividends)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_tableView_dividends.sizePolicy().hasHeightForWidth())
-        self.shares_tableView_dividends.setSizePolicy(sizePolicy)
-        self.shares_tableView_dividends.setStyleSheet("background-color: rgb(255, 255, 255);")
-        self.shares_tableView_dividends.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
-        self.shares_tableView_dividends.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
-        self.shares_tableView_dividends.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.shares_tableView_dividends.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.shares_tableView_dividends.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.shares_tableView_dividends.setGridStyle(QtCore.Qt.PenStyle.SolidLine)
-        self.shares_tableView_dividends.setSortingEnabled(True)
-        self.shares_tableView_dividends.setObjectName("shares_tableView_dividends")
-        self.verticalLayout_50.addWidget(self.shares_tableView_dividends)
+
+        """----------------Панель отображения дивидендов----------------"""
+        self.shares_groupBox_dividends = GroupBox_DividendsView('shares_groupBox_dividends', self.shares_layoutWidget)
         self.horizontalLayout_3.addWidget(self.shares_groupBox_dividends)
+        """-------------------------------------------------------------"""
+
         self.horizontalLayout_3.setStretch(1, 1)
+
         self.verticalLayout_6.addLayout(self.horizontalLayout_3)
         self.verticalLayout_6.setStretch(1, 1)
 
-        """-------------------Панель отображения акций-------------------"""
-        # self.groupBox_16 = QtWidgets.QGroupBox(self.splitter)
-        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
-        # sizePolicy.setHorizontalStretch(0)
-        # sizePolicy.setVerticalStretch(1)
-        # sizePolicy.setHeightForWidth(self.groupBox_16.sizePolicy().hasHeightForWidth())
-        # self.groupBox_16.setSizePolicy(sizePolicy)
-        # self.groupBox_16.setBaseSize(QtCore.QSize(0, 0))
-        # self.groupBox_16.setTitle("")
-        # self.groupBox_16.setObjectName("groupBox_16")
-        #
-        # self.verticalLayout_52 = QtWidgets.QVBoxLayout(self.groupBox_16)
-        # self.verticalLayout_52.setContentsMargins(2, 2, 2, 2)
-        # self.verticalLayout_52.setSpacing(2)
-        # self.verticalLayout_52.setObjectName("verticalLayout_52")
-        # self.horizontalLayout_48 = QtWidgets.QHBoxLayout()
-        # self.horizontalLayout_48.setSpacing(0)
-        # self.horizontalLayout_48.setObjectName("horizontalLayout_48")
-        # spacerItem25 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        # self.horizontalLayout_48.addItem(spacerItem25)
-        # self.shares_lineEdit_search = QtWidgets.QLineEdit(self.groupBox_16)
-        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        # sizePolicy.setHorizontalStretch(0)
-        # sizePolicy.setVerticalStretch(0)
-        # sizePolicy.setHeightForWidth(self.shares_lineEdit_search.sizePolicy().hasHeightForWidth())
-        # self.shares_lineEdit_search.setSizePolicy(sizePolicy)
-        # self.shares_lineEdit_search.setObjectName("shares_lineEdit_search")
-        # self.horizontalLayout_48.addWidget(self.shares_lineEdit_search)
-        # spacerItem26 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        # self.horizontalLayout_48.addItem(spacerItem26)
-        # self.label_92 = QtWidgets.QLabel(self.groupBox_16)
-        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        # sizePolicy.setHorizontalStretch(0)
-        # sizePolicy.setVerticalStretch(0)
-        # sizePolicy.setHeightForWidth(self.label_92.sizePolicy().hasHeightForWidth())
-        # self.label_92.setSizePolicy(sizePolicy)
-        # self.label_92.setMaximumSize(QtCore.QSize(16777215, 13))
-        # font = QtGui.QFont()
-        # font.setPointSize(9)
-        # font.setBold(True)
-        # self.label_92.setFont(font)
-        # self.label_92.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        # self.label_92.setObjectName("label_92")
-        # self.horizontalLayout_48.addWidget(self.label_92)
-        # self.shares_label_view_count = QtWidgets.QLabel(self.groupBox_16)
-        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        # sizePolicy.setHorizontalStretch(0)
-        # sizePolicy.setVerticalStretch(0)
-        # sizePolicy.setHeightForWidth(self.shares_label_view_count.sizePolicy().hasHeightForWidth())
-        # self.shares_label_view_count.setSizePolicy(sizePolicy)
-        # self.shares_label_view_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        # self.shares_label_view_count.setObjectName("shares_label_view_count")
-        # self.horizontalLayout_48.addWidget(self.shares_label_view_count)
-        # spacerItem27 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        # self.horizontalLayout_48.addItem(spacerItem27)
-        # self.horizontalLayout_48.setStretch(1, 1)
-        # self.horizontalLayout_48.setStretch(2, 1)
-        # self.horizontalLayout_48.setStretch(4, 2)
-        # self.verticalLayout_52.addLayout(self.horizontalLayout_48)
-        # self.shares_tableView_shares = QtWidgets.QTableView(self.groupBox_16)
-        # self.shares_tableView_shares.setEnabled(True)
-        # self.shares_tableView_shares.setBaseSize(QtCore.QSize(0, 557))
-        # self.shares_tableView_shares.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        # self.shares_tableView_shares.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        # self.shares_tableView_shares.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        # self.shares_tableView_shares.setSortingEnabled(True)
-        # self.shares_tableView_shares.setObjectName("shares_tableView_shares")
-        # self.shares_tableView_shares.horizontalHeader().setSortIndicatorShown(True)
-        # self.shares_tableView_shares.verticalHeader().setSortIndicatorShown(False)
-        # self.verticalLayout_52.addWidget(self.shares_tableView_shares)
-        """--------------------------------------------------------------"""
-
         """------------------Панель отображения лимитов------------------"""
-        self.shares_groupBox_view: GroupBox_SharesView = GroupBox_SharesView(self.splitter)
+        self.shares_groupBox_view: GroupBox_SharesView = GroupBox_SharesView('shares_groupBox_view', self.shares_splitter)
         """--------------------------------------------------------------"""
 
-        self.verticalLayout_7.addWidget(self.splitter)
-        self.tabWidget.addTab(self.tab_shares, "")
+        self.shares_verticalLayout_main.addWidget(self.shares_splitter)
+        self.tabWidget.addTab(self.tab_shares, '')
         """----------------------------------------------------------------------------"""
 
         """-----------------------------Страница "Облигации"-----------------------------"""
@@ -1917,34 +1919,7 @@ class Ui_MainWindow(object):
         main_window.setWindowTitle(_translate("MainWindow", "Тинькофф Инвестиции"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_tokens), _translate("MainWindow", "Токены"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_limits), _translate("MainWindow", "Лимиты"))
-        self.label_93.setText(_translate("MainWindow", "ПОЛУЧЕНИЕ ДИВИДЕНДОВ"))
-        self.shares_progressBar_dividends.setFormat(_translate("MainWindow", "%v из %m (%p%)"))
-        self.label_59.setText(_translate("MainWindow", "ФИЛЬТРЫ"))
-        self.shares_label_filtered_count.setText(_translate("MainWindow", "0"))
 
-        self.groupBox_12.setTitle(_translate("MainWindow", "Фильтры акций"))
-        self.label_61.setToolTip(_translate("MainWindow", "Тип акции."))
-        self.label_61.setText(_translate("MainWindow", "Тип:"))
-        self.shares_comboBox_type.setItemText(0, _translate("MainWindow", "Все"))
-        self.shares_comboBox_type.setItemText(1, _translate("MainWindow", "Не определён"))
-        self.shares_comboBox_type.setItemText(2, _translate("MainWindow", "Обыкновенные"))
-        self.shares_comboBox_type.setItemText(3, _translate("MainWindow", "Привилегированные"))
-        self.shares_comboBox_type.setItemText(4, _translate("MainWindow", "АДР"))
-        self.shares_comboBox_type.setItemText(5, _translate("MainWindow", "ГДР"))
-        self.shares_comboBox_type.setItemText(6, _translate("MainWindow", "ТОО"))
-        self.shares_comboBox_type.setItemText(7, _translate("MainWindow", "Акции из Нью-Йорка"))
-        self.shares_comboBox_type.setItemText(8, _translate("MainWindow", "Закрытый ИФ"))
-        self.shares_comboBox_type.setItemText(9, _translate("MainWindow", "Траст недвижимости"))
-        self.label_67.setToolTip(_translate("MainWindow", "Признак наличия дивидендной доходности."))
-        self.label_67.setText(_translate("MainWindow", "Дивиденды:"))
-        self.shares_comboBox_dividends.setItemText(0, _translate("MainWindow", "Все"))
-        self.shares_comboBox_dividends.setItemText(1, _translate("MainWindow", "True"))
-        self.shares_comboBox_dividends.setItemText(2, _translate("MainWindow", "False"))
-        self.label_69.setText(_translate("MainWindow", "ДИВИДЕНДЫ"))
-        self.shares_label_dividends_count.setText(_translate("MainWindow", "0"))
-        # self.shares_lineEdit_search.setPlaceholderText(_translate("MainWindow", "Поиск..."))
-        # self.label_92.setText(_translate("MainWindow", "АКЦИИ"))
-        # self.shares_label_view_count.setText(_translate("MainWindow", "0 / 0"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_shares), _translate("MainWindow", "Акции"))
         self.label_64.setText(_translate("MainWindow", "ПОЛУЧЕНИЕ КУПОНОВ"))
         self.bonds_progressBar_coupons.setFormat(_translate("MainWindow", "%v из %m (%p%)"))
@@ -2009,12 +1984,7 @@ def ifTokenIsUnauthenticated(error: RequestError):
 
 
 class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
-    # @pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
-    # def LimitsTokenChanged_slot(self, index: int):
-    #     """При смене текущего токена на странице лимитов."""
-    #     token: TokenClass | None = self.limits_groupBox_request.comboBox_token.currentData(role=Qt.ItemDataRole.UserRole)
-    #     self.limits_groupBox_view.setToken(token)  # Устанавливает токен для отображения лимитов.
-
+    """Главная форма."""
     def __init__(self):
         super().__init__()  # __init__() QMainWindow и Ui_MainWindow.
         self.setupUi(self)  # Инициализация нашего дизайна.
@@ -2043,7 +2013,6 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
         """---------------------Модель лимитов---------------------"""
         limits_model: LimitsTreeModel = LimitsTreeModel()
         self.limits_groupBox_view.setModel(limits_model)  # Подключаем модель к TreeView.
-        # self.limits_groupBox_request.comboBox_token.currentIndexChanged.connect(self.LimitsTokenChanged_slot)
         self.limits_groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.limits_groupBox_view.setToken(self.limits_groupBox_request.getCurrentToken()))
         """--------------------------------------------------------"""
 
@@ -2052,4 +2021,12 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
         shares_proxy_model: SharesProxyModel = SharesProxyModel()  # Создаём прокси-модель.
         shares_proxy_model.setSourceModel(shares_source_model)  # Подключаем исходную модель к прокси-модели.
         self.shares_groupBox_view.setModel(shares_proxy_model)  # Подключаем модель к TableView.
+
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        def onSharesTokenChanged():
+            token: TokenClass = self.shares_groupBox_request.getCurrentToken()
+            shares_response: MyResponse = getShares(token.token, self.shares_groupBox_request.getCurrentStatus())
+            accounts_list: list[Share] = shares_response.response_data  # Получаем список счетов.
+            self.shares_groupBox_view.updateShares(token, accounts_list)
+        self.shares_groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: onSharesTokenChanged())
         """--------------------------------------------------------"""
