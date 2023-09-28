@@ -3,9 +3,9 @@ from tinkoff.invest import Share, Dividend, LastPrice, AssetFull
 
 class MyShareClass:
     """Мой класс акций."""
-    def __init__(self, share: Share, last_price: LastPrice):
+    def __init__(self, share: Share, last_price: LastPrice | None = None):
         self.share: Share = share
-        self.last_price: LastPrice = last_price
+        self.last_price: LastPrice | None = last_price
         self.dividends: list[Dividend] = []
         self.asset: AssetFull | None = None
 

@@ -20,7 +20,7 @@ def reportShareType(share_type: int):
         case ShareType.SHARE_TYPE_NY_REG_SHRS: return 'Акции из Нью-Йорка'
         case ShareType.SHARE_TYPE_CLOSED_END_FUND: return 'Закрытый ИФ'
         case ShareType.SHARE_TYPE_REIT: return 'Траст недвижимости'
-        case _: raise ValueError("Некорректное значение типа акции ({0})!".format(share_type))
+        case _: raise ValueError('Некорректное значение типа акции ({0})!'.format(share_type))
 
 
 class SharesModel(QAbstractTableModel):
