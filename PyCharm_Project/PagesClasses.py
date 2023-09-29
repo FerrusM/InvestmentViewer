@@ -3,6 +3,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 from tinkoff.invest import InstrumentStatus, Share, Bond
 from Classes import TokenClass
+from TokenModel import TokenListModel
 
 
 class GroupBox_CalculationDate(QtWidgets.QGroupBox):
@@ -128,6 +129,10 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.comboBox_token.setItemText(0, _translate('MainWindow', 'Не выбран'))
 
         self.comboBox_token.setCurrentIndex(0)
+
+    def setTokensModel(self, token_list_model: TokenListModel):
+        """Устанавливает модель токенов для ComboBox'а."""
+        self.comboBox_token.setModel(token_list_model)
 
     def getCurrentToken(self) -> TokenClass | None:
         """Возвращает выбранный в ComboBox'е токен."""

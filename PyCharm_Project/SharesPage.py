@@ -1,6 +1,5 @@
 import enum
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import Share, LastPrice, InstrumentStatus, ShareType
 from Classes import TokenClass
 from MyRequests import MyResponse, getLastPrices, getShares
@@ -138,8 +137,10 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
         self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+
         spacerItem16 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem16)
+
         spacerItem17 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem17)
 
@@ -267,22 +268,22 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         """---------------------------------------------------------"""
 
         """------------------Отображение дивидендов------------------"""
-        self.shares_tableView_dividends = QtWidgets.QTableView(self)
+        self.tableView = QtWidgets.QTableView(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.shares_tableView_dividends.sizePolicy().hasHeightForWidth())
-        self.shares_tableView_dividends.setSizePolicy(sizePolicy)
-        self.shares_tableView_dividends.setStyleSheet("background-color: rgb(255, 255, 255);")
-        self.shares_tableView_dividends.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
-        self.shares_tableView_dividends.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
-        self.shares_tableView_dividends.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.shares_tableView_dividends.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.shares_tableView_dividends.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.shares_tableView_dividends.setGridStyle(QtCore.Qt.PenStyle.SolidLine)
-        self.shares_tableView_dividends.setSortingEnabled(True)
-        self.shares_tableView_dividends.setObjectName('shares_tableView_dividends')
-        self.verticalLayout_main.addWidget(self.shares_tableView_dividends)
+        sizePolicy.setHeightForWidth(self.tableView.sizePolicy().hasHeightForWidth())
+        self.tableView.setSizePolicy(sizePolicy)
+        self.tableView.setStyleSheet("background-color: rgb(255, 255, 255);")
+        self.tableView.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
+        self.tableView.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
+        self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tableView.setGridStyle(QtCore.Qt.PenStyle.SolidLine)
+        self.tableView.setSortingEnabled(True)
+        self.tableView.setObjectName('tableView')
+        self.verticalLayout_main.addWidget(self.tableView)
         """----------------------------------------------------------"""
 
         _translate = QtCore.QCoreApplication.translate
@@ -484,7 +485,7 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         self.progressBar_dividends.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
 
 
-class Tab_Shares(QtWidgets.QWidget):
+class SharesPage(QtWidgets.QWidget):
     """Страница акций."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)  # QWidget __init__().
@@ -500,10 +501,10 @@ class Tab_Shares(QtWidgets.QWidget):
         self.splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
         self.splitter.setObjectName('splitter')
 
-        self.shares_layoutWidget = QtWidgets.QWidget(self.splitter)
-        self.shares_layoutWidget.setObjectName('shares_layoutWidget')
+        self.layoutWidget = QtWidgets.QWidget(self.splitter)
+        self.layoutWidget.setObjectName('layoutWidget')
 
-        self.verticalLayout_top = QtWidgets.QVBoxLayout(self.shares_layoutWidget)
+        self.verticalLayout_top = QtWidgets.QVBoxLayout(self.layoutWidget)
         self.verticalLayout_top.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_top.setSpacing(2)
         self.verticalLayout_top.setObjectName('verticalLayout_top')
@@ -513,23 +514,23 @@ class Tab_Shares(QtWidgets.QWidget):
         self.horizontalLayout_top_top.setObjectName('horizontalLayout_top_top')
 
         """------------------Панель выполнения запроса------------------"""
-        self.groupBox_request = GroupBox_InstrumentsRequest('groupBox_request', self.shares_layoutWidget)
+        self.groupBox_request = GroupBox_InstrumentsRequest('groupBox_request', self.layoutWidget)
         self.horizontalLayout_top_top.addWidget(self.groupBox_request)
         """-------------------------------------------------------------"""
 
-        self.shares_verticalLayout_dividends_receiving = QtWidgets.QVBoxLayout()
-        self.shares_verticalLayout_dividends_receiving.setSpacing(0)
-        self.shares_verticalLayout_dividends_receiving.setObjectName('shares_verticalLayout_dividends_receiving')
+        self.verticalLayout_dividends_receiving = QtWidgets.QVBoxLayout()
+        self.verticalLayout_dividends_receiving.setSpacing(0)
+        self.verticalLayout_dividends_receiving.setObjectName('verticalLayout_dividends_receiving')
 
         """------------Панель прогресса получения дивидендов------------"""
-        self.groupBox_dividends_receiving: GroupBox_DividendsReceiving = GroupBox_DividendsReceiving('groupBox_dividends_receiving', self.shares_layoutWidget)
-        self.shares_verticalLayout_dividends_receiving.addWidget(self.groupBox_dividends_receiving)
+        self.groupBox_dividends_receiving: GroupBox_DividendsReceiving = GroupBox_DividendsReceiving('groupBox_dividends_receiving', self.layoutWidget)
+        self.verticalLayout_dividends_receiving.addWidget(self.groupBox_dividends_receiving)
         """-------------------------------------------------------------"""
 
         spacerItem15 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.shares_verticalLayout_dividends_receiving.addItem(spacerItem15)
+        self.verticalLayout_dividends_receiving.addItem(spacerItem15)
 
-        self.horizontalLayout_top_top.addLayout(self.shares_verticalLayout_dividends_receiving)
+        self.horizontalLayout_top_top.addLayout(self.verticalLayout_dividends_receiving)
         self.horizontalLayout_top_top.setStretch(1, 1)
         self.verticalLayout_top.addLayout(self.horizontalLayout_top_top)
 
@@ -546,12 +547,12 @@ class Tab_Shares(QtWidgets.QWidget):
         self.horizontalLayout_2.setObjectName('horizontalLayout_2')
 
         """---------------------Панель даты расчёта---------------------"""
-        self.groupBox_calendar = GroupBox_CalculationDate('groupBox_calendar', self.shares_layoutWidget)
+        self.groupBox_calendar = GroupBox_CalculationDate('groupBox_calendar', self.layoutWidget)
         self.horizontalLayout_2.addWidget(self.groupBox_calendar)
         """-------------------------------------------------------------"""
 
         """-----------------------Панель фильтров-----------------------"""
-        self.groupBox_filters: GroupBox_SharesFilters = GroupBox_SharesFilters('groupBox_filters', self.shares_layoutWidget)
+        self.groupBox_filters: GroupBox_SharesFilters = GroupBox_SharesFilters('groupBox_filters', self.layoutWidget)
         self.horizontalLayout_2.addWidget(self.groupBox_filters)
         """-------------------------------------------------------------"""
 
@@ -564,7 +565,7 @@ class Tab_Shares(QtWidgets.QWidget):
         self.horizontalLayout_top_bottom.addLayout(self.verticalLayout_top_bottom_left)
 
         """----------------Панель отображения дивидендов----------------"""
-        self.shares_groupBox_dividends = GroupBox_DividendsView('shares_groupBox_dividends', self.shares_layoutWidget)
+        self.shares_groupBox_dividends = GroupBox_DividendsView('shares_groupBox_dividends', self.layoutWidget)
         self.horizontalLayout_top_bottom.addWidget(self.shares_groupBox_dividends)
         """-------------------------------------------------------------"""
 
@@ -573,7 +574,7 @@ class Tab_Shares(QtWidgets.QWidget):
         self.verticalLayout_top.addLayout(self.horizontalLayout_top_bottom)
         self.verticalLayout_top.setStretch(1, 1)
 
-        """------------------Панель отображения лимитов------------------"""
+        """-------------------Панель отображения акций-------------------"""
         self.groupBox_view: GroupBox_SharesView = GroupBox_SharesView('groupBox_view', self.splitter)
         """--------------------------------------------------------------"""
 
@@ -611,7 +612,7 @@ class Tab_Shares(QtWidgets.QWidget):
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
-        self.groupBox_request.comboBox_token.setModel(token_list_model)
+        self.groupBox_request.setTokensModel(token_list_model)
 
     def getCurrentToken(self) -> TokenClass | None:
         """Возвращает выбранный в ComboBox'е токен."""
