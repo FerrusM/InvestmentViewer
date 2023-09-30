@@ -366,6 +366,10 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         self.label_count.setText(_translate('MainWindow', '0'))
         """-------------------------------------------------------------------------------------"""
 
+    def setCount(self, count: int):
+        """Устанавливает количество отобранных облигаций."""
+        self.label_count.setText(str(count))
+
 
 class GroupBox_CouponsView(QtWidgets.QGroupBox):
     """Панель отображения купонов облигаций."""

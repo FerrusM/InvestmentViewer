@@ -1,10 +1,8 @@
 from grpc import StatusCode
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 from tinkoff.invest import RequestError
 from BondsPage import BondsPage
-from LimitsModel import LimitsTreeModel
-from LimitsPage import GroupBox_LimitsTreeView, LimitsPage
-from PagesClasses import GroupBox_Request
+from LimitsPage import LimitsPage
 from SharesPage import SharesPage
 from TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
@@ -34,28 +32,6 @@ class Ui_MainWindow(object):
         """------------------------------Страница "Токены"------------------------------"""
         self.tab_tokens: TokensPage = TokensPage('tab_tokens')
         self.tabWidget.addTab(self.tab_tokens, '')
-        """-----------------------------------------------------------------------------"""
-
-        """------------------------------Страница "Лимиты"------------------------------"""
-        # self.tab_limits = QtWidgets.QWidget()
-        # self.tab_limits.setObjectName('tab_limits')
-        #
-        # self.limits_verticalLayout = QtWidgets.QVBoxLayout(self.tab_limits)
-        # self.limits_verticalLayout.setContentsMargins(2, 2, 2, 2)
-        # self.limits_verticalLayout.setSpacing(2)
-        # self.limits_verticalLayout.setObjectName('limits_verticalLayout')
-        #
-        # """------------------Панель выполнения запроса------------------"""
-        # self.limits_groupBox_request = GroupBox_Request('limits_groupBox_request', self.tab_limits)
-        # self.limits_verticalLayout.addWidget(self.limits_groupBox_request)
-        # """-------------------------------------------------------------"""
-        #
-        # """------------------Панель отображения лимитов------------------"""
-        # self.limits_groupBox_view: GroupBox_LimitsTreeView = GroupBox_LimitsTreeView('limits_groupBox_view', self.tab_limits)
-        # self.limits_verticalLayout.addWidget(self.limits_groupBox_view)
-        # """--------------------------------------------------------------"""
-        #
-        # self.tabWidget.addTab(self.tab_limits, '')
         """-----------------------------------------------------------------------------"""
 
         """------------------------------Страница "Лимиты"------------------------------"""

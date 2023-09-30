@@ -82,15 +82,15 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.label_title.setObjectName('label_title')
         self.horizontalLayout_title.addWidget(self.label_title)
 
-        self.label_request_count = QtWidgets.QLabel(self)
+        self.label_count = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_request_count.sizePolicy().hasHeightForWidth())
-        self.label_request_count.setSizePolicy(sizePolicy)
-        self.label_request_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_request_count.setObjectName('label_request_count')
-        self.horizontalLayout_title.addWidget(self.label_request_count)
+        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
+        self.label_count.setSizePolicy(sizePolicy)
+        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.label_count.setObjectName('label_count')
+        self.horizontalLayout_title.addWidget(self.label_count)
 
         spacerItem2 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem2)
@@ -123,7 +123,7 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
         _translate = QtCore.QCoreApplication.translate
         self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
-        self.label_request_count.setText(_translate('MainWindow', '0'))
+        self.label_count.setText(_translate('MainWindow', '0'))
         self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
         self.label_token.setText(_translate('MainWindow', 'Токен:'))
         self.comboBox_token.setItemText(0, _translate('MainWindow', 'Не выбран'))
@@ -137,6 +137,10 @@ class GroupBox_Request(QtWidgets.QGroupBox):
     def getCurrentToken(self) -> TokenClass | None:
         """Возвращает выбранный в ComboBox'е токен."""
         return self.comboBox_token.currentData(role=Qt.ItemDataRole.UserRole)
+
+    def setCount(self, count: int):
+        """Устанавливает полученное количество."""
+        self.label_count.setText(str(count))
 
 
 class GroupBox_InstrumentsRequest(GroupBox_Request):

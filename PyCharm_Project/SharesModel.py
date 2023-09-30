@@ -129,12 +129,16 @@ class SharesModel(QAbstractTableModel):
         self.share_class_list = shares_class_list
         self.endResetModel()
 
+    def getShare(self, row: int) -> MyShareClass | None:
+        """Возвращает элемент списка данных по его номеру."""
+        if 0 <= row < len(self.share_class_list):
+            return self.share_class_list[row]
+        else:
+            return None
+
 
 class SharesProxyModel(QSortFilterProxyModel):
     """Моя прокси-модель акций."""
-
-    # def __init__(self):
-    #     super().__init__()  # __init__() QSortFilterProxyModel.
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...):
         """Функция headerData объявлена в прокси-модели, чтобы названия строк не сортировались вместе с данными."""

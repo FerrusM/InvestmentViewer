@@ -1,5 +1,6 @@
+from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
-    InstrumentStatus, Share, LastPrice
+    InstrumentStatus, Share, LastPrice, Dividend
 
 
 class MyResponse:
@@ -170,3 +171,27 @@ def getLastPrices(token: str, figi_list: list[str]) -> MyResponse:
 #         else:  # Если исключения не было.
 #             self.statusbar.clearMessage()  # Очищает statusbar.
 #     return last_prices
+
+
+def getDividends(token: str, figi: str = "", from_: datetime | None = None, to: datetime | None = None) -> MyResponse:
+    """Получает и возвращает список дивидендов."""
+    dividends: list[Dividend] = []
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            dividends = client.instruments.get_dividends(figi=figi, from_=from_, to=to).dividends
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse('get_dividends()', request_occurred, dividends, exception_flag, exception, request_error_flag, request_error)

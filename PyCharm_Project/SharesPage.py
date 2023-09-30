@@ -1,7 +1,10 @@
 import enum
 from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6.QtCore import QModelIndex
 from tinkoff.invest import Share, LastPrice, InstrumentStatus, ShareType
 from Classes import TokenClass
+from DividendsModel import DividendsModel, DividendsProxyModel
+from DividendsThread import DividendsThread
 from MyRequests import MyResponse, getLastPrices, getShares
 from MyShareClass import MyShareClass
 from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate
@@ -208,6 +211,10 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
         """Фильтрует список акций и возвращает отфильтрованный список"""
         return list(filter(self._checkFilters, shares))
 
+    def setCount(self, count: int):
+        """Устанавливает количество отобранных акций."""
+        self.label_count.setText(str(count))
+
 
 class GroupBox_DividendsView(QtWidgets.QGroupBox):
     """Панель отображения дивидендов акций."""
@@ -236,6 +243,8 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         spacerItem23 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem23)
 
+        _translate = QtCore.QCoreApplication.translate
+
         self.label_title = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -250,6 +259,7 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
         self.horizontalLayout_title.addWidget(self.label_title)
+        self.label_title.setText(_translate('MainWindow', 'ДИВИДЕНДЫ'))
 
         self.label_count = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -260,6 +270,7 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.label_count.setObjectName('label_count')
         self.horizontalLayout_title.addWidget(self.label_count)
+        self.label_count.setText(_translate('MainWindow', '0'))
 
         spacerItem24 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem24)
@@ -286,9 +297,22 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         """----------------------------------------------------------"""
 
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'ДИВИДЕНДЫ'))
-        self.label_count.setText(_translate('MainWindow', '0'))
+        """--------------------Модель дивидендов--------------------"""
+        dividends_source_model: DividendsModel = DividendsModel()  # Создаём модель.
+        dividends_proxy_model: DividendsProxyModel = DividendsProxyModel()  # Создаём прокси-модель.
+        dividends_proxy_model.setSourceModel(dividends_source_model)  # Подключаем исходную модель к прокси-модели.
+        self.tableView.setModel(dividends_proxy_model)  # Подключаем модель к таблице.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        """---------------------------------------------------------"""
+
+    def setData(self, share_class: MyShareClass | None):
+        """Обновляет данные модели дивидендов в соответствии с выбранной акцией."""
+        if share_class is None:
+            self.tableView.model().sourceModel().updateData([])
+        else:
+            self.tableView.model().sourceModel().updateData(share_class.dividends)
+        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
 
 class GroupBox_SharesView(QtWidgets.QGroupBox):
@@ -363,18 +387,18 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
         """---------------------------------------------------------"""
 
-        """-------------------Отображение лимитов-------------------"""
-        self.tableView_shares = QtWidgets.QTableView(self)
-        self.tableView_shares.setEnabled(True)
-        self.tableView_shares.setBaseSize(QtCore.QSize(0, 557))
-        self.tableView_shares.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tableView_shares.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.tableView_shares.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tableView_shares.setSortingEnabled(True)
-        self.tableView_shares.setObjectName('tableView_shares')
-        self.tableView_shares.horizontalHeader().setSortIndicatorShown(True)
-        self.tableView_shares.verticalHeader().setSortIndicatorShown(False)
-        self.verticalLayout_main.addWidget(self.tableView_shares)
+        """--------------------Отображение акций--------------------"""
+        self.tableView = QtWidgets.QTableView(self)
+        self.tableView.setEnabled(True)
+        self.tableView.setBaseSize(QtCore.QSize(0, 557))
+        self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tableView.setSortingEnabled(True)
+        self.tableView.setObjectName('tableView')
+        self.tableView.horizontalHeader().setSortIndicatorShown(True)
+        self.tableView.verticalHeader().setSortIndicatorShown(False)
+        self.verticalLayout_main.addWidget(self.tableView)
         """---------------------------------------------------------"""
 
         _translate = QtCore.QCoreApplication.translate
@@ -386,18 +410,27 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         shares_source_model: SharesModel = SharesModel()  # Создаём модель.
         shares_proxy_model: SharesProxyModel = SharesProxyModel()  # Создаём прокси-модель.
         shares_proxy_model.setSourceModel(shares_source_model)  # Подключаем исходную модель к прокси-модели.
-        self.tableView_shares.setModel(shares_proxy_model)  # Подключаем модель к TableView.
+        self.tableView.setModel(shares_proxy_model)  # Подключаем модель к TableView.
         """--------------------------------------------------------"""
 
     def setModel(self, model: SharesProxyModel):
         """Подключает модель акций."""
-        self.tableView_shares.setModel(model)
-        self.tableView_shares.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        self.tableView.setModel(model)
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
     def setShares(self, share_class_list: list[MyShareClass]):
         """Устанавливает данные модели акций."""
-        self.tableView_shares.model().sourceModel().setShares(share_class_list)  # Передаём в исходную модель акций данные.
-        self.tableView_shares.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        self.tableView.model().sourceModel().setShares(share_class_list)  # Передаём в исходную модель акций данные.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+    def getSelectedShare(self) -> MyShareClass | None:
+        """Возвращает выделенную строку в таблице акций."""
+        """---------------Получение текущей акции---------------"""
+        proxy_index: QModelIndex = self.tableView.currentIndex()  # Текущий индекс выбранной акции.
+        source_row: int = self.tableView.model().mapToSource(proxy_index).row()
+        share_class: MyShareClass | None = self.tableView.model().sourceModel().getShare(source_row)
+        """-----------------------------------------------------"""
+        return share_class
 
     def updateShares(self, token_class: TokenClass, shares: list[Share]):
         """Обновляет данные модели акций в соответствии с указанными на форме параметрами."""
@@ -484,6 +517,22 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ДИВИДЕНДОВ'))
         self.progressBar_dividends.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
 
+    def setRange(self, minimum: int, maximum: int):
+        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
+        self.progressBar_dividends.setRange(minimum, maximum)
+
+        if maximum == 0:
+            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
+            self.progressBar_dividends.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
+        else:
+            self.progressBar_dividends.setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
+        self.progressBar_dividends.setValue(0)
+        self.progressBar_dividends.reset()  # Сбрасывает progressBar.
+
+    def setValue(self, value: int):
+        """Изменяет прогресс в progressBar'е"""
+        self.progressBar_dividends.setValue(value)
+
 
 class SharesPage(QtWidgets.QWidget):
     """Страница акций."""
@@ -565,8 +614,8 @@ class SharesPage(QtWidgets.QWidget):
         self.horizontalLayout_top_bottom.addLayout(self.verticalLayout_top_bottom_left)
 
         """----------------Панель отображения дивидендов----------------"""
-        self.shares_groupBox_dividends = GroupBox_DividendsView('shares_groupBox_dividends', self.layoutWidget)
-        self.horizontalLayout_top_bottom.addWidget(self.shares_groupBox_dividends)
+        self.groupBox_dividends = GroupBox_DividendsView('groupBox_dividends', self.layoutWidget)
+        self.horizontalLayout_top_bottom.addWidget(self.groupBox_dividends)
         """-------------------------------------------------------------"""
 
         self.horizontalLayout_top_bottom.setStretch(1, 1)
@@ -581,6 +630,7 @@ class SharesPage(QtWidgets.QWidget):
         self.verticalLayout_main.addWidget(self.splitter)
 
         """---------------------------------Токен---------------------------------"""
+        self.token: TokenClass | None = None
         self.shares: list[Share] = []
         self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.onTokenChanged(self.getCurrentToken()))
         """-----------------------------------------------------------------------"""
@@ -591,6 +641,7 @@ class SharesPage(QtWidgets.QWidget):
             filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(self.shares)  # Отфильтрованный список акций.
             filtered_shares_class_list: list[MyShareClass] = [MyShareClass(share) for share in filtered_shares]
             self.groupBox_view.setShares(filtered_shares_class_list)  # Передаём в исходную модель акций данные.
+            self._startDividendsThread(filtered_shares_class_list)  # Запускает поток получения дивидендов.
 
         # Фильтры инструментов.
         self.groupBox_filters.groupBox_instruments_filters.comboBox_api_trade_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
@@ -610,6 +661,8 @@ class SharesPage(QtWidgets.QWidget):
         self.groupBox_filters.groupBox_shares_filters.comboBox_div_yield_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
         '''-------------------------------------------------------------------------'''
 
+        self.groupBox_view.tableView.selectionModel().selectionChanged.connect(lambda: self.groupBox_dividends.setData(self.groupBox_view.getSelectedShare()))  # Событие смены выбранной акции.
+
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.setTokensModel(token_list_model)
@@ -624,12 +677,13 @@ class SharesPage(QtWidgets.QWidget):
 
     def onTokenChanged(self, token: TokenClass | None):
         """Функция, выполняемая при изменении выбранного токена."""
-        if token is None:
+        self.token = token
+        if self.token is None:
             self.shares = []
             self.groupBox_view.setShares([])  # Передаём в исходную модель акций данные.
         else:
             '''------------------------------Получение акций------------------------------'''
-            shares_response: MyResponse = getShares(token.token, self.getCurrentStatus())
+            shares_response: MyResponse = getShares(self.token.token, self.getCurrentStatus())
             self.shares = shares_response.response_data  # Получаем список акций.
             '''---------------------------------------------------------------------------'''
 
@@ -637,3 +691,31 @@ class SharesPage(QtWidgets.QWidget):
             filtered_shares_class_list: list[MyShareClass] = [MyShareClass(share) for share in filtered_shares]
             self.groupBox_view.setShares(filtered_shares_class_list)  # Передаём в исходную модель акций данные.
             # self.groupBox_view.updateShares(token, filtered_shares)
+
+            # """------------------Отображение количеств акций на форме------------------"""
+            # shares_count: int = len(self.shares)  # Количество полученных акций.
+            # filtered_count: int = len(filtered_shares)  # Количество отобранных акций.
+            # self.groupBox_request.setCount(shares_count)  # Отображаем количество полученных акций.
+            # self.groupBox_filters.setCount(filtered_count)  # Кол-во отобранных акций.
+            # self.groupBox_view.label_count.setText('{0} / {1}'.format(filtered_count, shares_count))  # Отображаем количество акций.
+            # """------------------------------------------------------------------------"""
+
+            self._startDividendsThread(filtered_shares_class_list)  # Запускает поток получения дивидендов.
+
+    def _startDividendsThread(self, share_class_list: list[MyShareClass]):
+        """Запускает поток получения дивидендов."""
+
+        self.dividends_thread = DividendsThread(parent=self, token_class=self.token, share_class_list=share_class_list)
+        """---------------------Подключаем сигналы потока к слотам---------------------"""
+        self.dividends_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
+
+        self.dividends_thread.setProgressBarRange_signal.connect(self.groupBox_dividends_receiving.setRange)
+        self.dividends_thread.setProgressBarValue_signal.connect(self.groupBox_dividends_receiving.setValue)
+
+        # self.dividends_thread.showRequestError_signal.connect(self.showRequestError)
+        # self.dividends_thread.showException_signal.connect(self.showException)
+        # self.dividends_thread.clearStatusBar_signal.connect(self.statusbar.clearMessage)
+
+        self.dividends_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
+        """----------------------------------------------------------------------------"""
+        self.dividends_thread.start()  # Запускаем поток.
