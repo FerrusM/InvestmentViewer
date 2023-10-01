@@ -147,3 +147,12 @@ class SharesProxyModel(QSortFilterProxyModel):
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header
         elif role == Qt.ItemDataRole.ToolTipRole:  # Подсказки.
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header_tooltip
+
+    def sourceModel(self) -> SharesModel:
+        return super().sourceModel()
+
+    def getShare(self, proxy_index: QModelIndex) -> MyShareClass | None:
+        """Возвращает акцию по индексу элемента."""
+        source_index: QModelIndex = self.mapToSource(proxy_index)
+        source_row: int = source_index.row()
+        return self.sourceModel().getShare(source_row)

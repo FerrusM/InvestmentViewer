@@ -1,6 +1,4 @@
-from grpc import StatusCode
 from PyQt6 import QtCore, QtWidgets
-from tinkoff.invest import RequestError
 from BondsPage import BondsPage
 from LimitsPage import LimitsPage
 from SharesPage import SharesPage
@@ -55,22 +53,17 @@ class Ui_MainWindow(object):
         self.statusbar.setObjectName('statusbar')
         main_window.setStatusBar(self.statusbar)
 
-        self.retranslateUi(main_window)
-        self.tabWidget.setCurrentIndex(2)
-        QtCore.QMetaObject.connectSlotsByName(main_window)
-
-    def retranslateUi(self, main_window: QtWidgets.QMainWindow):
+        '''------------------------------------retranslateUi------------------------------------'''
         _translate = QtCore.QCoreApplication.translate
         main_window.setWindowTitle(_translate('MainWindow', 'Тинькофф Инвестиции'))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_tokens), _translate('MainWindow', 'Токены'))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_limits), _translate('MainWindow', 'Лимиты'))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_shares), _translate('MainWindow', 'Акции'))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_bonds), _translate('MainWindow', 'Облигации'))
+        '''-------------------------------------------------------------------------------------'''
 
-
-def ifTokenIsUnauthenticated(error: RequestError):
-    """Возвращает True, если токен не прошёл проверку подлинности, иначе возвращает False."""
-    return True if error.code == StatusCode.UNAUTHENTICATED and error.details == '40003' else False
+        self.tabWidget.setCurrentIndex(2)
+        QtCore.QMetaObject.connectSlotsByName(main_window)
 
 
 class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):

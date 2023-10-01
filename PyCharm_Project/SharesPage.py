@@ -1,6 +1,6 @@
 import enum
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import QModelIndex
+from PyQt6.QtCore import QModelIndex, QItemSelection, pyqtSlot
 from tinkoff.invest import Share, LastPrice, InstrumentStatus, ShareType
 from Classes import TokenClass
 from DividendsModel import DividendsModel, DividendsProxyModel
@@ -407,30 +407,30 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.label_count.setText(_translate('MainWindow', '0 / 0'))
 
         """----------------------Модель акций----------------------"""
-        shares_source_model: SharesModel = SharesModel()  # Создаём модель.
-        shares_proxy_model: SharesProxyModel = SharesProxyModel()  # Создаём прокси-модель.
-        shares_proxy_model.setSourceModel(shares_source_model)  # Подключаем исходную модель к прокси-модели.
-        self.tableView.setModel(shares_proxy_model)  # Подключаем модель к TableView.
+        source_model: SharesModel = SharesModel()  # Создаём модель.
+        proxy_model: SharesProxyModel = SharesProxyModel()  # Создаём прокси-модель.
+        proxy_model.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
+        self.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         """--------------------------------------------------------"""
 
-    def setModel(self, model: SharesProxyModel):
-        """Подключает модель акций."""
-        self.tableView.setModel(model)
-        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+    def proxyModel(self) -> SharesProxyModel:
+        """Возвращает прокси-модель акций."""
+        return self.tableView.model()
+
+    def sourceModel(self) -> SharesModel:
+        """Возвращает исходную модель акций."""
+        return self.proxyModel().sourceModel()
 
     def setShares(self, share_class_list: list[MyShareClass]):
         """Устанавливает данные модели акций."""
         self.tableView.model().sourceModel().setShares(share_class_list)  # Передаём в исходную модель акций данные.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
-    def getSelectedShare(self) -> MyShareClass | None:
-        """Возвращает выделенную строку в таблице акций."""
-        """---------------Получение текущей акции---------------"""
-        proxy_index: QModelIndex = self.tableView.currentIndex()  # Текущий индекс выбранной акции.
-        source_row: int = self.tableView.model().mapToSource(proxy_index).row()
-        share_class: MyShareClass | None = self.tableView.model().sourceModel().getShare(source_row)
-        """-----------------------------------------------------"""
-        return share_class
+    # def getSelectedShare(self) -> MyShareClass | None:
+    #     """Возвращает выделенную строку в таблице акций."""
+    #     proxy_index: QModelIndex = self.tableView.currentIndex()  # Текущий индекс выбранной акции.
+    #     return self.proxyModel().getShare(proxy_index)
 
     def updateShares(self, token_class: TokenClass, shares: list[Share]):
         """Обновляет данные модели акций в соответствии с указанными на форме параметрами."""
@@ -632,6 +632,8 @@ class SharesPage(QtWidgets.QWidget):
         """---------------------------------Токен---------------------------------"""
         self.token: TokenClass | None = None
         self.shares: list[Share] = []
+        self.dividends_thread: DividendsThread | None = None  # Поток получения дивидендов.
+
         self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.onTokenChanged(self.getCurrentToken()))
         """-----------------------------------------------------------------------"""
 
@@ -661,7 +663,27 @@ class SharesPage(QtWidgets.QWidget):
         self.groupBox_filters.groupBox_shares_filters.comboBox_div_yield_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
         '''-------------------------------------------------------------------------'''
 
-        self.groupBox_view.tableView.selectionModel().selectionChanged.connect(lambda: self.groupBox_dividends.setData(self.groupBox_view.getSelectedShare()))  # Событие смены выбранной акции.
+        # @pyqtSlot(QItemSelection, QItemSelection)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        # def onSelectionChanged(selected: QItemSelection, deselected: QItemSelection):
+        #     """Событие при изменении выбранной акции."""
+        #     selected_indexes: list[QModelIndex] = selected.indexes()
+        #     assert len(selected_indexes) == 1, 'В отображении акций можно выбрать только одну строку за раз, а выбрано сразу несколько: '
+        #     if len(selected_indexes) > 0:
+        #         selected_proxy_index: QModelIndex = selected_indexes[0]  # Выбранный элемент.
+        #         share_class: MyShareClass | None = self.groupBox_view.proxyModel().getShare(selected_proxy_index)
+        #         self.groupBox_dividends.setData(share_class)
+        #         print('Выбрана акция: {0}'.format(share_class.share.name))
+
+        @pyqtSlot(QModelIndex, QModelIndex)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        def onCurrentRowChanged(current: QModelIndex, previous: QModelIndex):
+            """Событие при изменении выбранной акции."""
+            share_class: MyShareClass | None = self.groupBox_view.proxyModel().getShare(current)
+            self.groupBox_dividends.setData(share_class)
+            print('Выбрана акция: {0}'.format(share_class.share.name))
+
+        # self.groupBox_view.tableView.selectionChanged.connect(onSelectionChanged)  # Событие смены выбранной акции.
+        self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(onCurrentRowChanged)  # Событие смены выбранной акции.
+        # self.groupBox_view.tableView.selectionModel().selectionChanged.connect(lambda: self.groupBox_dividends.setData(self.groupBox_view.getSelectedShare()))  # Событие смены выбранной акции.
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
@@ -677,6 +699,7 @@ class SharesPage(QtWidgets.QWidget):
 
     def onTokenChanged(self, token: TokenClass | None):
         """Функция, выполняемая при изменении выбранного токена."""
+        self._stopDividendsThread()  # Останавливаем поток получения дивидендов.
         self.token = token
         if self.token is None:
             self.shares = []
@@ -704,7 +727,6 @@ class SharesPage(QtWidgets.QWidget):
 
     def _startDividendsThread(self, share_class_list: list[MyShareClass]):
         """Запускает поток получения дивидендов."""
-
         self.dividends_thread = DividendsThread(parent=self, token_class=self.token, share_class_list=share_class_list)
         """---------------------Подключаем сигналы потока к слотам---------------------"""
         self.dividends_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
@@ -719,3 +741,10 @@ class SharesPage(QtWidgets.QWidget):
         self.dividends_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
         """----------------------------------------------------------------------------"""
         self.dividends_thread.start()  # Запускаем поток.
+
+    def _stopDividendsThread(self):
+        """Останавливает поток получения дивидендов."""
+        if self.dividends_thread is not None:  # Если поток был создан.
+            self.dividends_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
+            self.dividends_thread.wait()  # Ждём завершения потока.
+            self.dividends_thread = None
