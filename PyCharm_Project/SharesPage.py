@@ -1,6 +1,5 @@
 import enum
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import QModelIndex, QItemSelection, pyqtSlot
 from tinkoff.invest import Share, LastPrice, InstrumentStatus, ShareType
 from Classes import TokenClass
 from DividendsModel import DividendsModel, DividendsProxyModel
@@ -208,7 +207,7 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
         return self.groupBox_instruments_filters.checkFilters(share) & self.groupBox_shares_filters.checkFilters(share)
 
     def getFilteredSharesList(self, shares: list[Share]) -> list[Share]:
-        """Фильтрует список акций и возвращает отфильтрованный список"""
+        """Фильтрует список акций и возвращает отфильтрованный список."""
         return list(filter(self._checkFilters, shares))
 
     def setCount(self, count: int):
@@ -341,6 +340,8 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         spacerItem25 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem25)
 
+        _translate = QtCore.QCoreApplication.translate
+
         self.lineEdit_search = QtWidgets.QLineEdit(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -348,6 +349,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.lineEdit_search.sizePolicy().hasHeightForWidth())
         self.lineEdit_search.setSizePolicy(sizePolicy)
         self.lineEdit_search.setObjectName('lineEdit_search')
+        self.lineEdit_search.setPlaceholderText(_translate('MainWindow', 'Поиск...'))
         self.horizontalLayout_title.addWidget(self.lineEdit_search)
 
         spacerItem26 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -366,6 +368,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.label_title.setFont(font)
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
+        self.label_title.setText(_translate('MainWindow', 'АКЦИИ'))
         self.horizontalLayout_title.addWidget(self.label_title)
 
         self.label_count = QtWidgets.QLabel(self)
@@ -376,6 +379,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.label_count.setObjectName('label_count')
+        self.label_count.setText(_translate('MainWindow', '0 / 0'))
         self.horizontalLayout_title.addWidget(self.label_count)
 
         spacerItem27 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -401,11 +405,6 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         """---------------------------------------------------------"""
 
-        _translate = QtCore.QCoreApplication.translate
-        self.lineEdit_search.setPlaceholderText(_translate('MainWindow', 'Поиск...'))
-        self.label_title.setText(_translate('MainWindow', 'АКЦИИ'))
-        self.label_count.setText(_translate('MainWindow', '0 / 0'))
-
         """----------------------Модель акций----------------------"""
         source_model: SharesModel = SharesModel()  # Создаём модель.
         proxy_model: SharesProxyModel = SharesProxyModel()  # Создаём прокси-модель.
@@ -424,13 +423,8 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
 
     def setShares(self, share_class_list: list[MyShareClass]):
         """Устанавливает данные модели акций."""
-        self.tableView.model().sourceModel().setShares(share_class_list)  # Передаём в исходную модель акций данные.
+        self.sourceModel().setShares(share_class_list)  # Передаём данные в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-
-    # def getSelectedShare(self) -> MyShareClass | None:
-    #     """Возвращает выделенную строку в таблице акций."""
-    #     proxy_index: QModelIndex = self.tableView.currentIndex()  # Текущий индекс выбранной акции.
-    #     return self.proxyModel().getShare(proxy_index)
 
     def updateShares(self, token_class: TokenClass, shares: list[Share]):
         """Обновляет данные модели акций в соответствии с указанными на форме параметрами."""
@@ -519,8 +513,6 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
 
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
-        self.progressBar_dividends.setRange(minimum, maximum)
-
         if maximum == 0:
             '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
             self.progressBar_dividends.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
@@ -663,27 +655,15 @@ class SharesPage(QtWidgets.QWidget):
         self.groupBox_filters.groupBox_shares_filters.comboBox_div_yield_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
         '''-------------------------------------------------------------------------'''
 
-        # @pyqtSlot(QItemSelection, QItemSelection)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
-        # def onSelectionChanged(selected: QItemSelection, deselected: QItemSelection):
+        # @pyqtSlot(QModelIndex, QModelIndex)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        # def onCurrentRowChanged(current: QModelIndex, previous: QModelIndex):
         #     """Событие при изменении выбранной акции."""
-        #     selected_indexes: list[QModelIndex] = selected.indexes()
-        #     assert len(selected_indexes) == 1, 'В отображении акций можно выбрать только одну строку за раз, а выбрано сразу несколько: '
-        #     if len(selected_indexes) > 0:
-        #         selected_proxy_index: QModelIndex = selected_indexes[0]  # Выбранный элемент.
-        #         share_class: MyShareClass | None = self.groupBox_view.proxyModel().getShare(selected_proxy_index)
-        #         self.groupBox_dividends.setData(share_class)
-        #         print('Выбрана акция: {0}'.format(share_class.share.name))
+        #     share_class: MyShareClass | None = self.groupBox_view.proxyModel().getShare(current)
+        #     self.groupBox_dividends.setData(share_class)
+        #     print('Выбрана акция: {0}'.format(share_class.share.name))
 
-        @pyqtSlot(QModelIndex, QModelIndex)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
-        def onCurrentRowChanged(current: QModelIndex, previous: QModelIndex):
-            """Событие при изменении выбранной акции."""
-            share_class: MyShareClass | None = self.groupBox_view.proxyModel().getShare(current)
-            self.groupBox_dividends.setData(share_class)
-            print('Выбрана акция: {0}'.format(share_class.share.name))
-
-        # self.groupBox_view.tableView.selectionChanged.connect(onSelectionChanged)  # Событие смены выбранной акции.
-        self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(onCurrentRowChanged)  # Событие смены выбранной акции.
-        # self.groupBox_view.tableView.selectionModel().selectionChanged.connect(lambda: self.groupBox_dividends.setData(self.groupBox_view.getSelectedShare()))  # Событие смены выбранной акции.
+        # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(onCurrentRowChanged)  # Событие смены выбранной акции.
+        self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_dividends.setData(self.groupBox_view.proxyModel().getShare(current)))  # Событие смены выбранной акции.
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""

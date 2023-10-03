@@ -45,9 +45,3 @@ def reportDateIfOnlyDate(date_and_time: datetime.datetime) -> str:
 def reportSignificantInfoFromDateTime(date_and_time: datetime.datetime):
     """Отображает дату и время, если есть время; если время нет, то отображает только дату; если нет ничего, то отображает "Нет данных"."""
     return "Нет данных" if ifDateTimeIsEmpty(date_and_time) else reportDateIfOnlyDate(date_and_time)
-
-
-def convertDateToDateTime(entered_date: datetime.date) -> datetime.datetime:
-    """Конвертирует дату в дату и время в UTC."""
-    # return datetime.datetime(entered_date.year, entered_date.month, entered_date.day).replace(tzinfo=datetime.timezone.utc)
-    return datetime.datetime(entered_date.year, entered_date.month, entered_date.day, tzinfo=datetime.timezone.utc)

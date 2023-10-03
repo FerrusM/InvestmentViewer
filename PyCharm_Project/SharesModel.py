@@ -121,13 +121,13 @@ class SharesModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         column: Column = self.columns[index.column()]
         share_class: MyShareClass = self.share_class_list[index.row()]
-        return column(share_class, role)
+        return column(role, share_class)
 
     def setShares(self, shares_class_list: list[MyShareClass]):
         """Устанавливает данные модели."""
-        self.beginResetModel()
+        self.beginResetModel()  # Начинает операцию сброса модели.
         self.share_class_list = shares_class_list
-        self.endResetModel()
+        self.endResetModel()  # Завершает операцию сброса модели.
 
     def getShare(self, row: int) -> MyShareClass | None:
         """Возвращает элемент списка данных по его номеру."""
@@ -149,6 +149,7 @@ class SharesProxyModel(QSortFilterProxyModel):
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header_tooltip
 
     def sourceModel(self) -> SharesModel:
+        """Возвращает исходную модель."""
         return super().sourceModel()
 
     def getShare(self, proxy_index: QModelIndex) -> MyShareClass | None:

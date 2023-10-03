@@ -1,6 +1,14 @@
+import enum
+from datetime import datetime
 from PyQt6 import QtCore, QtGui, QtWidgets
-from tinkoff.invest import InstrumentStatus
+from tinkoff.invest import InstrumentStatus, Bond
+from tinkoff.invest.schemas import RiskLevel
+from BondsModel import BondsModel, BondsProxyModel
 from Classes import TokenClass
+from CouponsThread import CouponsThread
+from MyBondClass import MyBondClass
+from MyDateTime import getCurrentDateTime
+from MyRequests import MyResponse, getBonds
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate
 from TokenModel import TokenListModel
 
@@ -110,9 +118,33 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.comboBox_coupons_type.setItemText(8, _translate('MainWindow', 'Неопределённый'))
         """-------------------------------------------------------------------------------------"""
 
+    def setRange(self, minimum: int, maximum: int):
+        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
+        if maximum == 0:
+            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
+            self.progressBar_coupons.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
+        else:
+            self.progressBar_coupons.setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
+        self.progressBar_coupons.setValue(0)
+        self.progressBar_coupons.reset()  # Сбрасывает progressBar.
+
+    def setValue(self, value: int):
+        """Изменяет прогресс в progressBar'е"""
+        self.progressBar_coupons.setValue(value)
+
 
 class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
     """GroupBox с фильтрами облигаций."""
+    @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
+    class Filters(enum.IntEnum):
+        """Перечисление фильтров облигаций."""
+        MATURITY_FLAG = 0  # Погашенность.
+        RISK_LEVEL = 1  # Уровень риска.
+        AMORTIZATION_FLAG = 2  # Признак облигации с амортизацией долга.
+        FLOATING_COUPON_FLAG = 3  # Признак облигации с плавающим купоном.
+        PERPETUAL_FLAG = 4  # Признак бессрочной облигации.
+        SUBORDINATED_FLAG = 5  # Признак субординированной облигации.
+
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         self.setObjectName(object_name)
@@ -282,6 +314,59 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         self.comboBox_amortization_flag.setCurrentIndex(0)
         self.comboBox_subordinated_flag.setCurrentIndex(0)
 
+        '''------------------------------------Фильтры облигаций------------------------------------'''
+        def appFilter_Flag(flag: bool, filter: str) -> bool:
+            """Проверяет, удовлетворяет ли акция фильтру с возможными значениями "Все", "True" и "False"."""
+            match filter:
+                case 'True': return flag
+                case 'False': return not flag
+                case 'Все': return True
+                case _: raise ValueError('Некорректное значение фильтра ({0})!'.format(filter))
+
+        def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getCurrentDateTime()) -> bool:
+            """Проверяет, погашена ли облигация."""
+            return bond.maturity_date < compared_datetime
+
+        def appFilter_Maturity(bond: Bond, cur_filter: str) -> bool:
+            """Фильтр по погашенности."""
+            match cur_filter:
+                case 'Все': return True
+                case 'Непогашенные': return not ifBondIsMaturity(bond)
+                case 'Погашенные': return ifBondIsMaturity(bond)
+                case _: raise ValueError('Некорректное значение фильтра \"Погашенность\" ({0})!'.format(cur_filter))
+
+        def appFilter_RiskLevel(risk_level: RiskLevel, cur_filter: str) -> bool:
+            """Фильтр по уровню риска."""
+            match cur_filter:
+                case 'Любой': return True
+                case 'Низкий': return True if risk_level == RiskLevel.RISK_LEVEL_LOW else False
+                case 'Средний': return True if risk_level == RiskLevel.RISK_LEVEL_MODERATE else False
+                case 'Высокий': return True if risk_level == RiskLevel.RISK_LEVEL_HIGH else False
+                case 'Неизвестен': return True if risk_level == RiskLevel.RISK_LEVEL_UNSPECIFIED else False
+                case _: raise ValueError('Некорректное значение фильтра \"Уровень риска\" ({0})!'.format(cur_filter))
+
+        self.filters: dict = {
+            self.Filters.MATURITY_FLAG:
+                lambda bond: appFilter_Maturity(bond, self.comboBox_maturity.currentText()),
+            self.Filters.RISK_LEVEL:
+                lambda bond: appFilter_RiskLevel(bond.risk_level, self.comboBox_risk_level.currentText()),
+            self.Filters.AMORTIZATION_FLAG:
+                lambda bond: appFilter_Flag(bond.amortization_flag, self.comboBox_amortization_flag.currentText()),
+            self.Filters.FLOATING_COUPON_FLAG:
+                lambda bond: appFilter_Flag(bond.floating_coupon_flag, self.comboBox_floating_coupon_flag.currentText()),
+            self.Filters.PERPETUAL_FLAG:
+                lambda bond: appFilter_Flag(bond.perpetual_flag, self.comboBox_perpetual_flag.currentText()),
+            self.Filters.SUBORDINATED_FLAG:
+                lambda bond: appFilter_Flag(bond.subordinated_flag, self.comboBox_subordinated_flag.currentText()),
+        }
+        '''-----------------------------------------------------------------------------------------'''
+
+    def checkFilters(self, bond: Bond) -> bool:
+        """Проверяет облигацию на соответствие фильтрам."""
+        for filter in self.filters.values():
+            if not filter(bond): return False
+        return True
+
 
 class GroupBox_BondsFilters(QtWidgets.QGroupBox):
     """GroupBox со всеми фильтрами облигаций."""
@@ -365,6 +450,14 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         self.label_title.setText(_translate('MainWindow', 'ФИЛЬТРЫ'))
         self.label_count.setText(_translate('MainWindow', '0'))
         """-------------------------------------------------------------------------------------"""
+
+    def _checkFilters(self, bond: Bond) -> bool:
+        """Проверяет облигацию на соответствие фильтрам."""
+        return self.groupBox_instruments_filters.checkFilters(bond) & self.groupBox_bonds_filters.checkFilters(bond)
+
+    def getFilteredBondsList(self, bonds: list[Bond]) -> list[Bond]:
+        """Фильтрует список облигаций и возвращает отфильтрованный список."""
+        return list(filter(self._checkFilters, bonds))
 
     def setCount(self, count: int):
         """Устанавливает количество отобранных облигаций."""
@@ -472,13 +565,15 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(2)
         self.verticalLayout_main.setObjectName('verticalLayout_main')
 
-        """------------------------Заголовок------------------------"""
+        '''------------------------Заголовок------------------------'''
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
         self.horizontalLayout_title.setObjectName('horizontalLayout_title')
 
         spacerItem47 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem47)
+
+        _translate = QtCore.QCoreApplication.translate
 
         self.lineEdit_search = QtWidgets.QLineEdit(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -487,6 +582,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.lineEdit_search.sizePolicy().hasHeightForWidth())
         self.lineEdit_search.setSizePolicy(sizePolicy)
         self.lineEdit_search.setObjectName('lineEdit_search')
+        self.lineEdit_search.setPlaceholderText(_translate('MainWindow', 'Поиск...'))
         self.horizontalLayout_title.addWidget(self.lineEdit_search)
 
         spacerItem48 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -505,6 +601,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.label_title.setFont(font)
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
+        self.label_title.setText(_translate('MainWindow', 'ОБЛИГАЦИИ'))
         self.horizontalLayout_title.addWidget(self.label_title)
 
         self.label_count = QtWidgets.QLabel(self)
@@ -515,6 +612,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.label_count.setObjectName('label_count')
+        self.label_count.setText(_translate('MainWindow', '0 / 0'))
         self.horizontalLayout_title.addWidget(self.label_count)
 
         spacerItem49 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -524,8 +622,9 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.horizontalLayout_title.setStretch(2, 1)
         self.horizontalLayout_title.setStretch(4, 2)
         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
-        """---------------------------------------------------------"""
+        '''---------------------------------------------------------'''
 
+        '''------------------Отображение облигаций------------------'''
         self.tableView = QtWidgets.QTableView(self)
         self.tableView.setEnabled(True)
         self.tableView.setBaseSize(QtCore.QSize(0, 557))
@@ -535,11 +634,20 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.tableView.setSortingEnabled(True)
         self.tableView.setObjectName('tableView')
         self.verticalLayout_main.addWidget(self.tableView)
+        '''---------------------------------------------------------'''
 
-        _translate = QtCore.QCoreApplication.translate
-        self.lineEdit_search.setPlaceholderText(_translate('MainWindow', 'Поиск...'))
-        self.label_title.setText(_translate('MainWindow', 'ОБЛИГАЦИИ'))
-        self.label_count.setText(_translate('MainWindow', '0 / 0'))
+    def proxyModel(self) -> BondsProxyModel:
+        """Возвращает прокси-модель облигаций."""
+        return self.tableView.model()
+
+    def sourceModel(self) -> BondsModel:
+        """Возвращает исходную модель облигаций."""
+        return self.proxyModel().sourceModel()
+
+    def setBonds(self, bond_class_list: list[MyBondClass]):
+        """Устанавливает данные модели облигаций."""
+        self.sourceModel().setBonds(bond_class_list)  # Передаём данные в исходную модель.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
 
 class BondsPage(QtWidgets.QWidget):
@@ -606,8 +714,8 @@ class BondsPage(QtWidgets.QWidget):
         self.verticalLayout_filters.setObjectName('verticalLayout_filters')
 
         """-----------------------Панель фильтров-----------------------"""
-        self.bonds_groupBox_filters: GroupBox_BondsFilters = GroupBox_BondsFilters('bonds_groupBox_filters', self.layoutWidget)
-        self.verticalLayout_filters.addWidget(self.bonds_groupBox_filters)
+        self.groupBox_filters: GroupBox_BondsFilters = GroupBox_BondsFilters('groupBox_filters', self.layoutWidget)
+        self.verticalLayout_filters.addWidget(self.groupBox_filters)
         """-------------------------------------------------------------"""
 
         spacerItem43 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
@@ -630,6 +738,22 @@ class BondsPage(QtWidgets.QWidget):
 
         self.verticalLayout_main.addWidget(self.splitter)
 
+        '''--------------------Модель облигаций--------------------'''
+        source_model: BondsModel = BondsModel(self.groupBox_calendar.getDateTime())  # Создаём модель.
+        proxy_model: BondsProxyModel = BondsProxyModel()  # Создаём прокси-модель.
+        proxy_model.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
+        self.groupBox_view.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
+        self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        '''--------------------------------------------------------'''
+
+        """-----------------------------------------------------------------------"""
+        self.token: TokenClass | None = None
+        self.bonds: list[Bond] = []
+        # self.coupons_thread: DividendsThread | None = None  # Поток получения дивидендов.
+        """-----------------------------------------------------------------------"""
+
+        self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.onTokenChanged(self.getCurrentToken()))
+
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
@@ -641,3 +765,48 @@ class BondsPage(QtWidgets.QWidget):
     def getCurrentStatus(self) -> InstrumentStatus:
         """Возвращает выбранный в ComboBox'е статус."""
         return self.groupBox_request.getCurrentStatus()
+
+    def onTokenChanged(self, token: TokenClass | None):
+        """Функция, выполняемая при изменении выбранного токена."""
+        self._stopCouponsThread()  # Останавливаем поток получения купонов.
+        self.token = token
+        if self.token is None:
+            self.bonds = []
+            self.groupBox_view.setBonds([])  # Передаём в исходную модель акций данные.
+        else:
+            '''----------------------------Получение облигаций----------------------------'''
+            bonds_response: MyResponse = getBonds(self.token.token, self.getCurrentStatus())
+            self.bonds = bonds_response.response_data  # Получаем список облигаций.
+            '''---------------------------------------------------------------------------'''
+
+            filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(self.bonds)  # Отфильтрованный список облигаций.
+            filtered_bonds_class_list: list[MyBondClass] = [MyBondClass(bond) for bond in filtered_bonds]
+            self.groupBox_view.setBonds(filtered_bonds_class_list)  # Передаём в исходную модель акций данные.
+            self._startCouponsThread(filtered_bonds_class_list)  # Запускает поток получения купонов.
+
+    def _startCouponsThread(self, bonds: list[MyBondClass]):
+        """Запускает поток получения купонов."""
+        if self.groupBox_view.sourceModel().coupons_receiving_thread is not None:
+            raise ValueError('Поток заполнения купонов не может быть запущен до того как будет завершён предыдущий!')
+
+        self.groupBox_view.sourceModel().coupons_receiving_thread = CouponsThread(token_class=self.token, bond_class_list=bonds)
+        """---------------------Подключаем сигналы потока к слотам---------------------"""
+        self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
+
+        self.groupBox_view.sourceModel().coupons_receiving_thread.setProgressBarRange_signal.connect(self.groupBox_coupons_receiving.setRange)
+        self.groupBox_view.sourceModel().coupons_receiving_thread.setProgressBarValue_signal.connect(self.groupBox_coupons_receiving.setValue)
+
+        # self.groupBox_view.sourceModel().coupons_receiving_thread.showRequestError_signal.connect(self.showRequestError)
+        # self.groupBox_view.sourceModel().coupons_receiving_thread.showException_signal.connect(self.showException)
+        # self.groupBox_view.sourceModel().coupons_receiving_thread.clearStatusBar_signal.connect(self.statusbar.clearMessage)
+
+        self.groupBox_view.sourceModel().coupons_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
+
+        # self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(self.onCouponReceivingThreadStart)
+        self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(CouponsThread.thread_name, getCurrentDateTime())))
+        """----------------------------------------------------------------------------"""
+        self.groupBox_view.sourceModel().coupons_receiving_thread.start()  # Запускаем поток.
+
+    def _stopCouponsThread(self):
+        """Останавливаем поток получения купонов."""
+        self.groupBox_view.sourceModel().stopCouponsThread()

@@ -63,7 +63,7 @@ class DividendsModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         column: Column = self.columns[index.column()]
         dividend: Dividend = self.dividends[index.row()]
-        return column(dividend, role)
+        return column(role, dividend)
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
         """Возвращает количество строк."""

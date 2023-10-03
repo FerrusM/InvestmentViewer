@@ -24,20 +24,35 @@ class Column:
         self.getBackground = background_function
         self.getForeground = foreground_function
 
-    def __call__(self, data, role: int = Qt.ItemDataRole.UserRole):
+    # def __call__(self, data, role: int = Qt.ItemDataRole.UserRole):
+    #     match role:
+    #         case Qt.ItemDataRole.UserRole:
+    #             if self.getData is None: return None
+    #             return self.getData(data)
+    #         case Qt.ItemDataRole.DisplayRole:
+    #             if self.getDisplay is None: return None
+    #             return self.getDisplay(data)
+    #         case Qt.ItemDataRole.BackgroundRole:
+    #             if self.getBackground is None: return None
+    #             return self.getBackground(data)
+    #         case Qt.ItemDataRole.ForegroundRole:
+    #             if self.getForeground is None: return None
+    #             return self.getForeground(data)
+
+    def __call__(self, role: int = Qt.ItemDataRole.UserRole, *data):
         match role:
             case Qt.ItemDataRole.UserRole:
                 if self.getData is None: return None
-                return self.getData(data)
+                return self.getData(*data)
             case Qt.ItemDataRole.DisplayRole:
                 if self.getDisplay is None: return None
-                return self.getDisplay(data)
+                return self.getDisplay(*data)
             case Qt.ItemDataRole.BackgroundRole:
                 if self.getBackground is None: return None
-                return self.getBackground(data)
+                return self.getBackground(*data)
             case Qt.ItemDataRole.ForegroundRole:
                 if self.getForeground is None: return None
-                return self.getForeground(data)
+                return self.getForeground(*data)
 
 
 class TokenClass:

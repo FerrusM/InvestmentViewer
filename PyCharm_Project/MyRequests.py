@@ -1,6 +1,6 @@
 from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
-    InstrumentStatus, Share, LastPrice, Dividend
+    InstrumentStatus, Share, LastPrice, Dividend, Bond
 
 
 class MyResponse:
@@ -132,6 +132,30 @@ def getShares(token: str, instrument_status: InstrumentStatus) -> MyResponse:
 #         else:  # Если исключения не было.
 #             self.statusbar.clearMessage()  # Очищает statusbar.
 #     return shares_list
+
+
+def getBonds(token: str, instrument_status: InstrumentStatus) -> MyResponse:
+    """Получает и возвращает список облигаций."""
+    bonds_list: list[Bond] = []
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            bonds_list = client.instruments.bonds(instrument_status=instrument_status).instruments
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse('bonds()', request_occurred, bonds_list, exception_flag, exception, request_error_flag, request_error)
 
 
 def getLastPrices(token: str, figi_list: list[str]) -> MyResponse:

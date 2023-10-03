@@ -1,4 +1,5 @@
 import enum
+from datetime import datetime, date, timezone
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt
 from tinkoff.invest import InstrumentStatus, Share, Bond
@@ -32,6 +33,7 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.label_title.setFont(font)
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
+        self.label_title.setText(QtCore.QCoreApplication.translate('MainWindow', 'ДАТА РАСЧЁТА'))
         self.verticalLayout_main.addWidget(self.label_title)
         """----------------------------------------------------------"""
 
@@ -47,8 +49,18 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.calendarWidget)
         """------------------------------------------------------------"""
 
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'ДАТА РАСЧЁТА'))
+    def getDate(self) -> date:
+        """Возвращает выбранную в календаре дату в формате datetime.date."""
+        return self.calendarWidget.selectedDate().toPyDate()
+
+    def getDateTime(self) -> datetime:
+        """Возвращает выбранную в календаре дату в формате datetime.datetime."""
+        def convertDateToDateTime(entered_date: date) -> datetime:
+            """Конвертирует дату в дату и время в UTC."""
+            # return datetime(entered_date.year, entered_date.month, entered_date.day).replace(tzinfo=timezone.utc)
+            return datetime(entered_date.year, entered_date.month, entered_date.day, tzinfo=timezone.utc)
+
+        return convertDateToDateTime(self.getDate())
 
 
 class GroupBox_Request(QtWidgets.QGroupBox):
