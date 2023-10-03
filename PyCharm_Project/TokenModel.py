@@ -1,13 +1,6 @@
-"""
-Новая модель для замены QAbstractListModel на QAbstractItemModel в модуле TokensListModel и
-QAbstractItemModel на QAbstractProxyModel в модуле AccessModel.
-"""
-
 from __future__ import annotations
 import typing
-
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QVariant, Qt, QIdentityProxyModel
-
 from Classes import TokenClass
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyRequests import MyResponse, getAccounts, getUserTariff
@@ -122,56 +115,3 @@ class TokenListModel(QIdentityProxyModel):
             source_index: QModelIndex = self.sourceModel().index(source_row, 0)
             source_data = source_index.data(role)
             return QVariant(source_data)
-
-
-# class TokenListModel(QAbstractProxyModel):
-#     """Модель для отображения токенов в ComboBox'ах."""
-#     TOKEN_COMBOBOX_DEFAULT_ELEMENT: str = 'Не выбран'
-#
-#     def sourceModel(self) -> TokenModel:
-#         source_model = super().sourceModel()
-#         assert type(source_model) == TokenModel
-#         return typing.cast(TokenModel, source_model)
-#
-#     def parent(self, child: QModelIndex) -> QModelIndex:
-#         return QModelIndex()
-#
-#     def rowCount(self, parent: QModelIndex = ...) -> int:
-#         return self.sourceModel().rowCount() + 1
-#
-#     def columnCount(self, parent: QModelIndex = ...) -> int:
-#         return self.sourceModel().columnCount()
-#
-#     def index(self, row: int, column: int, parent: QModelIndex = ...) -> QModelIndex:
-#         # if not self.hasIndex(row, column):
-#         #     return QModelIndex()
-#         # assert column == 0
-#         # if column < 0 or column >= self.columnCount():
-#         #     return QModelIndex()
-#         return self.createIndex(row, column)
-#
-#     def mapToSource(self, proxyIndex: QModelIndex) -> QModelIndex:
-#         proxy_row: int = proxyIndex.row()
-#         if proxy_row < 1:
-#             return QModelIndex()
-#         else:
-#             return self.sourceModel().index(proxy_row - 1, proxyIndex.column())
-#
-#     def mapFromSource(self, sourceIndex: QModelIndex) -> QModelIndex:
-#         # source_row: int = sourceIndex.row()
-#         # if source_row < 0 or source_row >= self.sourceModel().rowCount():
-#         #     return QModelIndex()
-#         return self.index((sourceIndex.row() + 1), sourceIndex.column())
-#
-#     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
-#         assert index.row() >= 0
-#         if index.row() == 0:
-#             if role == Qt.ItemDataRole.DisplayRole:
-#                 return QVariant(self.TOKEN_COMBOBOX_DEFAULT_ELEMENT)
-#             elif role == Qt.ItemDataRole.UserRole:
-#                 return None
-#         else:
-#             source_row: int = index.row() - 1
-#             source_index: QModelIndex = self.sourceModel().index(source_row, 0)
-#             source_data = source_index.data(role)
-#             return QVariant(source_data)

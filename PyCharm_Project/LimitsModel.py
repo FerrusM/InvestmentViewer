@@ -193,11 +193,10 @@ class LimitsTreeModel(QAbstractItemModel):
         assert type(tree_item) == TreeItem
         item_data: list[MyUnaryLimit] | list[MyStreamLimit] | MyUnaryLimit | MyStreamLimit | MyMethod = tree_item.data
         data_type: int | None = self._checkDataType(item_data)
-        # assert type(data_type) == int, 'Недопустимый тип элемента: Тип: {0}, Значение: {1}!'.format(type(item_data), item_data)
         if data_type is None: return None
         current_column: Column | None = self.columns[index.column()][data_type]
         if current_column is None: return None
-        return current_column(tree_item, role)
+        return current_column(role, tree_item)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         """Возвращает данные заголовка."""

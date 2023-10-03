@@ -432,4 +432,6 @@ class BondsProxyModel(QSortFilterProxyModel):
 
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель."""
-        return super().sourceModel()
+        source_model = super().sourceModel()
+        assert type(source_model) == BondsModel
+        return typing.cast(BondsModel, source_model)

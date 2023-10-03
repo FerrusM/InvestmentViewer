@@ -1,9 +1,9 @@
 from __future__ import annotations
 import enum
 import typing
-from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtSignal, QCoreApplication, pyqtSlot
+from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtSignal, QCoreApplication
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import QPushButton, QStyledItemDelegate, QAbstractItemView, QMessageBox
+from PyQt6.QtWidgets import QPushButton, QStyledItemDelegate, QAbstractItemView
 from tinkoff.invest import Account
 from Classes import TokenClass, reportAccountAccessLevel, reportAccountType, reportAccountStatus, Column
 from MyDateTime import reportSignificantInfoFromDateTime
@@ -246,7 +246,7 @@ class TreeProxyModel(QAbstractItemModel):
         assert data_type is not None, 'Недопустимый тип элемента: Тип: {0}, Значение: {1}!'.format(type(item_data), item_data)
         current_column: Column | None = self.columns[index.column()][data_type]
         if current_column is None: return None
-        return current_column(item_data, role)
+        return current_column(role, item_data)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         """Возвращает данные заголовка."""

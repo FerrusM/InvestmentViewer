@@ -36,7 +36,7 @@ class DividendsThread(QThread):
     def __init__(self, parent, token_class: TokenClass, share_class_list: list[MyShareClass]):
         super().__init__(parent=parent)  # __init__() QThread.
         self.token: TokenClass = token_class
-        self.semaphore: LimitPerMinuteSemaphore | None = token_class.unary_limits_manager.getSemaphore('GetDividends')
+        self.semaphore: LimitPerMinuteSemaphore | None = token_class.unary_limits_manager.getSemaphore(self.receive_dividends_method_name)
         self.shares: list[MyShareClass] = share_class_list
 
         """------------Статистические переменные------------"""

@@ -150,7 +150,9 @@ class SharesProxyModel(QSortFilterProxyModel):
 
     def sourceModel(self) -> SharesModel:
         """Возвращает исходную модель."""
-        return super().sourceModel()
+        source_model = super().sourceModel()
+        assert type(source_model) == SharesModel
+        return typing.cast(SharesModel, source_model)
 
     def getShare(self, proxy_index: QModelIndex) -> MyShareClass | None:
         """Возвращает акцию по индексу элемента."""
