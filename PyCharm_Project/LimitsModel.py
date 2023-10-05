@@ -3,15 +3,15 @@ import enum
 import typing
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt
 from Classes import Column, TokenClass
-from LimitClasses import MyUnaryLimit, MyStreamLimit, MyMethod
+from LimitClasses import MyUnaryLimit, MyStreamLimit, MyMethod, LimitPerMinuteSemaphore
 
 
 class TreeItem:
     def __init__(self, parent: TreeItem | None, data, children: list[TreeItem], row: int):
         self._parent: TreeItem | None = parent
         self.data: tuple[list[MyUnaryLimit], list[MyStreamLimit]] | MyUnaryLimit | MyStreamLimit | MyMethod | None = data
-        self._children: list[TreeItem] = children
-        self._row: int = row
+        self._children: list[TreeItem] = children  # Список дочерних элементов.
+        self._row: int = row  # Номер строки элемента.
 
     def parent(self) -> TreeItem | None:
         """Возвращает родительский элемент."""
@@ -21,6 +21,7 @@ class TreeItem:
         self._children = children
 
     def childrenCount(self) -> int:
+        """Возвращает количество дочерних элементов."""
         return len(self._children)
 
     def child(self, row: int) -> TreeItem | None:
@@ -29,7 +30,12 @@ class TreeItem:
         else:
             return None
 
+    def getChildren(self) -> list[TreeItem]:
+        """Возвращает список дочерних элементов."""
+        return self._children
+
     def row(self) -> int:
+        """Возвращает номер строки элемента."""
         return self._row
 
 
@@ -88,7 +94,7 @@ class LimitsTreeModel(QAbstractItemModel):
             self.Columns.LIMIT_FIFTH:
                 (Column(header='Имя метода',
                         header_tooltip='Имя метода.'),
-                 Column(),
+                 Column(data_function=lambda item: 'Доступно: {0}'.format(item.data.semaphore.available())),
                  Column(data_function=lambda item: item.data.method_name)),
         }
         self._root_item: TreeItem = TreeItem(None, None, [], 0)
@@ -105,10 +111,10 @@ class LimitsTreeModel(QAbstractItemModel):
         #         limit_item.setChildren([TreeItem(limit_item, method, [], j) for j, method in enumerate(limit_item.data.methods)])
         #         limits_items_list.append(limit_item)
         #     limits_item.setChildren(limits_items_list)
-     
-        self.beginResetModel()
+
+        self.beginResetModel()  # Начинает операцию сброса модели.
         self._token = token
-        if token is None:
+        if self._token is None:
             self._root_item.setChildren([])
         else:
             unary_limits_item: TreeItem = TreeItem(self._root_item, self._token.unary_limits, [], self.RowOrderOfLimitTypes.UNARY_REQUESTS_ROW)
@@ -128,7 +134,15 @@ class LimitsTreeModel(QAbstractItemModel):
             stream_limits_item.setChildren(stream_limits_list)
 
             self._root_item.setChildren([unary_limits_item, stream_limits_item])
-        self.endResetModel()
+
+            '''---------------Подключение слотов для обновления ячеек---------------'''
+            for unary_limit_item in self._root_item.child(self.RowOrderOfLimitTypes.UNARY_REQUESTS_ROW).getChildren():
+                index: QModelIndex = self.index(unary_limit_item.row(), self.Columns.LIMIT_FIFTH, QModelIndex())
+                semaphore: LimitPerMinuteSemaphore = unary_limit_item.data.semaphore
+                semaphore.availableChanged_signal.connect(lambda: self.dataChanged.emit(index, index))
+            '''---------------------------------------------------------------------'''
+
+        self.endResetModel()  # Завершает операцию сброса модели.
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
         """Возвращает количество дочерних строк в текущем элементе."""
