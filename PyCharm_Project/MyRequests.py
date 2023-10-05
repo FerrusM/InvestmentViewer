@@ -24,7 +24,7 @@ class MyResponse:
         self.request_error_flag: bool = request_error_flag
         self.request_error: RequestError | None = request_error
 
-    def ifDataSuccessfullyReceived(self):
+    def ifDataSuccessfullyReceived(self) -> bool:
         """Возвращает True, если данные были успешно получены. Иначе возвращает False."""
         if not self.exception_flag and not self.request_error_flag and self.request_occurred:
             return True

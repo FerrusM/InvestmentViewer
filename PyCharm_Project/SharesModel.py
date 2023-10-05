@@ -45,6 +45,7 @@ class SharesModel(QAbstractTableModel):
 
     def __init__(self):
         super().__init__()  # __init__() QAbstractTableModel.
+        self.share_class_list: list[MyShareClass] = []
         self.columns: dict[int, Column] = {
             self.Columns.SHARE_FIGI:
                 Column(header='figi',
@@ -108,7 +109,6 @@ class SharesModel(QAbstractTableModel):
                        data_function=lambda share_class: share_class.share.trading_status,
                        display_function=lambda share_class: reportTradingStatus(share_class.share.trading_status)),
         }
-        self.share_class_list: list[MyShareClass] = []
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
         """Возвращает количество акций в модели."""
@@ -157,5 +157,4 @@ class SharesProxyModel(QSortFilterProxyModel):
     def getShare(self, proxy_index: QModelIndex) -> MyShareClass | None:
         """Возвращает акцию по индексу элемента."""
         source_index: QModelIndex = self.mapToSource(proxy_index)
-        source_row: int = source_index.row()
-        return self.sourceModel().getShare(source_row)
+        return self.sourceModel().getShare(source_index.row())

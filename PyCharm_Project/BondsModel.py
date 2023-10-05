@@ -403,7 +403,7 @@ class BondsModel(QAbstractTableModel):
                     self.dataChanged.emit(top_index, bottom_index)
         """-----------------------------------------------------------"""
 
-    def getData(self, row: int) -> MyBondClass | None:
+    def getBond(self, row: int) -> MyBondClass | None:
         """Возвращает облигацию, соответствующую переданному номеру."""
         return self._bond_class_list[row] if 0 <= row < len(self._bond_class_list) else None
 
@@ -421,7 +421,6 @@ class BondsModel(QAbstractTableModel):
 
 class BondsProxyModel(QSortFilterProxyModel):
     """Моя прокси-модель облигаций."""
-
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         """Функция headerData объявлена в прокси-модели, чтобы названия строк не сортировались вместе с данными."""
         if role == Qt.ItemDataRole.DisplayRole:
@@ -435,3 +434,8 @@ class BondsProxyModel(QSortFilterProxyModel):
         source_model = super().sourceModel()
         assert type(source_model) == BondsModel
         return typing.cast(BondsModel, source_model)
+
+    def getBond(self, proxy_index: QModelIndex) -> MyBondClass | None:
+        """Возвращает облигацию по индексу элемента."""
+        source_index: QModelIndex = self.mapToSource(proxy_index)
+        return self.sourceModel().getBond(source_index.row())

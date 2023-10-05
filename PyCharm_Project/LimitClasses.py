@@ -10,7 +10,7 @@ class LimitPerMinuteSemaphore(QObject):
         super().__init__()  # __init__() QObject.
         self._semaphore: QSemaphore = QSemaphore(limit_per_minute)
         self.limit_per_minute: int = limit_per_minute  # Максимальное количество запросов в минуту.
-        self.release_timers: list[QTimer] = []
+        # self.release_timers: list[QTimer] = []
 
     # def _getPeriod(self) -> int:
     #     """Определяет минимальный промежуток времени [мс] между запросами."""
@@ -28,15 +28,12 @@ class LimitPerMinuteSemaphore(QObject):
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onRelease():
             self._semaphore.release(n)
-            self.release_timers.remove(timer)
+            # self.release_timers.remove(timer)  # Удаляем отработавший таймер.
             self.availableChanged_signal.emit()
 
-        timer: QTimer = QTimer()
+        timer: QTimer = QTimer(self)
         timer.setSingleShot(True)  # Без повторений.
-        self.release_timers.append(timer)  # Запоминаем ссылку на таймер, чтобы он не уничтожился после выполнения функции.
-        # timer.timeout.connect(lambda: super(LimitPerMinuteSemaphore, self).release(n))
-        # timer.timeout.connect(lambda: self.release_timers.remove(timer))  # Удаляем отработавший таймер.
-        # timer.timeout.connect(lambda: self.availableChanged_signal.emit(self.available()))
+        # self.release_timers.append(timer)  # Запоминаем ссылку на таймер, чтобы он не уничтожился после выполнения функции.
         timer.timeout.connect(onRelease)
         timer.start(60000)  # Запускаем таймер на одну минуту.
 
@@ -86,7 +83,6 @@ class MyUnaryLimit:
                 raise ValueError('Название метода {0} имеет некорректную структуру!'.format(full_method))
             self.methods.append(my_method)
         '''----------------------------------------------------------'''
-        # self.semaphore: QSemaphore = QSemaphore(self.limit_per_minute)
         self.semaphore: LimitPerMinuteSemaphore = LimitPerMinuteSemaphore(self.limit_per_minute)
 
     def getFullMethodsNames(self) -> list[str]:
@@ -104,10 +100,6 @@ class MyUnaryLimit:
     def getMethodsNamesAndServices(self) -> list[tuple[str, str]]:
         """Возвращает список пар (сервис, краткое имя) методов."""
         return [(my_method.method_name, my_method.service) for my_method in self.methods]
-
-    # def ifMethodIsInLimit(self, method_name: str) -> bool:
-    #     """Возвращает True, если переданный метод содержится в лимите. Иначе возвращает False."""
-    #     return method_name in self.methods_names
 
 
 class MyStreamLimit:

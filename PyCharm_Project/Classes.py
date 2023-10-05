@@ -1,6 +1,6 @@
 from datetime import datetime
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import Qt, pyqtSlot
+from PyQt6.QtCore import Qt
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 
@@ -23,21 +23,6 @@ class Column:
         self.getToolTip = tooltip_function  # Функция для получения подсказки к отображаемым данным.
         self.getBackground = background_function
         self.getForeground = foreground_function
-
-    # def __call__(self, data, role: int = Qt.ItemDataRole.UserRole):
-    #     match role:
-    #         case Qt.ItemDataRole.UserRole:
-    #             if self.getData is None: return None
-    #             return self.getData(data)
-    #         case Qt.ItemDataRole.DisplayRole:
-    #             if self.getDisplay is None: return None
-    #             return self.getDisplay(data)
-    #         case Qt.ItemDataRole.BackgroundRole:
-    #             if self.getBackground is None: return None
-    #             return self.getBackground(data)
-    #         case Qt.ItemDataRole.ForegroundRole:
-    #             if self.getForeground is None: return None
-    #             return self.getForeground(data)
 
     def __call__(self, role: int = Qt.ItemDataRole.UserRole, *data):
         match role:

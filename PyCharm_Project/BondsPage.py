@@ -1,14 +1,16 @@
 import enum
+import typing
 from datetime import datetime
 from PyQt6 import QtCore, QtGui, QtWidgets
 from tinkoff.invest import InstrumentStatus, Bond
-from tinkoff.invest.schemas import RiskLevel
+from tinkoff.invest.schemas import RiskLevel, LastPrice
 from BondsModel import BondsModel, BondsProxyModel
 from Classes import TokenClass
+from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
 from MyBondClass import MyBondClass
 from MyDateTime import getCurrentDateTime
-from MyRequests import MyResponse, getBonds
+from MyRequests import MyResponse, getBonds, getLastPrices
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate
 from TokenModel import TokenListModel
 
@@ -492,6 +494,8 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         spacerItem45 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem45)
 
+        _translate = QtCore.QCoreApplication.translate
+
         self.label_title = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -505,6 +509,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.label_title.setStyleSheet('border: none;')
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
+        self.label_title.setText(_translate('MainWindow', 'КУПОНЫ'))
         self.horizontalLayout_title.addWidget(self.label_title)
 
         self.label_count = QtWidgets.QLabel(self)
@@ -515,6 +520,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.label_count.setObjectName('label_count')
+        self.label_count.setText(_translate('MainWindow', '0'))
         self.horizontalLayout_title.addWidget(self.label_count)
 
         spacerItem46 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -542,9 +548,23 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         """----------------------------------------------------------"""
 
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'КУПОНЫ'))
-        self.label_count.setText(_translate('MainWindow', '0'))
+        '''-----------------------Модель купонов-----------------------'''
+        coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
+        coupons_proxy_model: CouponsProxyModel = CouponsProxyModel()  # Создаём прокси-модель.
+        coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
+        self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        '''------------------------------------------------------------'''
+
+    def sourceModel(self) -> CouponsModel:
+        """Возвращает исходную модель купонов."""
+        return self.tableView.model().sourceModel()
+
+    def setData(self, bond_class: MyBondClass | None):
+        """Обновляет данные модели купонов в соответствии с выбранной облигацией."""
+        self.sourceModel().updateData(bond_class)
+        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество купонов.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
 
 class GroupBox_BondsView(QtWidgets.QGroupBox):
@@ -638,7 +658,9 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
 
     def proxyModel(self) -> BondsProxyModel:
         """Возвращает прокси-модель облигаций."""
-        return self.tableView.model()
+        proxy_model = self.tableView.model()
+        assert type(proxy_model) == BondsProxyModel
+        return typing.cast(BondsProxyModel, proxy_model)
 
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель облигаций."""
@@ -754,6 +776,8 @@ class BondsPage(QtWidgets.QWidget):
 
         self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.onTokenChanged(self.getCurrentToken()))
 
+        self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены выбранной облигации.
+
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
@@ -772,17 +796,52 @@ class BondsPage(QtWidgets.QWidget):
         self.token = token
         if self.token is None:
             self.bonds = []
-            self.groupBox_view.setBonds([])  # Передаём в исходную модель акций данные.
+            self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
         else:
-            '''----------------------------Получение облигаций----------------------------'''
-            bonds_response: MyResponse = getBonds(self.token.token, self.getCurrentStatus())
-            self.bonds = bonds_response.response_data  # Получаем список облигаций.
-            '''---------------------------------------------------------------------------'''
+            bonds_response: MyResponse = getBonds(self.token.token, self.getCurrentStatus())  # Получение облигаций.
+            assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
+            if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
+                bonds: list[Bond] = bonds_response.response_data  # Получаем список облигаций.
+                self.bonds = bonds
+                filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
 
-            filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(self.bonds)  # Отфильтрованный список облигаций.
-            filtered_bonds_class_list: list[MyBondClass] = [MyBondClass(bond) for bond in filtered_bonds]
-            self.groupBox_view.setBonds(filtered_bonds_class_list)  # Передаём в исходную модель акций данные.
-            self._startCouponsThread(filtered_bonds_class_list)  # Запускает поток получения купонов.
+                '''
+                Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
+                всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
+                то следует пропустить запрос цен последних сделок. 
+                '''
+                if filtered_bonds:  # Если список отфильтрованных облигаций не пуст.
+                    last_prices_response: MyResponse = getLastPrices(self.token.token, [b.figi for b in filtered_bonds])
+                    assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+                    if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
+                        last_prices: list[LastPrice] = last_prices_response.response_data
+                        bond_class_list: list[MyBondClass] = []
+                        '''------------------Проверка полученного списка последних цен------------------'''
+                        last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+                        for bond in filtered_bonds:
+                            figi_count: int = last_prices_figi_list.count(bond.figi)
+                            if figi_count == 1:
+                                last_price_number: int = last_prices_figi_list.index(bond.figi)
+                                last_price: LastPrice = last_prices[last_price_number]
+                                bond_class_list.append(MyBondClass(bond, last_price))
+                            elif figi_count > 1:
+                                assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(bond.figi)
+                                pass
+                            else:
+                                '''
+                                Если список последних цен не содержит ни одного подходящего элемента,
+                                то заполняем поле last_price значением None.
+                                '''
+                                bond_class_list.append(MyBondClass(bond, None))
+                        '''-----------------------------------------------------------------------------'''
+                    else:
+                        bond_class_list: list[MyBondClass] = [MyBondClass(bond, None) for bond in filtered_bonds]
+                    self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
+                    self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
+                else:
+                    self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+            else:
+                self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
 
     def _startCouponsThread(self, bonds: list[MyBondClass]):
         """Запускает поток получения купонов."""

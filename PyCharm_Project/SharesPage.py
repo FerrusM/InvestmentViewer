@@ -304,12 +304,16 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         """---------------------------------------------------------"""
 
+    def sourceModel(self) -> DividendsModel:
+        """Возвращает исходную модель дивидендов."""
+        return self.tableView.model().sourceModel()
+
     def setData(self, share_class: MyShareClass | None):
         """Обновляет данные модели дивидендов в соответствии с выбранной акцией."""
         if share_class is None:
-            self.tableView.model().sourceModel().updateData([])
+            self.sourceModel().updateData([])
         else:
-            self.tableView.model().sourceModel().updateData(share_class.dividends)
+            self.sourceModel().updateData(share_class.dividends)
         self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
@@ -456,8 +460,6 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
                     '''
                     share_class_list.append(MyShareClass(share, None))
             '''-----------------------------------------------------------------------------'''
-
-            # share_class_list: list[MyShareClass] = [MyShareClass(share, last_price) for share, last_price in zip(shares, last_prices)]
         else:  # Если список отфильтрованных акций пуст.
             pass
 
