@@ -1,4 +1,5 @@
 import enum
+import typing
 from PyQt6 import QtCore, QtGui, QtWidgets
 from tinkoff.invest import Share, LastPrice, InstrumentStatus, ShareType
 from Classes import TokenClass
@@ -208,7 +209,9 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
 
     def getFilteredSharesList(self, shares: list[Share]) -> list[Share]:
         """Фильтрует список акций и возвращает отфильтрованный список."""
-        return list(filter(self._checkFilters, shares))
+        filtered_list: list[Share] = list(filter(self._checkFilters, shares))
+        # self.setCount(len(filtered_list))  # Обновляет количество отобранных акций.
+        return filtered_list
 
     def setCount(self, count: int):
         """Устанавливает количество отобранных акций."""
@@ -314,8 +317,8 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
             self.sourceModel().updateData([])
         else:
             self.sourceModel().updateData(share_class.dividends)
-        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
 
 
 class GroupBox_SharesView(QtWidgets.QGroupBox):
@@ -419,7 +422,9 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
 
     def proxyModel(self) -> SharesProxyModel:
         """Возвращает прокси-модель акций."""
-        return self.tableView.model()
+        proxy_model = self.tableView.model()
+        assert type(proxy_model) == SharesProxyModel
+        return typing.cast(SharesProxyModel, proxy_model)
 
     def sourceModel(self) -> SharesModel:
         """Возвращает исходную модель акций."""
@@ -429,41 +434,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         """Устанавливает данные модели акций."""
         self.sourceModel().setShares(share_class_list)  # Передаём данные в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-
-    def updateShares(self, token_class: TokenClass, shares: list[Share]):
-        """Обновляет данные модели акций в соответствии с указанными на форме параметрами."""
-        share_class_list: list[MyShareClass] = []
-        '''
-        Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
-        всех доступных для торговли инструментов. Поэтому, если отфильтрованный список акций пуст,
-        то следует пропустить запрос цен последних сделок. 
-        '''
-        if shares:
-            shares_figi_list: list[str] = [share.figi for share in shares]
-            last_prices_response: MyResponse = getLastPrices(token_class.token, shares_figi_list)
-            last_prices: list[LastPrice] = last_prices_response.response_data
-
-            '''------------------Проверка полученного списка последних цен------------------'''
-            last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
-            for share in shares:
-                figi_count: int = last_prices_figi_list.count(share.figi)
-                if figi_count == 1:
-                    last_price_number: int = last_prices_figi_list.index(share.figi)
-                    last_price: LastPrice = last_prices[last_price_number]
-                    share_class_list.append(MyShareClass(share, last_price))
-                elif figi_count > 1:
-                    assert False, 'Список последних цен акций содержит несколько элементов с одним и тем же figi ().'.format(share.figi)
-                else:
-                    '''
-                    Если список последних цен не содержит ни одного подходящего элемента,
-                    то заполняем поле last_price значением None.
-                    '''
-                    share_class_list.append(MyShareClass(share, None))
-            '''-----------------------------------------------------------------------------'''
-        else:  # Если список отфильтрованных акций пуст.
-            pass
-
-        self.setShares(share_class_list)  # Передаём в исходную модель акций данные.
+        self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество акций.
 
 
 class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
@@ -627,17 +598,68 @@ class SharesPage(QtWidgets.QWidget):
         self.token: TokenClass | None = None
         self.shares: list[Share] = []
         self.dividends_thread: DividendsThread | None = None  # Поток получения дивидендов.
+        """-----------------------------------------------------------------------"""
 
         self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.onTokenChanged(self.getCurrentToken()))
-        """-----------------------------------------------------------------------"""
 
         '''---------------------------------Фильтры---------------------------------'''
         def onFilterChanged():
             """Функция, выполняемая при изменении фильтра."""
-            filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(self.shares)  # Отфильтрованный список акций.
-            filtered_shares_class_list: list[MyShareClass] = [MyShareClass(share) for share in filtered_shares]
-            self.groupBox_view.setShares(filtered_shares_class_list)  # Передаём в исходную модель акций данные.
-            self._startDividendsThread(filtered_shares_class_list)  # Запускает поток получения дивидендов.
+            self._stopDividendsThread()  # Останавливаем поток получения дивидендов.
+            token: TokenClass | None = self.token
+            if token is None:
+                self.shares = []
+                self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
+                '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+                self.groupBox_request.setCount(0)  # Количество полученных акций.
+                self.groupBox_filters.setCount(0)  # Количество отобранных акций.
+                '''---------------------------------------------------------------------------------'''
+            else:
+                shares: list[Share] = self.shares
+                filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(shares)  # Отфильтрованный список акций.
+                '''
+                Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
+                всех доступных для торговли инструментов. Поэтому, если список акций пуст,
+                то следует пропустить запрос цен последних сделок. 
+                '''
+                if filtered_shares:  # Если список отфильтрованных акций не пуст.
+                    last_prices_response: MyResponse = getLastPrices(token.token, [b.figi for b in filtered_shares])
+                    assert last_prices_response.request_occurred, 'Запрос последних цен акций не был произведён.'
+                    if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
+                        last_prices: list[LastPrice] = last_prices_response.response_data
+                        share_class_list: list[MyShareClass] = []
+                        '''------------------Проверка полученного списка последних цен------------------'''
+                        last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+                        for share in filtered_shares:
+                            figi_count: int = last_prices_figi_list.count(share.figi)
+                            if figi_count == 1:
+                                last_price_number: int = last_prices_figi_list.index(share.figi)
+                                last_price: LastPrice = last_prices[last_price_number]
+                                share_class_list.append(MyShareClass(share, last_price))
+                            elif figi_count > 1:
+                                assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(share.figi)
+                                pass
+                            else:
+                                '''
+                                Если список последних цен не содержит ни одного подходящего элемента,
+                                то заполняем поле last_price значением None.
+                                '''
+                                share_class_list.append(MyShareClass(share, None))
+                        '''-----------------------------------------------------------------------------'''
+                    else:
+                        share_class_list: list[MyShareClass] = [MyShareClass(share, None) for share in filtered_shares]
+                    self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
+                    '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+                    self.groupBox_request.setCount(len(shares))  # Количество полученных акций.
+                    self.groupBox_filters.setCount(len(filtered_shares))  # Количество отобранных акций.
+                    '''---------------------------------------------------------------------------------'''
+                    self._startDividendsThread(token, share_class_list)  # Запускает поток получения дивидендов.
+                else:
+                    self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
+                    '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+                    self.groupBox_request.setCount(0)  # Количество полученных акций.
+                    self.groupBox_filters.setCount(0)  # Количество отобранных акций.
+                    '''---------------------------------------------------------------------------------'''
 
         # Фильтры инструментов.
         self.groupBox_filters.groupBox_instruments_filters.comboBox_api_trade_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
@@ -683,33 +705,78 @@ class SharesPage(QtWidgets.QWidget):
         """Функция, выполняемая при изменении выбранного токена."""
         self._stopDividendsThread()  # Останавливаем поток получения дивидендов.
         self.token = token
-        if self.token is None:
+        if token is None:
             self.shares = []
-            self.groupBox_view.setShares([])  # Передаём в исходную модель акций данные.
+            self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
+            '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+            self.groupBox_request.setCount(0)  # Количество полученных акций.
+            self.groupBox_filters.setCount(0)  # Количество отобранных акций.
+            '''---------------------------------------------------------------------------------'''
         else:
-            '''------------------------------Получение акций------------------------------'''
-            shares_response: MyResponse = getShares(self.token.token, self.getCurrentStatus())
-            self.shares = shares_response.response_data  # Получаем список акций.
-            '''---------------------------------------------------------------------------'''
+            shares_response: MyResponse = getShares(token.token, self.getCurrentStatus())  # Получение акций.
+            assert shares_response.request_occurred, 'Запрос акций не был произведён.'
+            if shares_response.ifDataSuccessfullyReceived():  # Если список акций был получен.
+                shares: list[Share] = shares_response.response_data  # Получаем список акций.
+                self.shares = shares
+                filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(shares)  # Отфильтрованный список акций.
 
-            filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(self.shares)  # Отфильтрованный список акций.
-            filtered_shares_class_list: list[MyShareClass] = [MyShareClass(share) for share in filtered_shares]
-            self.groupBox_view.setShares(filtered_shares_class_list)  # Передаём в исходную модель акций данные.
-            # self.groupBox_view.updateShares(token, filtered_shares)
+                '''
+                Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
+                всех доступных для торговли инструментов. Поэтому, если список акций пуст,
+                то следует пропустить запрос цен последних сделок. 
+                '''
+                if filtered_shares:  # Если список отфильтрованных акций не пуст.
+                    last_prices_response: MyResponse = getLastPrices(token.token, [b.figi for b in filtered_shares])
+                    assert last_prices_response.request_occurred, 'Запрос последних цен акций не был произведён.'
+                    if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
+                        last_prices: list[LastPrice] = last_prices_response.response_data
+                        share_class_list: list[MyShareClass] = []
+                        '''------------------Проверка полученного списка последних цен------------------'''
+                        last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+                        for share in filtered_shares:
+                            figi_count: int = last_prices_figi_list.count(share.figi)
+                            if figi_count == 1:
+                                last_price_number: int = last_prices_figi_list.index(share.figi)
+                                last_price: LastPrice = last_prices[last_price_number]
+                                share_class_list.append(MyShareClass(share, last_price))
+                            elif figi_count > 1:
+                                assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(share.figi)
+                                pass
+                            else:
+                                '''
+                                Если список последних цен не содержит ни одного подходящего элемента,
+                                то заполняем поле last_price значением None.
+                                '''
+                                share_class_list.append(MyShareClass(share, None))
+                        '''-----------------------------------------------------------------------------'''
+                    else:
+                        share_class_list: list[MyShareClass] = [MyShareClass(share, None) for share in filtered_shares]
+                    self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
+                    '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+                    self.groupBox_request.setCount(len(shares))  # Количество полученных акций.
+                    self.groupBox_filters.setCount(len(filtered_shares))  # Количество отобранных акций.
+                    '''---------------------------------------------------------------------------------'''
+                    self._startDividendsThread(token, share_class_list)  # Запускает поток получения дивидендов.
+                else:
+                    self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
+                    '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+                    self.groupBox_request.setCount(0)  # Количество полученных акций.
+                    self.groupBox_filters.setCount(0)  # Количество отобранных акций.
+                    '''---------------------------------------------------------------------------------'''
+            else:
+                self.shares = []
+                self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
+                '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+                self.groupBox_request.setCount(0)  # Количество полученных акций.
+                self.groupBox_filters.setCount(0)  # Количество отобранных акций.
+                '''---------------------------------------------------------------------------------'''
 
-            # """------------------Отображение количеств акций на форме------------------"""
-            # shares_count: int = len(self.shares)  # Количество полученных акций.
-            # filtered_count: int = len(filtered_shares)  # Количество отобранных акций.
-            # self.groupBox_request.setCount(shares_count)  # Отображаем количество полученных акций.
-            # self.groupBox_filters.setCount(filtered_count)  # Кол-во отобранных акций.
-            # self.groupBox_view.label_count.setText('{0} / {1}'.format(filtered_count, shares_count))  # Отображаем количество акций.
-            # """------------------------------------------------------------------------"""
-
-            self._startDividendsThread(filtered_shares_class_list)  # Запускает поток получения дивидендов.
-
-    def _startDividendsThread(self, share_class_list: list[MyShareClass]):
+    def _startDividendsThread(self, token: TokenClass, share_class_list: list[MyShareClass]):
         """Запускает поток получения дивидендов."""
-        self.dividends_thread = DividendsThread(parent=self, token_class=self.token, share_class_list=share_class_list)
+        if self.dividends_thread is not None:
+            raise ValueError('Поток заполнения дивидендов не может быть запущен до того как будет завершён предыдущий!')
+
+        self.dividends_thread = DividendsThread(parent=self, token_class=token, share_class_list=share_class_list)
         """---------------------Подключаем сигналы потока к слотам---------------------"""
         self.dividends_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
 

@@ -9,7 +9,6 @@ from MyBondClass import MyBondClass
 
 class CouponsThread(QThread):
     """Поток получения купонов."""
-
     thread_name: str = 'CouponsThread'
     receive_coupons_method_name: str = 'GetBondCoupons'
 
@@ -110,4 +109,4 @@ class CouponsThread(QThread):
                     """------------------------------------------------------------------------"""
                 if exception_flag: break  # Если поток был прерван.
                 bond_class.setCoupons(coupons)  # Записываем список купонов в облигацию.
-        printInConsole('Поток завершён. ({0})'.format(getCurrentDateTime()))
+        # printInConsole('Поток завершён. ({0})'.format(getCurrentDateTime()))

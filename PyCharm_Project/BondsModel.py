@@ -7,7 +7,7 @@ from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyM
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon, Bond
 from Classes import reportTradingStatus, Column
 from CouponsThread import CouponsThread
-from MyDateTime import reportSignificantInfoFromDateTime, getCurrentDateTime, reportDateIfOnlyDate
+from MyDateTime import reportSignificantInfoFromDateTime, getCurrentDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty
 from MyQuotation import MyQuotation, MyDecimal
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyBondClass import MyBondClass, ifBondIsMulticurrency, MyLastPrice, TINKOFF_COMMISSION, NDFL, MyCoupon
@@ -16,7 +16,7 @@ from MyBondClass import MyBondClass, ifBondIsMulticurrency, MyLastPrice, TINKOFF
 def reportRiskLevel(risk_level: RiskLevel) -> str:
     """Расшифровывает уровень риска облигации."""
     match risk_level:
-        case RiskLevel.RISK_LEVEL_UNSPECIFIED: return "-"
+        case RiskLevel.RISK_LEVEL_UNSPECIFIED: return '-'
         case RiskLevel.RISK_LEVEL_LOW: return 'Низкий'
         case RiskLevel.RISK_LEVEL_MODERATE: return 'Средний'
         case RiskLevel.RISK_LEVEL_HIGH: return 'Высокий'
@@ -57,8 +57,8 @@ def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> st
     if bond_class.coupons is None:  # Если купоны ещё не были получены.
         return None
 
-    def getLastCoupon(coupons: list[bond_class.coupons]):
-        """Находит и возвращает последний купон."""
+    def getLastCoupon(coupons: list[bond_class.coupons]) -> int:
+        """Находит и возвращает номер последнего купона."""
         maxim: int = -1
         for i, coupon in enumerate(coupons):
             if maxim < 0:
@@ -71,13 +71,23 @@ def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> st
         """Проверяет, погашена ли облигация."""
         return bond.maturity_date < compared_datetime
 
-    last_coupon_id: int = getLastCoupon(bond_class.coupons)
-    if last_coupon_id < 0:
-        return 'Нет купонов'
-    last_coupon: Coupon = bond_class.coupons[last_coupon_id]
+    last_coupon_id: int = getLastCoupon(bond_class.coupons)  # Номер последнего купона.
+    if last_coupon_id < 0: return 'Нет купонов'
+    last_coupon: Coupon = bond_class.coupons[last_coupon_id]  # Последний купон.
     if bond_class.bond.maturity_date < last_coupon.coupon_end_date:
-        raise ValueError('Дата окончания купонного периода купона {0} больше даты погашения облигации {1}!'.
-                         format(last_coupon_id, bond_class.bond.figi))
+
+        if ifDateTimeIsEmpty(bond_class.bond.maturity_date) and bond_class.bond.perpetual_flag:
+            '''
+            Бессрочные облигации могут иметь пустую дату погашения (01.01.1970).
+            В этом случае дата окончания купонного периода купона может быть больше даты погашения облигации.
+            Расчёт НКД в этом случае пока не реализован.
+            '''
+            pass
+            return 'Perpetual'
+
+        return '?'
+        # raise ValueError('Дата окончания купонного периода купона {0} больше даты погашения облигации {1}!'.
+        #                  format(last_coupon_id, bond_class.bond.figi))
     else:
         if ifBondIsMaturity(bond_class.bond, entered_datetime):
             return 'Погашено'
@@ -223,7 +233,7 @@ def reportAbsoluteProfitCalculation(bond_class: MyBondClass, entered_datetime: d
     """--Учитываем возможное погашение облигации к выбранной дате--"""
     if bond_class.last_price is None:
         raise ValueError('Последняя цена облигации должна была быть получена!')
-    if not MyLastPrice.isNone(bond_class.last_price):  # Проверка цены.
+    if not MyLastPrice.isEmpty(bond_class.last_price):  # Проверка цены.
         # Если облигация будет погашена до выбранной даты включительно.
         if entered_datetime >= bond_class.bond.maturity_date:
             # Добавляем в доходность разницу между номиналом и ценой облигации.
@@ -245,23 +255,24 @@ class BondsModel(QAbstractTableModel):
     @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
     class Columns(enum.IntEnum):
         """Перечисление столбцов таблицы облигаций."""
-        BOND_ISIN = 0
-        BOND_NAME = 1
-        LAST_PRICE = 2
-        BOND_NKD = 3
-        CALCULATED_NKD = 4
-        BOND_NOMINAL = 5
-        BOND_INITIAL_NOMINAL = 6
-        BOND_MIN_PRICE_INCREMENT = 7
-        BOND_LOT = 8
-        BOND_TRADING_STATUS = 9
-        BOND_AMORTIZATION_FLAG = 10
-        BOND_MATURITY_DATE = 11
-        BOND_CURRENCY = 12
-        BOND_COUNTRY_OF_RISK_NAME = 13
-        DATE_ABSOLUTE_PROFIT = 14
-        DATE_RELATIVE_PROFIT = 15
-        BOND_RISK_LEVEL = 16
+        BOND_FIGI = 0
+        BOND_ISIN = 1
+        BOND_NAME = 2
+        LAST_PRICE = 3
+        BOND_NKD = 4
+        CALCULATED_NKD = 5
+        BOND_NOMINAL = 6
+        BOND_INITIAL_NOMINAL = 7
+        BOND_MIN_PRICE_INCREMENT = 8
+        BOND_LOT = 9
+        BOND_TRADING_STATUS = 10
+        BOND_AMORTIZATION_FLAG = 11
+        BOND_MATURITY_DATE = 12
+        BOND_CURRENCY = 13
+        BOND_COUNTRY_OF_RISK_NAME = 14
+        DATE_ABSOLUTE_PROFIT = 15
+        DATE_RELATIVE_PROFIT = 16
+        BOND_RISK_LEVEL = 17
 
     def __init__(self, entered_datetime: datetime):
         super().__init__()  # __init__() QAbstractTableModel.
@@ -270,6 +281,10 @@ class BondsModel(QAbstractTableModel):
         self._bond_class_list: list[MyBondClass] = []
         self.coupons_receiving_thread: CouponsThread | None = None  # Поток, заполняющий купоны облигаций.
         self.columns: dict[int, BondColumn] = {
+            self.Columns.BOND_FIGI:
+                BondColumn(header='figi',
+                           header_tooltip='Figi-идентификатор инструмента.',
+                           data_function=lambda bond_class: bond_class.bond.figi),
             self.Columns.BOND_ISIN:
                 BondColumn(header='isin',
                            header_tooltip='Isin-идентификатор инструмента.',
@@ -385,23 +400,23 @@ class BondsModel(QAbstractTableModel):
                 if bond_column.dependsOnCoupons():
                     source_index: QModelIndex = self.index(row, column)
                     # bond_class.setCoupons_signal.connect(lambda: self.dataChanged.emit(source_index, source_index))  # Подключаем слот обновления.
-                    # bond_class.setCoupons_signal.connect(lambda: self.sourceDataChanged(row, column))
                     bond_class.setCoupons_signal.connect(update_source_class(self, source_index, source_index))  # Подключаем слот обновления.
         self.endResetModel()  # Завершает операцию сброса модели.
 
     def setDateTime(self, entered_datetime: datetime):
         """Устанавливает новую дату расчёта."""
-        self._calculation_datetime = entered_datetime
+        def updateDependsOnEnteredDateColumns():
+            """Сообщает о необходимости обновить столбцы, значение которых зависит от даты расчёта."""
+            bonds_count: int = len(self._bond_class_list)
+            if bonds_count > 0:
+                for column, bond_column in self.columns.items():
+                    if bond_column.dependsOnEnteredDate():
+                        top_index: QModelIndex = self.index(0, column)
+                        bottom_index: QModelIndex = self.index((bonds_count - 1), column)
+                        self.dataChanged.emit(top_index, bottom_index)
 
-        """---------Сообщаем о необходимости обновить столбцы---------"""
-        bonds_count: int = len(self._bond_class_list)
-        if bonds_count > 0:
-            for column, bond_column in self.columns.items():
-                if bond_column.dependsOnEnteredDate():
-                    top_index: QModelIndex = self.index(0, column)
-                    bottom_index: QModelIndex = self.index((bonds_count - 1), column)
-                    self.dataChanged.emit(top_index, bottom_index)
-        """-----------------------------------------------------------"""
+        self._calculation_datetime = entered_datetime
+        updateDependsOnEnteredDateColumns()  # Сообщаем о необходимости обновить столбцы.
 
     def getBond(self, row: int) -> MyBondClass | None:
         """Возвращает облигацию, соответствующую переданному номеру."""

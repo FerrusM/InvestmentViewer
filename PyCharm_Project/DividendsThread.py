@@ -114,7 +114,7 @@ class DividendsThread(QThread):
                     # else:  # Если исключения не было.
                     #     self.request_count += 1  # Подсчитываем запрос.
 
-                    self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
+                    self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора.
                     """------------------------------------------------------------------------"""
                 if exception_flag: break  # Если поток был прерван.
                 share_class.setDividends(dividends)  # Записываем список дивидендов.

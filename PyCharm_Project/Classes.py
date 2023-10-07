@@ -32,6 +32,9 @@ class Column:
             case Qt.ItemDataRole.DisplayRole:
                 if self.getDisplay is None: return None
                 return self.getDisplay(*data)
+            case Qt.ItemDataRole.ToolTipRole:
+                if self.getToolTip is None: return None
+                return self.getToolTip(*data)
             case Qt.ItemDataRole.BackgroundRole:
                 if self.getBackground is None: return None
                 return self.getBackground(*data)
@@ -51,22 +54,6 @@ class TokenClass:
 
         self.stream_limits: list[MyStreamLimit] = stream_limits  # Stream-лимиты.
         self.response_datetime: datetime = response_datetime
-
-
-class Filter:
-    """Класс фильтра."""
-    def __init__(self, comparison_function, filter_value, extraction_function=None):
-        self._comparison_function = comparison_function  # Функция сравнения filter_value и извлекаемого значения.
-        self._value: str = filter_value  # Значение фильтра на форме.
-        self._extraction_function = extraction_function  # Функция извлечения необходимых данных.
-
-    def setValue(self, value: str):
-        """Устанавливает значение фильтра."""
-        self._value = value  # Устанавливает значение фильтра на форме.
-
-    def __call__(self, data) -> bool:
-        extracted_data = data if self._extraction_function is None else self._extraction_function(data)
-        return self._comparison_function(extracted_data, self._value)
 
 
 def reportAccountAccessLevel(access_level: AccessLevel) -> str:

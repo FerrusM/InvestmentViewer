@@ -1,7 +1,6 @@
 from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
-
 from PyQt6.QtCore import QObject, pyqtSignal
 from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation
 from tinkoff.invest.utils import decimal_to_quotation
@@ -22,7 +21,7 @@ def ifBondIsMulticurrency(bond: Bond) -> bool:
 class MyLastPrice:
     """Класс, объединяющий функции для работы с классом LastPrice."""
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def isNone(last_price: LastPrice):
+    def isEmpty(last_price: LastPrice):
         """Проверка цены.
         В некоторых случаях метод get_last_prices() возвращает цену облигации равную нулю.
         На самом деле скорее всего о цене просто нет данных. Эта функция определяет критерий наличия данных о цене."""
@@ -123,7 +122,7 @@ class MyBondClass(QObject):
         """Отображает структуру MoneyValue, соответствующую последней цене облигации."""
         last_price: MyMoneyValue | None = self.getLastPrice()
         if last_price is None: return 'Нет данных'
-        if MyLastPrice.isNone(self.last_price): return 'Нет данных'
+        if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
         return MyMoneyValue.report(last_price, ndigits, delete_decimal_zeros)
 
     def getCoupon(self, coupon_number: int) -> Coupon | None:
@@ -202,41 +201,41 @@ class MyBondClass(QObject):
     """-----------------------------------------------------------------------"""
 
     """========================Доходности========================"""
-    def getAbsoluteProfit(self, entered_datetime: datetime) -> MyMoneyValue | None:
+    def getAbsoluteProfit(self, calculation_datetime: datetime) -> MyMoneyValue | None:
         """Рассчитывает абсолютную доходность облигации к выбранной дате."""
         if ifBondIsMulticurrency(self.bond): return None  # Ещё нет расчёта мультивалютных облигаций.
         # Доходность к выбранной дате (откуда брать валюту?).
         absolute_profit: MyMoneyValue = MyMoneyValue(self.bond.currency, Quotation(units=0, nano=0))
 
-        """---------Считаем купонную доходность---------"""
-        coupon_profit: MyMoneyValue | None = self.getCouponAbsoluteProfit(entered_datetime)  # Купонный доход к выбранной дате.
+        '''---------Считаем купонную доходность---------'''
+        coupon_profit: MyMoneyValue | None = self.getCouponAbsoluteProfit(calculation_datetime)  # Купонный доход к выбранной дате.
         if coupon_profit is None: return None
         absolute_profit += coupon_profit
-        """---------------------------------------------"""
+        '''---------------------------------------------'''
 
-        """---------------Учитываем НКД в цене---------------"""
+        '''---------------Учитываем НКД в цене---------------'''
         # НКД, указанная в облигации, учитывает дату фиксации реестра.
         absolute_profit -= self.bond.aci_value  # Вычитаем НКД.
-        """--------------------------------------------------"""
+        '''--------------------------------------------------'''
 
-        """--Учитываем возможное погашение облигации к выбранной дате--"""
-        if not MyLastPrice.isNone(self.last_price):  # Проверка цены.
+        '''--Учитываем возможное погашение облигации к выбранной дате--'''
+        if self.last_price is None or MyLastPrice.isEmpty(self.last_price):  # Проверка цены.
+            # Если цена облигации неизвестна, то рассчитывается так, будто цена облигации равняется номиналу.
+            absolute_profit -= (MoneyValueToMyMoneyValue(self.bond.nominal) * TINKOFF_COMMISSION)
+        else:
             # Если облигация будет погашена до выбранной даты включительно.
-            if entered_datetime >= self.bond.maturity_date:
+            if calculation_datetime >= self.bond.maturity_date:
                 # Добавляем в доходность разницу между номиналом и ценой облигации.
                 absolute_profit += self.bond.nominal
                 absolute_profit -= (self.getLastPrice() * (1.0 + TINKOFF_COMMISSION))
-        else:
-            # Если цена облигации неизвестна, то рассчитывается так, будто цена облигации равняется номиналу.
-            absolute_profit -= (MoneyValueToMyMoneyValue(self.bond.nominal) * TINKOFF_COMMISSION)
-        """------------------------------------------------------------"""
+        '''------------------------------------------------------------'''
         return absolute_profit
 
     def getRelativeProfit(self, calculated_date: datetime) -> Decimal | None:
         """Рассчитывает относительную доходность облигации к выбранной дате."""
         absolute_profit: MyMoneyValue | None = self.getAbsoluteProfit(calculated_date)  # Рассчитывает абсолютную доходность к выбранной дате.
         if absolute_profit is None: return None
-        if MyLastPrice.isNone(self.last_price): return None  # Проверка цены.
+        if MyLastPrice.isEmpty(self.last_price): return None  # Проверка цены.
         if MyQuotation.IsEmpty(MyMoneyValue.getQuotation(self.bond.nominal)) or MyQuotation.IsEmpty(self.last_price.price): return None  # Избегаем деления на ноль.
         return absolute_profit / self.getLastPrice()
 
