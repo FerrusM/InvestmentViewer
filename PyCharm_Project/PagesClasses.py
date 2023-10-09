@@ -1,9 +1,11 @@
 import enum
 from datetime import datetime, date, timezone
 from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import Qt
-from tinkoff.invest import InstrumentStatus, Share, Bond
+from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
+from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass
+from MyBondClass import MyBondClass
+from MyRequests import MyResponse, getLastPrices
 from TokenModel import TokenListModel
 
 
@@ -65,6 +67,9 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
 
 class GroupBox_Request(QtWidgets.QGroupBox):
     """GroupBox с параметрами запроса."""
+    currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass)  # Сигнал испускается при изменении текущего токена.
+    currentTokenReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при выборе пустого значения.
+
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         self.setTitle('')
@@ -142,6 +147,13 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
         self.comboBox_token.setCurrentIndex(0)
 
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        def onTokenChangedSlot():
+            current_token: TokenClass | None = self.getCurrentToken()
+            self.currentTokenReset.emit() if current_token is None else self.currentTokenChanged.emit(current_token)
+
+        self.comboBox_token.currentIndexChanged.connect(lambda index: onTokenChangedSlot())
+
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.comboBox_token.setModel(token_list_model)
@@ -155,12 +167,81 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.label_count.setText(str(count))
 
 
-class GroupBox_InstrumentsRequest(GroupBox_Request):
+class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
     """GroupBox с параметрами запроса инструментов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(object_name, parent)  # GroupBox_Request __init__().
+    currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass, InstrumentStatus)  # Сигнал испускается при изменении текущего токена.
+    currentTokenReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при выборе пустого значения.
+    currentStatusChanged: pyqtSignal = pyqtSignal(InstrumentStatus)  # Сигнал испускается при изменении текущего статуса инструмента.
 
-        '''------------------------Статус------------------------'''
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+        self.setTitle('')
+        self.setObjectName(object_name)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.verticalLayout_main.setSpacing(2)
+        self.verticalLayout_main.setObjectName('verticalLayout_main')
+
+        '''------------------------Заголовок------------------------'''
+        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_title.setSpacing(0)
+        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+
+        spacerItem = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem)
+
+        spacerItem1 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem1)
+
+        self.label_title = QtWidgets.QLabel(self)
+        font = QtGui.QFont()
+        font.setBold(True)
+        self.label_title.setFont(font)
+        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.label_title.setObjectName('label_title')
+        self.horizontalLayout_title.addWidget(self.label_title)
+
+        self.label_count = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
+        self.label_count.setSizePolicy(sizePolicy)
+        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.label_count.setObjectName('label_count')
+        self.horizontalLayout_title.addWidget(self.label_count)
+
+        spacerItem2 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem2)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        '''---------------------------------------------------------'''
+
+        '''---------------------------Токен---------------------------'''
+        self.horizontalLayout_token = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_token.setSpacing(0)
+        self.horizontalLayout_token.setObjectName('horizontalLayout_token')
+
+        self.label_token = QtWidgets.QLabel(self)
+        self.label_token.setObjectName('label_token')
+        self.horizontalLayout_token.addWidget(self.label_token)
+
+        spacerItem3 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_token.addItem(spacerItem3)
+
+        self.comboBox_token = QtWidgets.QComboBox(self)
+        self.comboBox_token.setObjectName('comboBox_token')
+        self.comboBox_token.addItem('')
+        self.horizontalLayout_token.addWidget(self.comboBox_token)
+
+        spacerItem4 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_token.addItem(spacerItem4)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_token)
+        '''-----------------------------------------------------------'''
+
+        '''--------------------------Статус--------------------------'''
         self.horizontalLayout_status = QtWidgets.QHBoxLayout()
         self.horizontalLayout_status.setSpacing(0)
         self.horizontalLayout_status.setObjectName('horizontalLayout_status')
@@ -183,14 +264,38 @@ class GroupBox_InstrumentsRequest(GroupBox_Request):
         self.horizontalLayout_status.addItem(spacerItem14)
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_status)
-        '''------------------------------------------------------'''
+        '''----------------------------------------------------------'''
 
         _translate = QtCore.QCoreApplication.translate
+        self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
+        self.label_count.setText(_translate('MainWindow', '0'))
+        self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
+        self.label_token.setText(_translate('MainWindow', 'Токен:'))
+        self.comboBox_token.setItemText(0, _translate('MainWindow', 'Не выбран'))
+
         self.label_status.setToolTip(_translate('MainWindow', 'Статус запрашиваемых инструментов.'))
         self.label_status.setText(_translate('MainWindow', 'Статус:'))
         self.comboBox_status.setItemText(0, _translate('MainWindow', 'Все'))
         self.comboBox_status.setItemText(1, _translate('MainWindow', 'Доступные для торговли'))
         self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
+
+        self.comboBox_token.setCurrentIndex(0)
+
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        def onTokenChangedSlot():
+            current_token: TokenClass | None = self.getCurrentToken()
+            self.currentTokenReset.emit() if current_token is None else self.currentTokenChanged.emit(current_token, self.getCurrentStatus())
+
+        self.comboBox_token.currentIndexChanged.connect(lambda index: onTokenChangedSlot())
+        self.comboBox_status.currentIndexChanged.connect(lambda index: self.currentStatusChanged.emit(self.getCurrentStatus()))
+
+    def setTokensModel(self, token_list_model: TokenListModel):
+        """Устанавливает модель токенов для ComboBox'а."""
+        self.comboBox_token.setModel(token_list_model)
+
+    def getCurrentToken(self) -> TokenClass | None:
+        """Возвращает выбранный в ComboBox'е токен."""
+        return self.comboBox_token.currentData(role=Qt.ItemDataRole.UserRole)
 
     def getCurrentStatus(self) -> InstrumentStatus:
         """Возвращает выбранный в ComboBox'е статус."""
@@ -204,6 +309,73 @@ class GroupBox_InstrumentsRequest(GroupBox_Request):
 
         combobox_status: str = self.comboBox_status.currentText()  # Текущий статус в ComboBox'е.
         return getInstrumentStatus(combobox_status)
+
+    def setCount(self, count: int):
+        """Устанавливает полученное количество."""
+        self.label_count.setText(str(count))
+
+
+# class GroupBox_InstrumentsRequest(GroupBox_Request):
+#     """GroupBox с параметрами запроса инструментов."""
+#     currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass, InstrumentStatus)  # Сигнал испускается при изменении текущего токена.
+#     currentStatusChanged: pyqtSignal = pyqtSignal(InstrumentStatus)  # Сигнал испускается при изменении текущего статуса инструмента.
+#
+#     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+#         super().__init__(object_name, parent)  # GroupBox_Request __init__().
+#
+#         '''------------------------Статус------------------------'''
+#         self.horizontalLayout_status = QtWidgets.QHBoxLayout()
+#         self.horizontalLayout_status.setSpacing(0)
+#         self.horizontalLayout_status.setObjectName('horizontalLayout_status')
+#
+#         self.label_status = QtWidgets.QLabel(self)
+#         self.label_status.setObjectName('label_status')
+#         self.horizontalLayout_status.addWidget(self.label_status)
+#
+#         spacerItem13 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+#         self.horizontalLayout_status.addItem(spacerItem13)
+#
+#         self.comboBox_status = QtWidgets.QComboBox(self)
+#         self.comboBox_status.setObjectName('shares_comboBox_status')
+#         self.comboBox_status.addItem('')
+#         self.comboBox_status.addItem('')
+#         self.comboBox_status.addItem('')
+#         self.horizontalLayout_status.addWidget(self.comboBox_status)
+#
+#         spacerItem14 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+#         self.horizontalLayout_status.addItem(spacerItem14)
+#
+#         self.verticalLayout_main.addLayout(self.horizontalLayout_status)
+#         '''------------------------------------------------------'''
+#
+#         _translate = QtCore.QCoreApplication.translate
+#         self.label_status.setToolTip(_translate('MainWindow', 'Статус запрашиваемых инструментов.'))
+#         self.label_status.setText(_translate('MainWindow', 'Статус:'))
+#         self.comboBox_status.setItemText(0, _translate('MainWindow', 'Все'))
+#         self.comboBox_status.setItemText(1, _translate('MainWindow', 'Доступные для торговли'))
+#         self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
+#
+#     def getCurrentStatus(self) -> InstrumentStatus:
+#         """Возвращает выбранный в ComboBox'е статус."""
+#         def getInstrumentStatus(status: str) -> InstrumentStatus:
+#             """Конвертирует строку выбранного статуса в InstrumentStatus."""
+#             match status:
+#                 case 'Не определён': return InstrumentStatus.INSTRUMENT_STATUS_UNSPECIFIED
+#                 case 'Доступные для торговли': return InstrumentStatus.INSTRUMENT_STATUS_BASE
+#                 case 'Все': return InstrumentStatus.INSTRUMENT_STATUS_ALL
+#                 case _: raise ValueError('Некорректное значение статуса запрашиваемых инструментов (акций): {0}!'.format(status))
+#
+#         combobox_status: str = self.comboBox_status.currentText()  # Текущий статус в ComboBox'е.
+#         return getInstrumentStatus(combobox_status)
+
+
+def appFilter_Flag(flag: bool, filter: str) -> bool:
+    """Проверяет, удовлетворяет ли акция фильтру с возможными значениями "Все", "True" и "False"."""
+    match filter:
+        case 'True': return flag
+        case 'False': return not flag
+        case 'Все': return True
+        case _: raise ValueError('Некорректное значение фильтра ({0})!'.format(filter))
 
 
 class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
@@ -521,14 +693,6 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         self.comboBox_currency.setCurrentIndex(1)
 
         '''---------------------------------Фильтры инструментов---------------------------------'''
-        def appFilter_Flag(flag: bool, filter: str) -> bool:
-            """Проверяет, удовлетворяет ли акция фильтру с возможными значениями "Все", "True" и "False"."""
-            match filter:
-                case 'True': return flag
-                case 'False': return not flag
-                case 'Все': return True
-                case _: raise ValueError('Некорректное значение фильтра ({0})!'.format(filter))
-
         def appFilter_Currency(currency: str, filter: str) -> bool:
             """Проверяет, удовлетворяет ли акция фильтру на валюту."""
             match filter:
@@ -568,3 +732,79 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         for filter in self.filters.values():
             if not filter(instrument): return False
         return True
+
+
+def getMyClassList(token: TokenClass, class_list: list[Share | Bond]) -> list[MyBondClass]:
+    """Получает список последних цен, сопоставляет его со списком облигаций и возвращает список MyBondClass."""
+    '''
+    Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
+    всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
+    то следует пропустить запрос цен последних сделок. 
+    '''
+    if class_list:  # Если список отфильтрованных облигаций не пуст.
+        last_prices_response: MyResponse = getLastPrices(token.token, [cls.figi for cls in class_list])
+        assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+        if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
+            last_prices: list[LastPrice] = last_prices_response.response_data
+            bond_class_list: list[MyBondClass] = []
+            '''------------------Проверка полученного списка последних цен------------------'''
+            last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+            for bond in class_list:
+                figi_count: int = last_prices_figi_list.count(bond.figi)
+                if figi_count == 1:
+                    last_price_number: int = last_prices_figi_list.index(bond.figi)
+                    last_price: LastPrice = last_prices[last_price_number]
+                    bond_class_list.append(MyBondClass(bond, last_price))
+                elif figi_count > 1:
+                    assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(bond.figi)
+                    pass
+                else:
+                    '''
+                    Если список последних цен не содержит ни одного подходящего элемента,
+                    то заполняем поле last_price значением None.
+                    '''
+                    bond_class_list.append(MyBondClass(bond, None))
+            '''-----------------------------------------------------------------------------'''
+            return bond_class_list
+        else:
+            return [MyBondClass(bond, None) for bond in class_list]
+    else:
+        return []
+
+
+def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -> list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]]:
+    """Возвращает список пар акций и последних цен или облигаций и последних цен."""
+    '''
+    Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
+    всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
+    то следует пропустить запрос цен последних сделок.
+    '''
+    if class_list:  # Если список отфильтрованных облигаций не пуст.
+        last_prices_response: MyResponse = getLastPrices(token.token, [cls.figi for cls in class_list])
+        assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+        if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
+            last_prices: list[LastPrice] = last_prices_response.response_data
+            zip_list: list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]] = []
+            '''------------------Проверка полученного списка последних цен------------------'''
+            last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+            for cls in class_list:
+                figi_count: int = last_prices_figi_list.count(cls.figi)
+                if figi_count == 1:
+                    last_price_number: int = last_prices_figi_list.index(cls.figi)
+                    last_price: LastPrice = last_prices[last_price_number]
+                    zip_list.append((cls, last_price))
+                elif figi_count > 1:
+                    assert False, 'Список последних цен содержит несколько элементов с одним и тем же figi ().'.format(cls.figi)
+                    pass
+                else:
+                    '''
+                    Если список последних цен не содержит ни одного подходящего элемента,
+                    то заполняем поле last_price значением None.
+                    '''
+                    zip_list.append((cls, None))
+            '''-----------------------------------------------------------------------------'''
+            return zip_list
+        else:
+            return [(cls, None) for cls in class_list]
+    else:
+        return []

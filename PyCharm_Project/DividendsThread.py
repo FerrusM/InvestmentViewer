@@ -54,7 +54,6 @@ class DividendsThread(QThread):
         def printInConsole(text: str):
             self.printText_signal.emit('{0}: {1}'.format(self.thread_name, text))
 
-        printInConsole('Поток запущен. ({0})'.format(getCurrentDateTime()))
         shares_count: int = len(self.shares)  # Количество акций.
         self.setProgressBarRange_signal.emit(0, shares_count)  # Задаёт минимум и максимум progressBar'а заполнения дивидендов.
 
@@ -118,5 +117,3 @@ class DividendsThread(QThread):
                     """------------------------------------------------------------------------"""
                 if exception_flag: break  # Если поток был прерван.
                 share_class.setDividends(dividends)  # Записываем список дивидендов.
-
-        printInConsole('Поток завершён. ({0})'.format(getCurrentDateTime()))

@@ -109,4 +109,3 @@ class CouponsThread(QThread):
                     """------------------------------------------------------------------------"""
                 if exception_flag: break  # Если поток был прерван.
                 bond_class.setCoupons(coupons)  # Записываем список купонов в облигацию.
-        # printInConsole('Поток завершён. ({0})'.format(getCurrentDateTime()))

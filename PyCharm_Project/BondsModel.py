@@ -49,6 +49,9 @@ class update_source_class:
         self._source_bottom_right_index: QModelIndex = source_bottom_right_index
 
     def __call__(self):
+        if not hasattr(self, '_source_model'):
+            pass
+            return
         return self._source_model.dataChanged.emit(self._source_top_left_index, self._source_bottom_right_index)
 
 
@@ -393,8 +396,8 @@ class BondsModel(QAbstractTableModel):
     def setBonds(self, bond_class_list: list[MyBondClass]):
         """Устанавливает данные модели."""
         self.beginResetModel()  # Начинает операцию сброса модели.
-        self.current_time: datetime = getCurrentDateTime()  # Получаем текущую datetime, чтобы закрасить уже выплаченные облигации.
-        self._bond_class_list: list[MyBondClass] = bond_class_list
+        self.current_time = getCurrentDateTime()  # Получаем текущую datetime, чтобы закрасить уже выплаченные облигации.
+        self._bond_class_list = bond_class_list
         for row, bond_class in enumerate(self._bond_class_list):
             for column, bond_column in self.columns.items():
                 if bond_column.dependsOnCoupons():
