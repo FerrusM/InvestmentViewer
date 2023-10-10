@@ -5,7 +5,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass
 from MyBondClass import MyBondClass
-from MyRequests import MyResponse, getLastPrices
+from MyRequests import MyResponse, getLastPrices, RequestTryClass
 from TokenModel import TokenListModel
 
 
@@ -734,44 +734,6 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         return True
 
 
-def getMyClassList(token: TokenClass, class_list: list[Share | Bond]) -> list[MyBondClass]:
-    """Получает список последних цен, сопоставляет его со списком облигаций и возвращает список MyBondClass."""
-    '''
-    Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
-    всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
-    то следует пропустить запрос цен последних сделок. 
-    '''
-    if class_list:  # Если список отфильтрованных облигаций не пуст.
-        last_prices_response: MyResponse = getLastPrices(token.token, [cls.figi for cls in class_list])
-        assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
-        if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
-            last_prices: list[LastPrice] = last_prices_response.response_data
-            bond_class_list: list[MyBondClass] = []
-            '''------------------Проверка полученного списка последних цен------------------'''
-            last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
-            for bond in class_list:
-                figi_count: int = last_prices_figi_list.count(bond.figi)
-                if figi_count == 1:
-                    last_price_number: int = last_prices_figi_list.index(bond.figi)
-                    last_price: LastPrice = last_prices[last_price_number]
-                    bond_class_list.append(MyBondClass(bond, last_price))
-                elif figi_count > 1:
-                    assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(bond.figi)
-                    pass
-                else:
-                    '''
-                    Если список последних цен не содержит ни одного подходящего элемента,
-                    то заполняем поле last_price значением None.
-                    '''
-                    bond_class_list.append(MyBondClass(bond, None))
-            '''-----------------------------------------------------------------------------'''
-            return bond_class_list
-        else:
-            return [MyBondClass(bond, None) for bond in class_list]
-    else:
-        return []
-
-
 def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -> list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]]:
     """Возвращает список пар акций и последних цен или облигаций и последних цен."""
     '''
@@ -780,8 +742,20 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
     то следует пропустить запрос цен последних сделок.
     '''
     if class_list:  # Если список отфильтрованных облигаций не пуст.
-        last_prices_response: MyResponse = getLastPrices(token.token, [cls.figi for cls in class_list])
-        assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+
+
+        current_try_count: RequestTryClass = RequestTryClass()
+        last_prices_response: MyResponse = MyResponse()
+        while current_try_count and not last_prices_response.ifDataSuccessfullyReceived():
+            last_prices_response = getLastPrices(token.token, [cls.figi for cls in class_list])
+            assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+            current_try_count += 1
+
+
+        # last_prices_response: MyResponse = getLastPrices(token.token, [cls.figi for cls in class_list])
+        # assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+
+
         if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
             last_prices: list[LastPrice] = last_prices_response.response_data
             zip_list: list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]] = []

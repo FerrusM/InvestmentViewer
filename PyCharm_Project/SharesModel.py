@@ -1,10 +1,11 @@
 import enum
 import typing
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
-from tinkoff.invest import ShareType
+from tinkoff.invest import ShareType, MoneyValue
 from Classes import Column, reportTradingStatus
 from MyDateTime import reportSignificantInfoFromDateTime
 from MyMoneyValue import MyMoneyValue
+from MyQuotation import MyQuotation
 from MyShareClass import MyShareClass
 
 
@@ -31,17 +32,18 @@ class SharesModel(QAbstractTableModel):
         SHARE_FIGI = 0
         SHARE_TICKER = 1
         SHARE_ISIN = 2
-        SHARE_LOT = 3
-        SHARE_CURRENCY = 4
-        SHARE_NAME = 5
-        SHARE_EXCHANGE = 6
-        SHARE_IPO_DATE = 7
-        SHARE_COUNTRY_OF_RISK_NAME = 8
-        SHARE_SECTOR = 9
-        SHARE_NOMINAL = 10
-        SHARE_DIV_YIELD_FLAG = 11
-        SHARE_TYPE = 12
-        SHARE_TRADING_STATUS = 13
+        SHARE_CURRENCY = 3
+        SHARE_NAME = 4
+        LOT_LAST_PRICE = 5
+        SHARE_LOT = 6
+        SHARE_EXCHANGE = 7
+        SHARE_IPO_DATE = 8
+        SHARE_COUNTRY_OF_RISK_NAME = 9
+        SHARE_SECTOR = 10
+        SHARE_NOMINAL = 11
+        SHARE_DIV_YIELD_FLAG = 12
+        SHARE_TYPE = 13
+        SHARE_TRADING_STATUS = 14
 
     def __init__(self):
         super().__init__()  # __init__() QAbstractTableModel.
@@ -59,10 +61,6 @@ class SharesModel(QAbstractTableModel):
                 Column(header='isin',
                        header_tooltip='Isin-идентификатор инструмента.',
                        data_function=lambda share_class: share_class.share.isin),
-            self.Columns.SHARE_LOT:
-                Column(header='Лотность',
-                       header_tooltip='Лотность инструмента. Возможно совершение операций только на количества ценной бумаги, кратные этому параметру.',
-                       data_function=lambda share_class: share_class.share.lot),
             self.Columns.SHARE_CURRENCY:
                 Column(header='Валюта',
                        header_tooltip='Валюта расчётов.',
@@ -71,6 +69,16 @@ class SharesModel(QAbstractTableModel):
                 Column(header='Название',
                        header_tooltip='Название инструмента.',
                        data_function=lambda share_class: share_class.share.name),
+            self.Columns.LOT_LAST_PRICE:
+                Column(header='Цена лота',
+                       header_tooltip='Цена последней сделки по лоту акции.',
+                       data_function=lambda share_class: share_class.getLotLastPrice(),
+                       display_function=lambda share_class: share_class.reportLotLastPrice(),
+                       tooltip_function=lambda share_class: 'Нет данных.' if share_class.last_price is None else 'last_price:\nfigi = {0},\nprice = {1},\ntime = {2},\ninstrument_uid = {3}.\n\nlot = {4}'.format(share_class.last_price.figi, MyQuotation.report(share_class.last_price.price), share_class.last_price.time, share_class.last_price.instrument_uid, share_class.share.lot)),
+            self.Columns.SHARE_LOT:
+                Column(header='Лотность',
+                       header_tooltip='Лотность инструмента. Возможно совершение операций только на количества ценной бумаги, кратные этому параметру.',
+                       data_function=lambda share_class: share_class.share.lot),
             self.Columns.SHARE_EXCHANGE:
                 Column(header='Торговая площадка',
                        header_tooltip='Торговая площадка.',
@@ -158,3 +166,16 @@ class SharesProxyModel(QSortFilterProxyModel):
         """Возвращает акцию по индексу элемента."""
         source_index: QModelIndex = self.mapToSource(proxy_index)
         return self.sourceModel().getShare(source_index.row())
+
+    def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
+        """Определяет критерий сравнения данных для сортировки."""
+        left_data = left.data(role=Qt.ItemDataRole.UserRole)
+        right_data = right.data(role=Qt.ItemDataRole.UserRole)
+        if isinstance(left_data, MoneyValue) and isinstance(right_data, MoneyValue):
+            return MyMoneyValue.__lt__(left_data, right_data)
+        elif isinstance(left_data, MoneyValue) and right_data is None:
+            return False
+        elif left_data is None and isinstance(right_data, MoneyValue):
+            return True
+        else:
+            return super().lessThan(left, right)  # Для всех остальных типов.

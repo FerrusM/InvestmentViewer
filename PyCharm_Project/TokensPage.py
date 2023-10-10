@@ -211,6 +211,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
             self.pushButton_save_token.setEnabled(True)
 
         accounts_response: MyResponse = getAccounts(text, False)
+        assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
         accounts_list: list[Account] = accounts_response.response_data  # Получаем список счетов.
         self.current_token_class = TokenClass(token=text,
                                               accounts=accounts_list,

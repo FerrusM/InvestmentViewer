@@ -4,7 +4,7 @@ import enum
 import typing
 from decimal import Decimal
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel
-from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon, Bond
+from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon, Bond, MoneyValue
 from Classes import reportTradingStatus, Column
 from CouponsThread import CouponsThread
 from MyDateTime import reportSignificantInfoFromDateTime, getCurrentDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty
@@ -27,8 +27,10 @@ class BondColumn(Column):
     """Класс столбца таблицы облигаций."""
     def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
                  background_function=None, foreground_function=None,
+                 lessThan=None, sort_role: Qt.ItemDataRole = Qt.ItemDataRole.UserRole,
                  date_dependence: bool = False, entered_datetime: datetime | None = None, coupon_dependence: bool = False):
-        super().__init__(header, header_tooltip, data_function, display_function, tooltip_function, background_function, foreground_function)
+        super().__init__(header, header_tooltip, data_function, display_function, tooltip_function,
+                         background_function, foreground_function, lessThan, sort_role)
         self._date_dependence: bool = date_dependence  # Флаг зависимости от даты.
         self._entered_datetime: datetime | None = entered_datetime  # Дата расчёта.
         self._coupon_dependence: bool = coupon_dependence  # Флаг зависимости от купонов.
@@ -55,6 +57,11 @@ class update_source_class:
         return self._source_model.dataChanged.emit(self._source_top_left_index, self._source_bottom_right_index)
 
 
+def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getCurrentDateTime()) -> bool:
+    """Проверяет, погашена ли облигация."""
+    return bond.maturity_date < compared_datetime
+
+
 def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> str | None:
     """Функция для отображения рассчитанного НКД."""
     if bond_class.coupons is None:  # Если купоны ещё не были получены.
@@ -69,10 +76,6 @@ def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> st
             elif coupon.coupon_end_date > coupons[maxim].coupon_end_date:
                 maxim = i
         return maxim
-
-    def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getCurrentDateTime()) -> bool:
-        """Проверяет, погашена ли облигация."""
-        return bond.maturity_date < compared_datetime
 
     last_coupon_id: int = getLastCoupon(bond_class.coupons)  # Номер последнего купона.
     if last_coupon_id < 0: return 'Нет купонов'
@@ -457,3 +460,26 @@ class BondsProxyModel(QSortFilterProxyModel):
         """Возвращает облигацию по индексу элемента."""
         source_index: QModelIndex = self.mapToSource(proxy_index)
         return self.sourceModel().getBond(source_index.row())
+
+    def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
+        """Определяет критерий сравнения данных для сортировки."""
+        left_data = left.data(role=Qt.ItemDataRole.UserRole)
+        right_data = right.data(role=Qt.ItemDataRole.UserRole)
+        if isinstance(left_data, MoneyValue) and isinstance(right_data, MoneyValue):
+            return MyMoneyValue.__lt__(left_data, right_data)
+        elif isinstance(left_data, MoneyValue) and right_data is None:
+            return False
+        elif left_data is None and isinstance(right_data, MoneyValue):
+            return True
+        else:
+            return super().lessThan(left, right)  # Для всех остальных типов.
+
+
+        # left_column_number: int = left.column()  # Номер строки "левого" элемента.
+        # if left_column_number == right.column():
+        #     column: BondColumn = self.sourceModel().columns[left_column_number]
+        #     if column.lessThan is None: return super().lessThan(left, right)  # Сортировка по умолчанию.
+        #     sort_role: Qt.ItemDataRole = column.getSortRole
+        #     left_data = left.data(role=sort_role)
+        #     right_data = right.data(role=sort_role)
+        #     column.lessThan(left_data, right_data)

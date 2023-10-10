@@ -5,7 +5,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import InstrumentStatus, Bond
 from tinkoff.invest.schemas import RiskLevel
-from BondsModel import BondsModel, BondsProxyModel
+from BondsModel import BondsModel, BondsProxyModel, ifBondIsMaturity
 from Classes import TokenClass
 from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
@@ -121,6 +121,8 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.comboBox_coupons_type.setItemText(8, _translate('MainWindow', 'Неопределённый'))
         """-------------------------------------------------------------------------------------"""
 
+        self.reset()  # Сбрасывает progressBar.
+
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
         if maximum == 0:
@@ -134,6 +136,11 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
     def setValue(self, value: int):
         """Изменяет прогресс в progressBar'е"""
         self.progressBar_coupons.setValue(value)
+
+    def reset(self):
+        """Сбрасывает progressBar."""
+        self.progressBar_coupons.setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
+        self.progressBar_coupons.reset()
 
 
 class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
@@ -318,10 +325,6 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         self.comboBox_subordinated_flag.setCurrentIndex(0)
 
         '''------------------------------------Фильтры облигаций------------------------------------'''
-        def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getCurrentDateTime()) -> bool:
-            """Проверяет, погашена ли облигация."""
-            return bond.maturity_date < compared_datetime
-
         def appFilter_Maturity(bond: Bond, cur_filter: str) -> bool:
             """Фильтр по погашенности."""
             match cur_filter:
@@ -791,6 +794,7 @@ class BondsPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(0)  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
                 '''---------------------------------------------------------------------------------'''
+                self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
             else:
                 bonds: list[Bond] = self.bonds
                 filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
@@ -798,50 +802,10 @@ class BondsPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
                 '''---------------------------------------------------------------------------------'''
-
                 bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
-                # bond_class_list: list[MyBondClass] = self._getBondClassList(token, filtered_bonds)
                 self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
                 if bond_class_list:  # Если список не пуст.
                     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-
-
-                # '''
-                # Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
-                # всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
-                # то следует пропустить запрос цен последних сделок.
-                # '''
-                # if filtered_bonds:  # Если список отфильтрованных облигаций не пуст.
-                #     last_prices_response: MyResponse = getLastPrices(token.token, [b.figi for b in filtered_bonds])
-                #     assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
-                #     if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
-                #         last_prices: list[LastPrice] = last_prices_response.response_data
-                #         bond_class_list: list[MyBondClass] = []
-                #         '''------------------Проверка полученного списка последних цен------------------'''
-                #         last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
-                #         for bond in filtered_bonds:
-                #             figi_count: int = last_prices_figi_list.count(bond.figi)
-                #             if figi_count == 1:
-                #                 last_price_number: int = last_prices_figi_list.index(bond.figi)
-                #                 last_price: LastPrice = last_prices[last_price_number]
-                #                 bond_class_list.append(MyBondClass(bond, last_price))
-                #             elif figi_count > 1:
-                #                 assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(bond.figi)
-                #                 pass
-                #             else:
-                #                 '''
-                #                 Если список последних цен не содержит ни одного подходящего элемента,
-                #                 то заполняем поле last_price значением None.
-                #                 '''
-                #                 bond_class_list.append(MyBondClass(bond, None))
-                #         '''-----------------------------------------------------------------------------'''
-                #     else:
-                #         bond_class_list: list[MyBondClass] = [MyBondClass(bond, None) for bond in filtered_bonds]
-                #     self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
-                #     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-
-                else:
-                    self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
 
         # Фильтры инструментов.
         self.groupBox_filters.groupBox_instruments_filters.comboBox_api_trade_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
@@ -897,6 +861,7 @@ class BondsPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(0)  # Количество полученных облигаций.
             self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
             '''---------------------------------------------------------------------------------'''
+            self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
         else:
             bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
             assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
@@ -904,17 +869,14 @@ class BondsPage(QtWidgets.QWidget):
                 bonds: list[Bond] = bonds_response.response_data  # Получаем список облигаций.
                 self.bonds = bonds
                 filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
-
                 '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
                 self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
                 '''---------------------------------------------------------------------------------'''
-
                 bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
                 self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
                 if bond_class_list:  # Если список не пуст.
                     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-
             else:
                 self.bonds = []
                 self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
@@ -922,6 +884,7 @@ class BondsPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(0)  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
                 '''---------------------------------------------------------------------------------'''
+                self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
 
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
@@ -934,6 +897,7 @@ class BondsPage(QtWidgets.QWidget):
         self.groupBox_request.setCount(0)  # Количество полученных облигаций.
         self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
         '''---------------------------------------------------------------------------------'''
+        self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
 
     @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
@@ -950,49 +914,10 @@ class BondsPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
             self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
             '''---------------------------------------------------------------------------------'''
-
             bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
             self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
             if bond_class_list:  # Если список не пуст.
                 self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-
-
-            # '''
-            # Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
-            # всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
-            # то следует пропустить запрос цен последних сделок.
-            # '''
-            # if filtered_bonds:  # Если список отфильтрованных облигаций не пуст.
-            #     last_prices_response: MyResponse = getLastPrices(token.token, [b.figi for b in filtered_bonds])
-            #     assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
-            #     if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
-            #         last_prices: list[LastPrice] = last_prices_response.response_data
-            #         bond_class_list: list[MyBondClass] = []
-            #         '''------------------Проверка полученного списка последних цен------------------'''
-            #         last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
-            #         for bond in filtered_bonds:
-            #             figi_count: int = last_prices_figi_list.count(bond.figi)
-            #             if figi_count == 1:
-            #                 last_price_number: int = last_prices_figi_list.index(bond.figi)
-            #                 last_price: LastPrice = last_prices[last_price_number]
-            #                 bond_class_list.append(MyBondClass(bond, last_price))
-            #             elif figi_count > 1:
-            #                 assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(bond.figi)
-            #                 pass
-            #             else:
-            #                 '''
-            #                 Если список последних цен не содержит ни одного подходящего элемента,
-            #                 то заполняем поле last_price значением None.
-            #                 '''
-            #                 bond_class_list.append(MyBondClass(bond, None))
-            #         '''-----------------------------------------------------------------------------'''
-            #     else:
-            #         bond_class_list: list[MyBondClass] = [MyBondClass(bond, None) for bond in filtered_bonds]
-            #     self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
-            #     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-            # else:
-            #     self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-
         else:
             self.bonds = []
             self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
@@ -1000,6 +925,7 @@ class BondsPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(0)  # Количество полученных облигаций.
             self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
             '''---------------------------------------------------------------------------------'''
+            self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
 
     def _startCouponsThread(self, bonds: list[MyBondClass]):
         """Запускает поток получения купонов."""

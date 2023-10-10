@@ -1,6 +1,24 @@
+from __future__ import annotations
 from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
     InstrumentStatus, Share, LastPrice, Dividend, Bond
+
+
+class RequestTryClass:
+    """Класс для контроля количества попыток получения ответа на запрос."""
+    def __init__(self, max_request_try_count: int = -1):
+        self.request_try_count: int = 0  # Количество произведённых попыток запроса.
+        self.max_request_try_count: int = max_request_try_count  # Максимальное количество попыток запроса.
+
+    def __iadd__(self, other: int) -> RequestTryClass:
+        """self += other"""
+        self.request_try_count += other
+        return self
+
+    def __bool__(self) -> bool:
+        """Возвращает True, если количество произведённых попыток запроса меньше максимального, иначе возвращает False.
+        Если максимальное количество попыток запроса меньше нуля, то всегда возвращает True."""
+        return True if self.max_request_try_count < 0 else self.request_try_count < self.max_request_try_count
 
 
 class MyResponse:
@@ -15,13 +33,13 @@ class MyResponse:
                  request_error_flag: bool | None = None, request_error: RequestError | None = None):
         self.method: str | None = method_name
 
-        self.request_occurred: bool = request_occurred
+        self.request_occurred: bool | None = request_occurred
         self.response_data = response_data
 
-        self.exception_flag: bool = exception_flag
+        self.exception_flag: bool | None = exception_flag
         self.exception: Exception | None = exception
 
-        self.request_error_flag: bool = request_error_flag
+        self.request_error_flag: bool | None = request_error_flag
         self.request_error: RequestError | None = request_error
 
     def ifDataSuccessfullyReceived(self) -> bool:
@@ -119,21 +137,6 @@ def getShares(token: str, instrument_status: InstrumentStatus) -> MyResponse:
     return MyResponse('shares()', request_occurred, shares_list, exception_flag, exception, request_error_flag, request_error)
 
 
-# def getShares(token: str, instrument_status: InstrumentStatus) -> list[Share]:
-#     """Получает и возвращает список акций."""
-#     shares_list: list[Share] = []
-#     with Client(token) as client:
-#         try:
-#             shares_list = client.instruments.shares(instrument_status=instrument_status).instruments
-#         except RequestError as error:
-#             self.showRequestError('shares()', error)  # Отображает исключение RequestError.
-#         except Exception as error:
-#             self.showException('shares()', error)  # Отображает исключение.
-#         else:  # Если исключения не было.
-#             self.statusbar.clearMessage()  # Очищает statusbar.
-#     return shares_list
-
-
 def getBonds(token: str, instrument_status: InstrumentStatus) -> MyResponse:
     """Получает и возвращает список облигаций."""
     bonds_list: list[Bond] = []
@@ -180,21 +183,6 @@ def getLastPrices(token: str, figi_list: list[str]) -> MyResponse:
             request_error_flag = False  # Флаг наличия RequestError.
         request_occurred = True  # Флаг произведённого запроса.
     return MyResponse('get_last_prices()', request_occurred, last_prices, exception_flag, exception, request_error_flag, request_error)
-
-
-# def getLastPrices(token: str, figi_list: list[str]) -> list[LastPrice]:
-#     """Получает и возвращает список цен последних сделок."""
-#     last_prices: list[LastPrice] = []
-#     with Client(token) as client:
-#         try:
-#             last_prices = client.market_data.get_last_prices(figi=figi_list).last_prices
-#         except RequestError as error:
-#             self.showRequestError('get_last_prices()', error)  # Отображает исключение RequestError.
-#         except Exception as error:
-#             self.showException('get_last_prices()', error)  # Отображает исключение.
-#         else:  # Если исключения не было.
-#             self.statusbar.clearMessage()  # Очищает statusbar.
-#     return last_prices
 
 
 def getDividends(token: str, figi: str = "", from_: datetime | None = None, to: datetime | None = None) -> MyResponse:

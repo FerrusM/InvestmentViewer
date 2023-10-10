@@ -15,7 +15,8 @@ class MyTreeView(QtWidgets.QTreeView):
 class Column:
     """Класс столбца."""
     def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
-                 background_function=None, foreground_function=None):
+                 background_function=None, foreground_function=None,
+                 lessThan=None, sort_role: Qt.ItemDataRole = Qt.ItemDataRole.UserRole):
         self.header: str | None = header  # Название столбца.
         self.header_tooltip: str | None = header_tooltip  # Подсказка в заголовке.
         self.getData = data_function  # Функция для получения данных.
@@ -23,6 +24,9 @@ class Column:
         self.getToolTip = tooltip_function  # Функция для получения подсказки к отображаемым данным.
         self.getBackground = background_function
         self.getForeground = foreground_function
+
+        # self.getSortRole: Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
+        # self.lessThan = lessThan
 
     def __call__(self, role: int = Qt.ItemDataRole.UserRole, *data):
         match role:

@@ -66,7 +66,7 @@ class MyMoneyValue(MoneyValue):
         """self * other"""
         # Проверяем тип.
         if not isinstance(other, int | float | Decimal):
-            raise ValueError("MoneyValue можно умножать только на int, float, Decimal и их наследников, а передано {0}!".format(type(other)))
+            raise ValueError('MoneyValue можно умножать только на int, float, Decimal и их наследников, а передано {0}!'.format(type(other)))
         return MyMoneyValue(self.currency, (self.getMyQuotation() * other))
 
     def __truediv__(self, other: MoneyValue) -> Decimal:

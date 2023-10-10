@@ -10,13 +10,16 @@ from TokenManager import TokenManager
 def getTokenClass(token: str, show_unauthenticated_error=False) -> TokenClass:
     """Создаёт класс TokenClass из токена."""
 
-    accounts: MyResponse = getAccounts(token, show_unauthenticated_error)  # Получаем список счетов.
+    accounts_response: MyResponse = getAccounts(token, show_unauthenticated_error)  # Получаем список счетов.
+    assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
 
-    unary_limits, stream_limits = getUserTariff(token, show_unauthenticated_error).response_data
+    limits_response: MyResponse = getUserTariff(token, show_unauthenticated_error)
+    assert limits_response.request_occurred, 'Запрос лимитов не был произведён.'
+    unary_limits, stream_limits = limits_response.response_data
     my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
     my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
 
-    return TokenClass(token, accounts.response_data, my_unary_limits, my_stream_limits)
+    return TokenClass(token, accounts_response.response_data, my_unary_limits, my_stream_limits)
 
 
 class TokenModel(QAbstractItemModel):

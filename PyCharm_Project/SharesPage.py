@@ -478,6 +478,8 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ДИВИДЕНДОВ'))
         self.progressBar_dividends.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
 
+        self.reset()  # Сбрасывает progressBar.
+
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
         if maximum == 0:
@@ -491,6 +493,11 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
     def setValue(self, value: int):
         """Изменяет прогресс в progressBar'е"""
         self.progressBar_dividends.setValue(value)
+
+    def reset(self):
+        """Сбрасывает progressBar."""
+        self.progressBar_dividends.setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
+        self.progressBar_dividends.reset()
 
 
 class SharesPage(QtWidgets.QWidget):
@@ -610,6 +617,7 @@ class SharesPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(0)  # Количество полученных акций.
                 self.groupBox_filters.setCount(0)  # Количество отобранных акций.
                 '''---------------------------------------------------------------------------------'''
+                self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
             else:
                 shares: list[Share] = self.shares
                 filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(shares)  # Отфильтрованный список акций.
@@ -671,6 +679,7 @@ class SharesPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(0)  # Количество полученных акций.
             self.groupBox_filters.setCount(0)  # Количество отобранных акций.
             '''---------------------------------------------------------------------------------'''
+            self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
         else:
             shares_response: MyResponse = getShares(token.token, instrument_status)  # Получение акций.
             assert shares_response.request_occurred, 'Запрос акций не был произведён.'
@@ -695,6 +704,7 @@ class SharesPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(0)  # Количество полученных акций.
                 self.groupBox_filters.setCount(0)  # Количество отобранных акций.
                 '''---------------------------------------------------------------------------------'''
+                self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
 
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
@@ -707,6 +717,7 @@ class SharesPage(QtWidgets.QWidget):
         self.groupBox_request.setCount(0)  # Количество полученных акций.
         self.groupBox_filters.setCount(0)  # Количество отобранных акций.
         '''---------------------------------------------------------------------------------'''
+        self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
 
     @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
@@ -723,49 +734,10 @@ class SharesPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(len(shares))  # Количество полученных акций.
             self.groupBox_filters.setCount(len(filtered_shares))  # Количество отобранных акций.
             '''---------------------------------------------------------------------------------'''
-
             share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices(token, filtered_shares)]
             self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
             if share_class_list:  # Если список не пуст.
                 self._startDividendsThread(token, share_class_list)  # Запускает поток получения дивидендов.
-
-
-            # '''
-            # Если передать в запрос get_last_prices() пустой массив, то метод вернёт цены последних сделок
-            # всех доступных для торговли инструментов. Поэтому, если список акций пуст,
-            # то следует пропустить запрос цен последних сделок.
-            # '''
-            # if filtered_shares:  # Если список отфильтрованных акций не пуст.
-            #     last_prices_response: MyResponse = getLastPrices(token.token, [b.figi for b in filtered_shares])
-            #     assert last_prices_response.request_occurred, 'Запрос последних цен акций не был произведён.'
-            #     if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
-            #         last_prices: list[LastPrice] = last_prices_response.response_data
-            #         share_class_list: list[MyShareClass] = []
-            #         '''------------------Проверка полученного списка последних цен------------------'''
-            #         last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
-            #         for share in filtered_shares:
-            #             figi_count: int = last_prices_figi_list.count(share.figi)
-            #             if figi_count == 1:
-            #                 last_price_number: int = last_prices_figi_list.index(share.figi)
-            #                 last_price: LastPrice = last_prices[last_price_number]
-            #                 share_class_list.append(MyShareClass(share, last_price))
-            #             elif figi_count > 1:
-            #                 assert False, 'Список последних цен облигаций содержит несколько элементов с одним и тем же figi ().'.format(share.figi)
-            #                 pass
-            #             else:
-            #                 '''
-            #                 Если список последних цен не содержит ни одного подходящего элемента,
-            #                 то заполняем поле last_price значением None.
-            #                 '''
-            #                 share_class_list.append(MyShareClass(share, None))
-            #         '''-----------------------------------------------------------------------------'''
-            #     else:
-            #         share_class_list: list[MyShareClass] = [MyShareClass(share, None) for share in filtered_shares]
-            #     self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
-            #     self._startDividendsThread(token, share_class_list)  # Запускает поток получения дивидендов.
-            # else:
-            #     self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
-
         else:
             self.shares = []
             self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
@@ -773,6 +745,7 @@ class SharesPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(0)  # Количество полученных акций.
             self.groupBox_filters.setCount(0)  # Количество отобранных акций.
             '''---------------------------------------------------------------------------------'''
+            self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
 
     def _startDividendsThread(self, token: TokenClass, share_class_list: list[MyShareClass]):
         """Запускает поток получения дивидендов."""

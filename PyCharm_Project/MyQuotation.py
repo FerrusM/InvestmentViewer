@@ -1,6 +1,5 @@
 from __future__ import annotations
-import decimal
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from tinkoff.invest import Quotation
 from tinkoff.invest.utils import quotation_to_decimal, decimal_to_quotation
 
@@ -22,7 +21,7 @@ class MyDecimal:
         else:
             decimal_str: str = '1'
             if ndigits > 0: decimal_str += '.' + ('0' * ndigits)
-            return str(decimal_value.quantize(Decimal(decimal_str), decimal.ROUND_HALF_UP))
+            return str(decimal_value.quantize(Decimal(decimal_str), ROUND_HALF_UP))
 
 
 # def reportQuotation(quotation: Quotation, ndigits: int = -1, delete_decimal_zeros: bool = False) -> str:

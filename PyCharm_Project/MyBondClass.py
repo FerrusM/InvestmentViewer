@@ -5,6 +5,7 @@ from PyQt6.QtCore import QObject, pyqtSignal
 from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation
 from tinkoff.invest.utils import decimal_to_quotation
 from MyDateTime import getCurrentDateTime, ifDateTimeIsEmpty
+from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue, ifCurrenciesAreEqual, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation
 
@@ -18,27 +19,27 @@ def ifBondIsMulticurrency(bond: Bond) -> bool:
     return not ifCurrenciesAreEqual(bond.currency, bond.nominal, bond.initial_nominal, bond.aci_value)
 
 
-class MyLastPrice:
-    """Класс, объединяющий функции для работы с классом LastPrice."""
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def isEmpty(last_price: LastPrice):
-        """Проверка цены.
-        В некоторых случаях метод get_last_prices() возвращает цену облигации равную нулю.
-        На самом деле скорее всего о цене просто нет данных. Эта функция определяет критерий наличия данных о цене."""
-        """------------Проверки------------"""
-        if ifDateTimeIsEmpty(last_price.time) and not MyQuotation.IsEmpty(last_price.price):
-            raise ValueError('Нет данных о времени последней цены, хотя цена ненулевая, figi={0}!'.format(last_price.figi))
-        if not ifDateTimeIsEmpty(last_price.time) and MyQuotation.IsEmpty(last_price.price):
-            raise ValueError('Бесплатная облигация? Время цены указано, а цена ноль, figi={0}!'.format(last_price.figi))
-        """--------------------------------"""
-        return ifDateTimeIsEmpty(last_price.time)
-
-    def __lt__(self: LastPrice, other: LastPrice):
-        """self < other"""
-        # Проверяем тип.
-        if not isinstance(other, LastPrice):
-            raise TypeError("Правый операнд должен быть типом LastPrice, а не {}!".format(type(other)))
-        return self.price < other.price
+# class MyLastPrice:
+#     """Класс, объединяющий функции для работы с классом LastPrice."""
+#     @staticmethod  # Преобразует метод класса в статический метод этого класса.
+#     def isEmpty(last_price: LastPrice):
+#         """Проверка цены.
+#         В некоторых случаях метод get_last_prices() возвращает цену облигации равную нулю.
+#         На самом деле скорее всего о цене просто нет данных. Эта функция определяет критерий наличия данных о цене."""
+#         """------------Проверки------------"""
+#         if ifDateTimeIsEmpty(last_price.time) and not MyQuotation.IsEmpty(last_price.price):
+#             raise ValueError('Нет данных о времени последней цены, хотя цена ненулевая, figi={0}!'.format(last_price.figi))
+#         if not ifDateTimeIsEmpty(last_price.time) and MyQuotation.IsEmpty(last_price.price):
+#             raise ValueError('Бесплатная облигация? Время цены указано, а цена ноль, figi={0}!'.format(last_price.figi))
+#         """--------------------------------"""
+#         return ifDateTimeIsEmpty(last_price.time)
+#
+#     def __lt__(self: LastPrice, other: LastPrice):
+#         """self < other"""
+#         # Проверяем тип.
+#         if not isinstance(other, LastPrice):
+#             raise TypeError("Правый операнд должен быть типом LastPrice, а не {}!".format(type(other)))
+#         return self.price < other.price
 
 
 class MyCoupon:
@@ -112,7 +113,7 @@ class MyBondClass(QObject):
         self.coupons: list[Coupon] | None = coupons  # Список купонов.
 
     def getLastPrice(self) -> MyMoneyValue | None:
-        """Рассчитывает цену облигации."""
+        """Рассчитывает последнюю цену одной облигации."""
         if self.last_price is None: return None
         # Пункты цены для котировок облигаций представляют собой проценты номинала облигации.
         value: Decimal = MyQuotation.getDecimal(self.last_price.price) * MyMoneyValue.getDecimal(self.bond.nominal) / 100
