@@ -4,7 +4,6 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass
-from MyBondClass import MyBondClass
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
 from TokenModel import TokenListModel
 
@@ -313,60 +312,6 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
     def setCount(self, count: int):
         """Устанавливает полученное количество."""
         self.label_count.setText(str(count))
-
-
-# class GroupBox_InstrumentsRequest(GroupBox_Request):
-#     """GroupBox с параметрами запроса инструментов."""
-#     currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass, InstrumentStatus)  # Сигнал испускается при изменении текущего токена.
-#     currentStatusChanged: pyqtSignal = pyqtSignal(InstrumentStatus)  # Сигнал испускается при изменении текущего статуса инструмента.
-#
-#     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-#         super().__init__(object_name, parent)  # GroupBox_Request __init__().
-#
-#         '''------------------------Статус------------------------'''
-#         self.horizontalLayout_status = QtWidgets.QHBoxLayout()
-#         self.horizontalLayout_status.setSpacing(0)
-#         self.horizontalLayout_status.setObjectName('horizontalLayout_status')
-#
-#         self.label_status = QtWidgets.QLabel(self)
-#         self.label_status.setObjectName('label_status')
-#         self.horizontalLayout_status.addWidget(self.label_status)
-#
-#         spacerItem13 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_status.addItem(spacerItem13)
-#
-#         self.comboBox_status = QtWidgets.QComboBox(self)
-#         self.comboBox_status.setObjectName('shares_comboBox_status')
-#         self.comboBox_status.addItem('')
-#         self.comboBox_status.addItem('')
-#         self.comboBox_status.addItem('')
-#         self.horizontalLayout_status.addWidget(self.comboBox_status)
-#
-#         spacerItem14 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-#         self.horizontalLayout_status.addItem(spacerItem14)
-#
-#         self.verticalLayout_main.addLayout(self.horizontalLayout_status)
-#         '''------------------------------------------------------'''
-#
-#         _translate = QtCore.QCoreApplication.translate
-#         self.label_status.setToolTip(_translate('MainWindow', 'Статус запрашиваемых инструментов.'))
-#         self.label_status.setText(_translate('MainWindow', 'Статус:'))
-#         self.comboBox_status.setItemText(0, _translate('MainWindow', 'Все'))
-#         self.comboBox_status.setItemText(1, _translate('MainWindow', 'Доступные для торговли'))
-#         self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
-#
-#     def getCurrentStatus(self) -> InstrumentStatus:
-#         """Возвращает выбранный в ComboBox'е статус."""
-#         def getInstrumentStatus(status: str) -> InstrumentStatus:
-#             """Конвертирует строку выбранного статуса в InstrumentStatus."""
-#             match status:
-#                 case 'Не определён': return InstrumentStatus.INSTRUMENT_STATUS_UNSPECIFIED
-#                 case 'Доступные для торговли': return InstrumentStatus.INSTRUMENT_STATUS_BASE
-#                 case 'Все': return InstrumentStatus.INSTRUMENT_STATUS_ALL
-#                 case _: raise ValueError('Некорректное значение статуса запрашиваемых инструментов (акций): {0}!'.format(status))
-#
-#         combobox_status: str = self.comboBox_status.currentText()  # Текущий статус в ComboBox'е.
-#         return getInstrumentStatus(combobox_status)
 
 
 def appFilter_Flag(flag: bool, filter: str) -> bool:
@@ -742,19 +687,12 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
     то следует пропустить запрос цен последних сделок.
     '''
     if class_list:  # Если список отфильтрованных облигаций не пуст.
-
-
         current_try_count: RequestTryClass = RequestTryClass()
         last_prices_response: MyResponse = MyResponse()
         while current_try_count and not last_prices_response.ifDataSuccessfullyReceived():
             last_prices_response = getLastPrices(token.token, [cls.figi for cls in class_list])
             assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
             current_try_count += 1
-
-
-        # last_prices_response: MyResponse = getLastPrices(token.token, [cls.figi for cls in class_list])
-        # assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
-
 
         if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
             last_prices: list[LastPrice] = last_prices_response.response_data
