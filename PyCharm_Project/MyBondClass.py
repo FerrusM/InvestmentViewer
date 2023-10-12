@@ -97,11 +97,25 @@ class MyBondClass(QObject):
         return MyMoneyValue(self.bond.nominal.currency, decimal_to_quotation(value))
 
     def reportLastPrice(self, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
-        """Отображает структуру MoneyValue, соответствующую последней цене облигации."""
+        """Отображает структуру MoneyValue, соответствующую последней цене одной облигации."""
         last_price: MyMoneyValue | None = self.getLastPrice()
         if last_price is None: return 'Нет данных'
         if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
         return MyMoneyValue.report(last_price, ndigits, delete_decimal_zeros)
+
+    def getLotLastPrice(self) -> MyMoneyValue | None:
+        """Рассчитывает последнюю цену лота."""
+        last_price: MyMoneyValue | None = self.getLastPrice()
+        if last_price is None: return None
+        return last_price * self.bond.lot
+
+    def reportLotLastPrice(self, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
+        """Отображает структуру MoneyValue, соответствующую последней цене лота."""
+        last_price: MyMoneyValue | None = self.getLastPrice()
+        if last_price is None: return 'Нет данных'
+        if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
+        return MyMoneyValue.report(last_price * self.bond.lot, ndigits, delete_decimal_zeros)
+
 
     def getCoupon(self, coupon_number: int) -> Coupon | None:
         """Возвращает купон, соответствующий переданному порядковому номеру.

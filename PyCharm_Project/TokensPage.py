@@ -1,11 +1,11 @@
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QModelIndex, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
-from tinkoff.invest import Account
+from tinkoff.invest import Account, UnaryLimit, StreamLimit
 from Classes import TokenClass, MyTreeView, reportAccountType, reportAccountStatus, reportAccountAccessLevel
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyDateTime import reportSignificantInfoFromDateTime
-from MyRequests import MyResponse, getUserTariff, getAccounts
+from MyRequests import MyResponse, getUserTariff, getAccounts, RequestTryClass
 from TokenModel import TokenModel
 from TreeTokenModel import TreeProxyModel, TreeItem
 
@@ -210,9 +210,20 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         else:
             self.pushButton_save_token.setEnabled(True)
 
-        accounts_response: MyResponse = getAccounts(text, False)
-        assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
-        accounts_list: list[Account] = accounts_response.response_data  # Получаем список счетов.
+        '''------------------------Получение счетов------------------------'''
+        accounts_try_count: RequestTryClass = RequestTryClass(1)
+        accounts_response: MyResponse = MyResponse()
+        while accounts_try_count and not accounts_response.ifDataSuccessfullyReceived():
+            accounts_response = getAccounts(text, False)  # Получаем список счетов.
+            assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
+            accounts_try_count += 1
+        accounts_list: list[Account] = accounts_response.response_data if accounts_response.ifDataSuccessfullyReceived() else []
+        '''----------------------------------------------------------------'''
+
+        # accounts_response: MyResponse = getAccounts(text, False)
+        # assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
+        # accounts_list: list[Account] = accounts_response.response_data  # Получаем список счетов.
+
         self.current_token_class = TokenClass(token=text,
                                               accounts=accounts_list,
                                               unary_limits=[],
@@ -278,7 +289,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
             label_account_access_level.setObjectName(tab_name + '_label_account_access_level')
             label_account_access_level.setText(reportAccountAccessLevel(account.access_level))
 
-            """------------------------Компоновка------------------------"""
+            '''------------------------Компоновка------------------------'''
             gridLayout = QtWidgets.QGridLayout(account_tab)
             gridLayout.setHorizontalSpacing(10)
             gridLayout.setVerticalSpacing(1)
@@ -299,7 +310,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
             gridLayout.addWidget(label_account_opened_date, 1, 3)
             gridLayout.addWidget(label_account_closed_date_text, 2, 2)
             gridLayout.addWidget(label_account_closed_date, 2, 3)
-            """----------------------------------------------------------"""
+            '''----------------------------------------------------------'''
 
             self.tabWidget_accounts.addTab(account_tab, '')  # Добавляем страницу.
             self.tabWidget_accounts.setTabText(i, 'Счёт ' + str(i + 1))
@@ -310,9 +321,28 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         new_token: str = self.lineEdit_new_token.text()  # Извлекаем текст из lineEdit.
         assert new_token == self.current_token_class.token
 
-        unary_limits, stream_limits = getUserTariff(self.current_token_class.token).response_data
-        my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
-        my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
+        '''---------------------------Получение лимитов---------------------------'''
+        limits_try_count: RequestTryClass = RequestTryClass(1)
+        limits_response: MyResponse = MyResponse()
+        while limits_try_count and not limits_response.ifDataSuccessfullyReceived():
+            limits_response = getUserTariff(self.current_token_class.token)
+            assert limits_response.request_occurred, 'Запрос лимитов не был произведён.'
+            limits_try_count += 1
+
+        if limits_response.ifDataSuccessfullyReceived():
+            unary_limits: list[UnaryLimit]
+            stream_limits: list[StreamLimit]
+            unary_limits, stream_limits = limits_response.response_data
+            my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
+            my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
+        else:
+            my_unary_limits: list[MyUnaryLimit] = []  # Массив лимитов пользователя по unary-запросам.
+            my_stream_limits: list[MyStreamLimit] = []  # Массив лимитов пользователя по stream-соединениям.
+        '''-----------------------------------------------------------------------'''
+
+        # unary_limits, stream_limits = getUserTariff(self.current_token_class.token).response_data
+        # my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
+        # my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
 
         added_token: TokenClass = TokenClass(token=self.current_token_class.token,
                                              accounts=self.current_token_class.accounts,

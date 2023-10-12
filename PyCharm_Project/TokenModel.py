@@ -1,35 +1,65 @@
 from __future__ import annotations
 import typing
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, QVariant, Qt, QIdentityProxyModel
+from tinkoff.invest import Account, UnaryLimit, StreamLimit
 from Classes import TokenClass
 from LimitClasses import MyUnaryLimit, MyStreamLimit
-from MyRequests import MyResponse, getAccounts, getUserTariff
+from MyRequests import MyResponse, getAccounts, getUserTariff, RequestTryClass
 from TokenManager import TokenManager
-
-
-def getTokenClass(token: str, show_unauthenticated_error=False) -> TokenClass:
-    """Создаёт класс TokenClass из токена."""
-
-    accounts_response: MyResponse = getAccounts(token, show_unauthenticated_error)  # Получаем список счетов.
-    assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
-
-    limits_response: MyResponse = getUserTariff(token, show_unauthenticated_error)
-    assert limits_response.request_occurred, 'Запрос лимитов не был произведён.'
-    unary_limits, stream_limits = limits_response.response_data
-    my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
-    my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
-
-    return TokenClass(token, accounts_response.response_data, my_unary_limits, my_stream_limits)
 
 
 class TokenModel(QAbstractItemModel):
     """Модель токенов."""
     def __init__(self):
-        super().__init__()  # __init__() QAbstractListModel.
+        def getTokenClass(token: str, show_unauthenticated_error=False) -> TokenClass:
+            """Создаёт класс TokenClass из токена."""
+
+            '''------------------------Получение счетов------------------------'''
+            accounts_try_count: RequestTryClass = RequestTryClass(1)
+            accounts_response: MyResponse = MyResponse()
+            while accounts_try_count and not accounts_response.ifDataSuccessfullyReceived():
+                accounts_response = getAccounts(token, show_unauthenticated_error)  # Получаем список счетов.
+                assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
+                accounts_try_count += 1
+            accounts: list[Account] = accounts_response.response_data if accounts_response.ifDataSuccessfullyReceived() else []
+            '''----------------------------------------------------------------'''
+
+            '''---------------------------Получение лимитов---------------------------'''
+            limits_try_count: RequestTryClass = RequestTryClass(1)
+            limits_response: MyResponse = MyResponse()
+            while limits_try_count and not limits_response.ifDataSuccessfullyReceived():
+                limits_response = getUserTariff(token, show_unauthenticated_error)
+                assert limits_response.request_occurred, 'Запрос лимитов не был произведён.'
+                limits_try_count += 1
+
+            if limits_response.ifDataSuccessfullyReceived():
+                unary_limits: list[UnaryLimit]
+                stream_limits: list[StreamLimit]
+                unary_limits, stream_limits = limits_response.response_data
+                my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
+                my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
+            else:
+                my_unary_limits: list[MyUnaryLimit] = []  # Массив лимитов пользователя по unary-запросам.
+                my_stream_limits: list[MyStreamLimit] = []  # Массив лимитов пользователя по stream-соединениям.
+            '''-----------------------------------------------------------------------'''
+
+            return TokenClass(token, accounts, my_unary_limits, my_stream_limits)
+
+            # accounts_response: MyResponse = getAccounts(token, show_unauthenticated_error)  # Получаем список счетов.
+            # assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
+            #
+            # limits_response: MyResponse = getUserTariff(token, show_unauthenticated_error)
+            # assert limits_response.request_occurred, 'Запрос лимитов не был произведён.'
+            # unary_limits, stream_limits = limits_response.response_data
+            # my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
+            # my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
+            #
+            # return TokenClass(token, accounts_response.response_data, my_unary_limits, my_stream_limits)
+
+        super().__init__()  # __init__() QAbstractItemModel.
         self.token_manager: TokenManager = TokenManager()
         token_list: list[str] = self.token_manager.getTokens()
-        token_class_list: list[TokenClass] = [getTokenClass(token) for token in token_list]  # Получение списка класса TokenClass.
-        self._tokens: list[TokenClass] = token_class_list
+        self._tokens: list[TokenClass] = [getTokenClass(token) for token in token_list]  # Получение списка класса TokenClass.
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
         """Возвращает количество токенов в модели."""

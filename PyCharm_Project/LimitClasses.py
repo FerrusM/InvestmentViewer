@@ -6,11 +6,10 @@ class LimitPerMinuteSemaphore(QObject):
     """Семафор для ограничения количества запросов в минуту."""
     availableChanged_signal: pyqtSignal = pyqtSignal()
 
-    def __init__(self, limit_per_minute: int):
-        super().__init__()  # __init__() QObject.
+    def __init__(self, limit_per_minute: int, parent: QObject | None = None):
+        super().__init__(parent)  # __init__() QObject.
         self._semaphore: QSemaphore = QSemaphore(limit_per_minute)
         self.limit_per_minute: int = limit_per_minute  # Максимальное количество запросов в минуту.
-        # self.release_timers: list[QTimer] = []
 
     # def _getPeriod(self) -> int:
     #     """Определяет минимальный промежуток времени [мс] между запросами."""
@@ -28,12 +27,10 @@ class LimitPerMinuteSemaphore(QObject):
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onRelease():
             self._semaphore.release(n)
-            # self.release_timers.remove(timer)  # Удаляем отработавший таймер.
             self.availableChanged_signal.emit()
 
         timer: QTimer = QTimer(self)
         timer.setSingleShot(True)  # Без повторений.
-        # self.release_timers.append(timer)  # Запоминаем ссылку на таймер, чтобы он не уничтожился после выполнения функции.
         timer.timeout.connect(onRelease)
         timer.start(60000)  # Запускаем таймер на одну минуту.
 
@@ -73,7 +70,6 @@ class MyMethod:
 class MyUnaryLimit:
     """Класс unary-лимита, дополненный семафором."""
     def __init__(self, unary_limit: UnaryLimit):
-        # self.unary_limit: UnaryLimit = unary_limit
         self.limit_per_minute: int = unary_limit.limit_per_minute  # Количество unary-запросов в минуту.
         '''---------Получение списка сервисов и имён методов---------'''
         self.methods: list[MyMethod] = []

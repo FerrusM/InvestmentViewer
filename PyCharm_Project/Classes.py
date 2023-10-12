@@ -25,8 +25,8 @@ class Column:
         self.getBackground = background_function
         self.getForeground = foreground_function
 
-        # self.getSortRole: Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
-        # self.lessThan = lessThan
+        self.getSortRole: Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
+        self.lessThan = lessThan
 
     def __call__(self, role: int = Qt.ItemDataRole.UserRole, *data):
         match role:
