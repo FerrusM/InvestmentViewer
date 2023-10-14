@@ -212,6 +212,8 @@ class MyBondClass(QObject):
 
         '''--Учитываем возможное погашение облигации к выбранной дате--'''
         if self.last_price is None or MyLastPrice.isEmpty(self.last_price):  # Проверка цены.
+            return None
+
             # Если цена облигации неизвестна, то рассчитывается так, будто цена облигации равняется номиналу.
             absolute_profit -= (MoneyValueToMyMoneyValue(self.bond.nominal) * TINKOFF_COMMISSION)
         else:
@@ -227,6 +229,9 @@ class MyBondClass(QObject):
         """Рассчитывает относительную доходность облигации к выбранной дате."""
         absolute_profit: MyMoneyValue | None = self.getAbsoluteProfit(calculated_date)  # Рассчитывает абсолютную доходность к выбранной дате.
         if absolute_profit is None: return None
+        ''''''
+        # if self.last_price is None: return None
+        ''''''
         if MyLastPrice.isEmpty(self.last_price): return None  # Проверка цены.
         if MyQuotation.IsEmpty(MyMoneyValue.getQuotation(self.bond.nominal)) or MyQuotation.IsEmpty(self.last_price.price): return None  # Избегаем деления на ноль.
         return absolute_profit / self.getLastPrice()
@@ -270,7 +275,7 @@ class MyBondClass(QObject):
         for coupon in self.coupons:
             if coupon.coupon_start_date <= entered_datetime < coupon.coupon_end_date:
                 if current_coupon is not None:
-                    raise ValueError("Купонные периоды нескольких купонов облигации \'{0}\' пересекаются!".format(self.bond.isin))
+                    raise ValueError("Купонные периоды нескольких купонов облигации \'{0}\' пересекаются!".format(self.bond.figi))
                 current_coupon = coupon
         return current_coupon
 

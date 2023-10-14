@@ -4,7 +4,8 @@ import enum
 import typing
 from decimal import Decimal
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel, pyqtSlot
-from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon, Bond, MoneyValue
+from PyQt6.QtGui import QColor, QBrush
+from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon, Bond
 from Classes import reportTradingStatus, Column
 from CouponsThread import CouponsThread
 from MyDateTime import reportSignificantInfoFromDateTime, getCurrentDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty
@@ -136,14 +137,23 @@ def tooltipCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime, wi
     return report
 
 
+@pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+def showCouponProfit(bond_class: MyBondClass, entered_datetime: datetime) -> str | None:
+    """Функция для отображения купонной доходности облигации к дате расчёта."""
+    if bond_class.coupons is None: return None  # Если купоны ещё не были заполнены.
+    coupon_profit: MyMoneyValue | None = bond_class.getCouponAbsoluteProfit(entered_datetime)
+    return 'None' if coupon_profit is None else coupon_profit.report()
+
+
+@pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
 def showAbsoluteProfit(bond_class: MyBondClass, entered_datetime: datetime) -> str | None:
     """Функция для отображения абсолютной доходности облигации к дате расчёта."""
-    if bond_class.coupons is None:  # Если купоны ещё не были получены.
-        return None
+    if bond_class.coupons is None: return None  # Если купоны ещё не были получены.
     absolute_profit: MyMoneyValue | None = bond_class.getAbsoluteProfit(entered_datetime)
     return 'None' if absolute_profit is None else absolute_profit.report()
 
 
+@pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
 def showRelativeProfit(bond_class: MyBondClass, entered_datetime: datetime) -> str | None:
     """Функция для отображения относительной доходности облигации к дате расчёта."""
     if bond_class.coupons is None:  # Если купоны ещё не были получены.
@@ -217,6 +227,7 @@ def reportCouponAbsoluteProfitCalculation(bond_class: MyBondClass, entered_datet
     return report
 
 
+@pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
 def reportAbsoluteProfitCalculation(bond_class: MyBondClass, entered_datetime: datetime) -> str:
     """Отображает подробности расчёта абсолютной доходности."""
     if ifBondIsMulticurrency(bond_class.bond): return "Расчёт доходности мультивалютных облигаций ещё не реализован."
@@ -276,9 +287,10 @@ class BondsModel(QAbstractTableModel):
         BOND_MATURITY_DATE = 12
         BOND_CURRENCY = 13
         BOND_COUNTRY_OF_RISK_NAME = 14
-        DATE_ABSOLUTE_PROFIT = 15
-        DATE_RELATIVE_PROFIT = 16
-        BOND_RISK_LEVEL = 17
+        DATE_COUPON_PROFIT = 15
+        DATE_ABSOLUTE_PROFIT = 16
+        DATE_RELATIVE_PROFIT = 17
+        BOND_RISK_LEVEL = 18
 
     def __init__(self, entered_datetime: datetime):
         super().__init__()  # __init__() QAbstractTableModel.
@@ -314,84 +326,6 @@ class BondsModel(QAbstractTableModel):
                 assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
                 return True
 
-        # @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        # def lessThan_LotLastPrice(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
-        #     """Функция сортировки для столбца LOT_LAST_PRICE."""
-        #     FUNCTION_NAME: str = 'lessThan_LotLastPrice'
-        #     left_data: MyMoneyValue | None = left.data(role=role)
-        #     right_data: MyMoneyValue | None = right.data(role=role)
-        #     if type(left_data) == MyMoneyValue:
-        #         if type(right_data) == MyMoneyValue:
-        #             return left_data < right_data
-        #         elif right_data is None:
-        #             return False
-        #         else:
-        #             assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
-        #             return False
-        #     elif left_data is None:
-        #         if type(right_data) == MyMoneyValue:
-        #             return True
-        #         elif right_data is None:
-        #             return False
-        #         else:
-        #             assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
-        #             return False
-        #     else:
-        #         assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
-        #         return True
-
-        # @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        # def lessThan_CalculatedNKD(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
-        #     """Функция сортировки для столбца CALCULATED_NKD."""
-        #     FUNCTION_NAME: str = 'lessThan_CalculatedNKD'
-        #     left_data: MyMoneyValue | None = left.data(role=role)
-        #     right_data: MyMoneyValue | None = right.data(role=role)
-        #     if type(left_data) == MyMoneyValue:
-        #         if type(right_data) == MyMoneyValue:
-        #             return left_data < right_data
-        #         elif right_data is None:
-        #             return False
-        #         else:
-        #             assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
-        #             return False
-        #     elif left_data is None:
-        #         if type(right_data) == MyMoneyValue:
-        #             return True
-        #         elif right_data is None:
-        #             return False
-        #         else:
-        #             assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
-        #             return False
-        #     else:
-        #         assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
-        #         return True
-
-        # @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        # def lessThan_AbsoluteProfit(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
-        #     """Функция сортировки для столбца DATE_ABSOLUTE_PROFIT."""
-        #     FUNCTION_NAME: str = 'lessThan_AbsoluteProfit'
-        #     left_data: MyMoneyValue | None = left.data(role=role)
-        #     right_data: MyMoneyValue | None = right.data(role=role)
-        #     if type(left_data) == MyMoneyValue:
-        #         if type(right_data) == MyMoneyValue:
-        #             return left_data < right_data
-        #         elif right_data is None:
-        #             return False
-        #         else:
-        #             assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
-        #             return False
-        #     elif left_data is None:
-        #         if type(right_data) == MyMoneyValue:
-        #             return True
-        #         elif right_data is None:
-        #             return False
-        #         else:
-        #             assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
-        #             return False
-        #     else:
-        #         assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
-        #         return True
-
         @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def lessThan_RelativeProfit(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
             """Функция сортировки для столбца DATE_RELATIVE_PROFIT."""
@@ -418,12 +352,30 @@ class BondsModel(QAbstractTableModel):
                 assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
                 return True
 
-        # @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        # def lessThan_RiskLevel(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
-        #     """Функция сортировки для столбца BOND_RISK_LEVEL."""
-        #     left_data: RiskLevel = left.data(role=role)
-        #     right_data: RiskLevel = right.data(role=role)
-
+        @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def lessThan_RiskLevel(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
+            """Функция сортировки для столбца BOND_RISK_LEVEL."""
+            left_data: RiskLevel = left.data(role=role)
+            right_data: RiskLevel = right.data(role=role)
+            if type(left_data) == RiskLevel and type(right_data) == RiskLevel:
+                if left_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
+                    if right_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
+                        return False
+                    elif right_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
+                        return False
+                    else:
+                        raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(right_data))
+                elif left_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
+                    if right_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
+                        return left_data < right_data
+                    elif right_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
+                        return True
+                    else:
+                        raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(right_data))
+                else:
+                    raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(left_data))
+            else:
+                raise TypeError('Некорректный тип переменной в функции lessThan_RiskLevel!')
         '''-----------------------------------------------------------------------------------------------'''
 
         self.columns: dict[int, BondColumn] = {
@@ -517,21 +469,31 @@ class BondsModel(QAbstractTableModel):
                 BondColumn(header='Страна риска',
                            header_tooltip='Наименование страны риска, т.е. страны, в которой компания ведёт основной бизнес.',
                            data_function=lambda bond_class: bond_class.bond.country_of_risk_name),
+            self.Columns.DATE_COUPON_PROFIT:
+                BondColumn(header='Купонная дох-ть',
+                           header_tooltip='Купонная доходность к выбранной дате.',
+                           data_function=lambda bond_class, entered_dt: bond_class.getCouponAbsoluteProfit(entered_dt),
+                           display_function=showCouponProfit,
+                           tooltip_function=reportCouponAbsoluteProfitCalculation,
+                           date_dependence=True,
+                           coupon_dependence=True,
+                           sort_role=Qt.ItemDataRole.UserRole,
+                           lessThan=lessThan_MyMoneyValue_or_None),
             self.Columns.DATE_ABSOLUTE_PROFIT:
-                BondColumn(header='Дох-ть к дате',
+                BondColumn(header='Абсолют. дох-ть',
                            header_tooltip='Абсолютная доходность к выбранной дате.',
                            data_function=lambda bond_class, entered_dt: bond_class.getAbsoluteProfit(entered_dt),
-                           display_function=lambda bond_class, entered_dt: showAbsoluteProfit(bond_class, entered_dt),
-                           tooltip_function=lambda bond_class, entered_dt: reportAbsoluteProfitCalculation(bond_class, entered_dt),
+                           display_function=showAbsoluteProfit,
+                           tooltip_function=reportAbsoluteProfitCalculation,
                            date_dependence=True,
                            coupon_dependence=True,
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lessThan_MyMoneyValue_or_None),
             self.Columns.DATE_RELATIVE_PROFIT:
-                BondColumn(header='Отн-ая дох-ть к дате',
+                BondColumn(header='Отн-ая дох-ть',
                            header_tooltip='Относительная доходность к выбранной дате.',
                            data_function=lambda bond_class, entered_dt: bond_class.getRelativeProfit(entered_dt),
-                           display_function=lambda bond_class, entered_dt: showRelativeProfit(bond_class, entered_dt),
+                           display_function=showRelativeProfit,
                            date_dependence=True,
                            coupon_dependence=True,
                            sort_role=Qt.ItemDataRole.UserRole,
@@ -542,7 +504,8 @@ class BondsModel(QAbstractTableModel):
                            data_function=lambda bond_class: bond_class.bond.risk_level,
                            display_function=lambda bond_class: reportRiskLevel(bond_class.bond.risk_level),
                            sort_role=Qt.ItemDataRole.UserRole,
-                           lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role))
+                           # lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role),
+                           lessThan=lessThan_RiskLevel)
         }
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
@@ -604,6 +567,8 @@ class BondsModel(QAbstractTableModel):
 
 class BondsProxyModel(QSortFilterProxyModel):
     """Моя прокси-модель облигаций."""
+    DEPENDS_ON_DATE_COLOR: QColor = QColor(Qt.GlobalColor.darkRed)  # Цвет фона заголовков, зависящих от даты расчёта.
+
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         """Функция headerData объявлена в прокси-модели, чтобы названия строк не сортировались вместе с данными."""
         if role == Qt.ItemDataRole.DisplayRole:
@@ -611,6 +576,10 @@ class BondsProxyModel(QSortFilterProxyModel):
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header
         elif role == Qt.ItemDataRole.ToolTipRole:  # Подсказки.
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header_tooltip
+        elif role == Qt.ItemDataRole.ForegroundRole:
+            if orientation == Qt.Orientation.Horizontal:
+                if self.sourceModel().columns[section].dependsOnEnteredDate():
+                    return QBrush(self.DEPENDS_ON_DATE_COLOR)
 
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель."""
@@ -625,17 +594,6 @@ class BondsProxyModel(QSortFilterProxyModel):
 
     def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
         """Определяет критерий сравнения данных для сортировки."""
-        # left_data = left.data(role=Qt.ItemDataRole.UserRole)
-        # right_data = right.data(role=Qt.ItemDataRole.UserRole)
-        # if isinstance(left_data, MoneyValue) and isinstance(right_data, MoneyValue):
-        #     return MyMoneyValue.__lt__(left_data, right_data)
-        # elif isinstance(left_data, MoneyValue) and right_data is None:
-        #     return False
-        # elif left_data is None and isinstance(right_data, MoneyValue):
-        #     return True
-        # else:
-        #     return super().lessThan(left, right)  # Для всех остальных типов.
-
         left_column_number: int = left.column()  # Номер строки "левого" элемента.
         if left_column_number == right.column():
             column: BondColumn = self.sourceModel().columns[left_column_number]
