@@ -1,4 +1,5 @@
 from PyQt6 import QtCore, QtWidgets
+from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from LimitsPage import LimitsPage
 from SharesPage import SharesPage
@@ -27,40 +28,41 @@ class Ui_MainWindow(object):
         self.tabWidget = QtWidgets.QTabWidget(self.centralwidget)  # Панель вкладок.
         self.tabWidget.setObjectName('tabWidget')
 
+        _translate = QtCore.QCoreApplication.translate
+
         """------------------------------Страница "Токены"------------------------------"""
         self.tab_tokens: TokensPage = TokensPage('tab_tokens')
-        self.tabWidget.addTab(self.tab_tokens, '')
+        self.tabWidget.addTab(self.tab_tokens, _translate('MainWindow', 'Токены'))
         """-----------------------------------------------------------------------------"""
 
         """------------------------------Страница "Лимиты"------------------------------"""
         self.tab_limits: LimitsPage = LimitsPage('tab_limits')
-        self.tabWidget.addTab(self.tab_limits, '')
+        self.tabWidget.addTab(self.tab_limits, _translate('MainWindow', 'Лимиты'))
         """-----------------------------------------------------------------------------"""
 
         """------------------------------Страница "Акции"------------------------------"""
         self.tab_shares: SharesPage = SharesPage('tab_shares')
-        self.tabWidget.addTab(self.tab_shares, '')
+        self.tabWidget.addTab(self.tab_shares, _translate('MainWindow', 'Акции'))
         """----------------------------------------------------------------------------"""
 
         """-----------------------------Страница "Облигации"-----------------------------"""
         self.tab_bonds: BondsPage = BondsPage('tab_bonds')
-        self.tabWidget.addTab(self.tab_bonds, '')
+        self.tabWidget.addTab(self.tab_bonds, _translate('MainWindow', 'Облигации'))
         """------------------------------------------------------------------------------"""
+
+        """------------------------------Страница "Активы"------------------------------"""
+        self.tab_assets: AssetsPage = AssetsPage('tab_assets')
+        self.tabWidget.addTab(self.tab_assets, _translate('MainWindow', 'Активы'))
+        """-----------------------------------------------------------------------------"""
 
         self.main_verticalLayout.addWidget(self.tabWidget)
         main_window.setCentralWidget(self.centralwidget)
+
         self.statusbar = QtWidgets.QStatusBar(main_window)
         self.statusbar.setObjectName('statusbar')
         main_window.setStatusBar(self.statusbar)
 
-        '''------------------------------------retranslateUi------------------------------------'''
-        _translate = QtCore.QCoreApplication.translate
         main_window.setWindowTitle(_translate('MainWindow', 'Тинькофф Инвестиции'))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_tokens), _translate('MainWindow', 'Токены'))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_limits), _translate('MainWindow', 'Лимиты'))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_shares), _translate('MainWindow', 'Акции'))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab_bonds), _translate('MainWindow', 'Облигации'))
-        '''-------------------------------------------------------------------------------------'''
 
         self.tabWidget.setCurrentIndex(2)
         QtCore.QMetaObject.connectSlotsByName(main_window)
@@ -86,4 +88,5 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tab_limits.setTokensModel(token_list_model)
         self.tab_shares.setTokensModel(token_list_model)
         self.tab_bonds.setTokensModel(token_list_model)
+        self.tab_assets.setTokensModel(token_list_model)
         """------------------------------------------------------------"""

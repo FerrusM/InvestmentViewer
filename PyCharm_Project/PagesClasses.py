@@ -253,7 +253,7 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         self.horizontalLayout_status.addItem(spacerItem13)
 
         self.comboBox_status = QtWidgets.QComboBox(self)
-        self.comboBox_status.setObjectName('shares_comboBox_status')
+        self.comboBox_status.setObjectName('comboBox_status')
         self.comboBox_status.addItem('')
         self.comboBox_status.addItem('')
         self.comboBox_status.addItem('')

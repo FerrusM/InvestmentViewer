@@ -907,7 +907,7 @@ class BondsPage(QtWidgets.QWidget):
         bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
         assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
         if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
-            bonds: list[Bond] = bonds_response.response_data  # Получаем список облигаций.
+            bonds: list[Bond] = bonds_response.response_data  # Извлекаем список облигаций.
             self.bonds = bonds
             filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
             '''---------------Обновляет отображение количеств облигаций в моделях---------------'''

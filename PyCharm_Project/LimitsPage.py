@@ -110,12 +110,15 @@ class LimitsPage(QtWidgets.QWidget):
         self.verticalLayout_main.addWidget(self.groupBox_view)
         """--------------------------------------------------------------"""
 
-        self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.groupBox_view.setToken(self.groupBox_request.getCurrentToken()))
+        # self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.groupBox_view.setToken(self.groupBox_request.getCurrentToken()))
+
+        self.groupBox_request.currentTokenChanged.connect(self.groupBox_view.setToken)
+        self.groupBox_request.currentTokenReset.connect(lambda: self.groupBox_view.setToken(None))
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
 
-    def getCurrentToken(self) -> TokenClass | None:
-        """Возвращает выбранный в ComboBox'е токен."""
-        return self.groupBox_request.getCurrentToken()
+    # def getCurrentToken(self) -> TokenClass | None:
+    #     """Возвращает выбранный в ComboBox'е токен."""
+    #     return self.groupBox_request.getCurrentToken()
