@@ -108,6 +108,7 @@ def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> st
             return 'Все купоны выплачены'
 
 
+@pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
 def tooltipCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime, with_fix: bool = True) -> str | None:
     """Функция для отображения подсказки рассчитанного НКД."""
     if bond_class.coupons is None:  # Если купоны ещё не были получены.
@@ -411,7 +412,7 @@ class BondsModel(QAbstractTableModel):
                            header_tooltip='Рассчитанное значение НКД (накопленного купонного дохода) на дату.',
                            data_function=lambda bond_class, entered_dt: bond_class.calculateACI(entered_dt, True),
                            display_function=lambda bond_class, entered_dt: showCalculatedACI(bond_class, entered_dt),
-                           tooltip_function=lambda bond_class, entered_dt: tooltipCalculatedACI(bond_class, entered_dt, True),
+                           tooltip_function=tooltipCalculatedACI,
                            date_dependence=True,
                            coupon_dependence=True,
                            sort_role=Qt.ItemDataRole.UserRole,
