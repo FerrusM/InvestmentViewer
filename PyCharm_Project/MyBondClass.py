@@ -1,10 +1,10 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from PyQt6.QtCore import QObject, pyqtSignal
 from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation
 from tinkoff.invest.utils import decimal_to_quotation
-from MyDateTime import getCurrentDateTime
+from MyDateTime import getUtcDateTime
 from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue, ifCurrenciesAreEqual, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation
@@ -14,25 +14,20 @@ NDFL: float = 0.13
 DAYS_IN_YEAR: int = 365
 
 
-def ifBondIsMulticurrency(bond: Bond) -> bool:
-    """Возвращает True, если не все поля MoneyValue-типа облигации имеют одинаковую валюту, иначе возвращает False."""
-    return not ifCurrenciesAreEqual(bond.currency, bond.nominal, bond.initial_nominal, bond.aci_value)
-
-
 class MyCoupon:
     """Класс, объединяющий функции для работы с купонами."""
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def ifCouponHasBeenPaid(coupon: Coupon, entered_datetime: datetime = getCurrentDateTime()) -> bool:
+    def ifCouponHasBeenPaid(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если купон уже выплачен на момент указанной даты, иначе возвращает False."""
         return entered_datetime >= coupon.coupon_end_date  # Сравниваем дату окончания купонного периода с указанной датой.
 
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def ifCouponIsCurrent(coupon: Coupon, entered_datetime: datetime = getCurrentDateTime()) -> bool:
+    def ifCouponIsCurrent(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если указанная дата находится в границах купонного периода."""
         return coupon.coupon_start_date <= entered_datetime <= coupon.coupon_end_date
 
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def ifRegistryWasFixed(coupon: Coupon, entered_datetime: datetime = getCurrentDateTime()) -> bool:
+    def ifRegistryWasFixed(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если фиксация реестра на момент указанной даты была произведена."""
         """
         После фиксации реестра для выплаты купона получатель текущего купона будет определён.
@@ -54,17 +49,17 @@ class MyCoupon:
         return coupon.fix_date <= entered_datetime
 
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def getCountOfDaysOfAci(coupon: Coupon, entered_datetime: datetime = getCurrentDateTime()) -> int:
-        """Количество дней купонного накопления к указанной дате."""
-        """
+    def getCountOfDaysOfAci(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> int:
+        """Возвращает количество дней купонного накопления к указанной дате."""
+        '''
         Начисление НКД производится между 3:00 и 13:45 по МСК по моим наблюдениям.
         Эта функция не всегда даёт точный результат, так как учитывает в расчёте только даты без времени.
-        """
+        '''
         # return (entered_datetime.date() - coupon.coupon_start_date.date()).days  # Дней с начала купонного периода.
         return (entered_datetime.date() - coupon.coupon_start_date.date()).days + 1  # Дней с начала купонного периода.
 
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def getCouponACI(coupon: Coupon, entered_datetime: datetime = getCurrentDateTime(), with_fix: bool = False) -> MyMoneyValue | None:
+    def getCouponACI(coupon: Coupon, entered_datetime: datetime = getUtcDateTime(), with_fix: bool = False) -> MyMoneyValue | None:
         """Возвращает НКД купона к указанным дате и времени."""
         if not MyCoupon.ifCouponIsCurrent(coupon, entered_datetime): return None  # Если указанная дата не находится в границах купонного периода.
         if with_fix:  # Если требуется учесть фиксацию реестра для выплаты купона.
@@ -76,16 +71,34 @@ class MyCoupon:
         return MyMoneyValue(coupon.pay_one_bond.currency, decimal_to_quotation(aci))
 
 
+class MyBond:
+    """Класс, объединяющий функции для работы с облигациями."""
+    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getUtcDateTime()) -> bool:
+        """Проверяет, погашена ли облигация."""
+        return bond.maturity_date < compared_datetime
+
+    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    def ifBondIsMulticurrency(bond: Bond) -> bool:
+        """Возвращает True, если не все поля MoneyValue-типа облигации имеют одинаковую валюту, иначе возвращает False."""
+        return not ifCurrenciesAreEqual(bond.currency, bond.nominal, bond.initial_nominal, bond.aci_value)
+
+    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    def getDaysToMaturityCount(bond: Bond, calculation_datetime: datetime = getUtcDateTime()) -> int:
+        """Возвращает количество дней до погашения облигации."""
+        return (bond.maturity_date.date() - calculation_datetime.date()).days
+
+
 class MyBondClass(QObject):
-    """Мой класс облигаций."""
+    """Класс облигации, дополненный параметрами (последняя цена, купоны) и функциями."""
 
     """------------------------Сигналы------------------------"""
     setCoupons_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении списка купонов.
     """-------------------------------------------------------"""
 
-    def __init__(self, bond: Bond | None = None, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None):
+    def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None):
         super().__init__()  # __init__() QObject.
-        self.bond: Bond | None = bond
+        self.bond: Bond = bond
         self.last_price: LastPrice | None = last_price
         self.coupons: list[Coupon] | None = coupons  # Список купонов.
 
@@ -116,7 +129,6 @@ class MyBondClass(QObject):
         if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
         return MyMoneyValue.report(last_price * self.bond.lot, ndigits, delete_decimal_zeros)
 
-
     def getCoupon(self, coupon_number: int) -> Coupon | None:
         """Возвращает купон, соответствующий переданному порядковому номеру.
         Если купон не найден, то возвращает None."""
@@ -143,50 +155,49 @@ class MyBondClass(QObject):
         return currency
 
     """---------------------Купонная доходность облигаций---------------------"""
-    def getCouponAbsoluteProfit(self, entered_datetime: datetime) -> MyMoneyValue | None:
+    def getCouponAbsoluteProfit(self, calculation_datetime: datetime, current_datetime: datetime = getUtcDateTime()) -> MyMoneyValue | None:
         """Рассчитывает купонную доходность к указанной дате."""
         if self.coupons is None: return None  # Если купоны ещё не были заполнены.
-        current_datetime: datetime = getCurrentDateTime()  # Текущая дата.
-        if entered_datetime < current_datetime: return None  # Если выбранная дата меньше текущей даты.
+        if calculation_datetime < current_datetime: return None  # Если дата расчёта меньше текущей даты.
         # Если список купонов пуст, то используем bond.currency в качестве валюты и возвращаем 0.
         if len(self.coupons) == 0: return MyMoneyValue(self.bond.currency, Quotation(units=0, nano=0))
 
         profit: MyMoneyValue = MyMoneyValue(self.coupons[0].pay_one_bond.currency)  # Доходность к выбранной дате.
         for coupon in self.coupons:
-            """
+            '''
             Расчёт купонной доходности не учитывает НКД, который выплачивается при покупке облигации,
             но учитывает НКД, который будет получен до даты конца расчёта.
             НКД, который выплачивается при покупке облигации, учитывается в расчётах доходностей облигации.
             Расчёт купонной доходности учитывает НДФЛ (в том числе НДФЛ на НКД).
-            """
+            '''
             # Если купонный период текущего купона целиком находится в границах заданного интервала.
-            if current_datetime < coupon.coupon_start_date and entered_datetime > coupon.coupon_end_date:
+            if current_datetime < coupon.coupon_start_date and calculation_datetime > coupon.coupon_end_date:
                 profit += coupon.pay_one_bond  # Прибавляем всю величину купонной выплаты.
             # Если текущий (в цикле) купон является текущим на дату начала расчёта.
             elif MyCoupon.ifCouponIsCurrent(coupon, current_datetime):
                 # Если фиксация реестра не была произведена.
                 if not MyCoupon.ifRegistryWasFixed(coupon, current_datetime):
                     # Если купон будет выплачен до даты конца расчёта.
-                    if entered_datetime >= coupon.coupon_date:
+                    if calculation_datetime >= coupon.coupon_date:
                         profit += coupon.pay_one_bond  # Прибавляем всю величину купонной выплаты.
                     # Если фиксация текущего на дату начала расчёта купона будет произведена до даты конца расчёта.
-                    elif MyCoupon.ifRegistryWasFixed(coupon, entered_datetime):
+                    elif MyCoupon.ifRegistryWasFixed(coupon, calculation_datetime):
                         # Всё равно прибавляем всю величину купонной выплаты, хоть она и придёт только в день выплаты.
                         profit += coupon.pay_one_bond
                     # Если фиксация реестра и выплата купона произойдут после даты конца расчёта.
                     else:
-                        aci: MyMoneyValue | None = MyCoupon.getCouponACI(coupon, entered_datetime, False)  # НКД купона к дате конца расчёта.
+                        aci: MyMoneyValue | None = MyCoupon.getCouponACI(coupon, calculation_datetime, False)  # НКД купона к дате конца расчёта.
                         if aci is None: return None  # Купонный период равен нулю.
                         profit += aci  # Прибавляем НКД.
             # Если текущий (в цикле) купон является текущим на дату конца расчёта.
-            elif MyCoupon.ifCouponIsCurrent(coupon, entered_datetime):
+            elif MyCoupon.ifCouponIsCurrent(coupon, calculation_datetime):
                 # Если фиксация реестра будет произведена на дату конца расчёта.
                 if MyCoupon.ifRegistryWasFixed(coupon, current_datetime):
                     # Прибавляем всю величину купонной выплаты, хоть она и придёт только в день выплаты.
                     profit += coupon.pay_one_bond
                 # Если фиксация реестра не была произведена.
                 else:
-                    aci: MyMoneyValue | None = MyCoupon.getCouponACI(coupon, entered_datetime, False)  # НКД купона к указанной дате.
+                    aci: MyMoneyValue | None = MyCoupon.getCouponACI(coupon, calculation_datetime, False)  # НКД купона к указанной дате.
                     if aci is None: return None  # Купонный период равен нулю.
                     profit += aci  # Прибавляем НКД.
         return profit * (1 - NDFL)  # Учитываем НДФЛ.
@@ -195,7 +206,7 @@ class MyBondClass(QObject):
     """========================Доходности========================"""
     def getAbsoluteProfit(self, calculation_datetime: datetime) -> MyMoneyValue | None:
         """Рассчитывает абсолютную доходность облигации к выбранной дате."""
-        if ifBondIsMulticurrency(self.bond): return None  # Ещё нет расчёта мультивалютных облигаций.
+        if MyBond.ifBondIsMulticurrency(self.bond): return None  # Ещё нет расчёта мультивалютных облигаций.
         # Доходность к выбранной дате (откуда брать валюту?).
         absolute_profit: MyMoneyValue = MyMoneyValue(self.bond.currency, Quotation(units=0, nano=0))
 
@@ -225,9 +236,9 @@ class MyBondClass(QObject):
         '''------------------------------------------------------------'''
         return absolute_profit
 
-    def getRelativeProfit(self, calculated_date: datetime) -> Decimal | None:
+    def getRelativeProfit(self, calculation_datetime: datetime) -> Decimal | None:
         """Рассчитывает относительную доходность облигации к выбранной дате."""
-        absolute_profit: MyMoneyValue | None = self.getAbsoluteProfit(calculated_date)  # Рассчитывает абсолютную доходность к выбранной дате.
+        absolute_profit: MyMoneyValue | None = self.getAbsoluteProfit(calculation_datetime)  # Рассчитывает абсолютную доходность к выбранной дате.
         if absolute_profit is None: return None
         ''''''
         # if self.last_price is None: return None
@@ -236,10 +247,10 @@ class MyBondClass(QObject):
         if MyQuotation.IsEmpty(MyMoneyValue.getQuotation(self.bond.nominal)) or MyQuotation.IsEmpty(self.last_price.price): return None  # Избегаем деления на ноль.
         return absolute_profit / self.getLastPrice()
 
-    def getCouponRelativeProfit(self, calculated_datetime: datetime) -> Decimal | None:
+    def getCouponRelativeProfit(self, calculation_datetime: datetime) -> Decimal | None:
         """Рассчитывает относительную купонную доходность к дате."""
         # Рассчитываем абсолютную купонную доходность к выбранной дате
-        coupon_absolute_profit: MyMoneyValue | None = self.getCouponAbsoluteProfit(calculated_datetime)
+        coupon_absolute_profit: MyMoneyValue | None = self.getCouponAbsoluteProfit(calculation_datetime)
         if coupon_absolute_profit is None: return None
         if MyQuotation.IsEmpty(MyMoneyValue.getQuotation(self.bond.nominal)) is None: return None  # Избегаем деления на ноль.
         return coupon_absolute_profit / self.bond.nominal
@@ -268,7 +279,7 @@ class MyBondClass(QObject):
 
     """=========================================================="""
 
-    def getCurrentCoupon(self, entered_datetime: datetime = getCurrentDateTime()) -> Coupon | None:
+    def getCurrentCoupon(self, entered_datetime: datetime = getUtcDateTime()) -> Coupon | None:
         """Возвращает купон облигации, который соответствует выбранной дате."""
         if self.coupons is None: return None  # Если список купонов ещё не был заполнен.
         current_coupon: Coupon | None = None
@@ -295,10 +306,10 @@ class MyBondClass(QObject):
             if MyCoupon.ifCouponHasBeenPaid(coupon): paid_coupons_count += 1
         return paid_coupons_count
 
-    def calculateACI(self, entered_datetime: datetime = getCurrentDateTime(), with_fix: bool = True) -> MyMoneyValue | None:
+    def calculateACI(self, calculation_datetime: datetime = getUtcDateTime(), with_fix: bool = True) -> MyMoneyValue | None:
         """Рассчитывает НКД (накопленный купонный доход) облигации к выбранной дате."""
         # Купон облигации, соответствующий выбранной дате.
-        current_coupon: Coupon | None = self.getCurrentCoupon(entered_datetime=entered_datetime)
+        current_coupon: Coupon | None = self.getCurrentCoupon(calculation_datetime)
         if current_coupon is None:
             return None
-        return MyCoupon.getCouponACI(current_coupon, entered_datetime, with_fix)
+        return MyCoupon.getCouponACI(current_coupon, calculation_datetime, with_fix)

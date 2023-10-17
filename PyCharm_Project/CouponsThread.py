@@ -3,7 +3,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from tinkoff.invest import Client, Coupon, RequestError
 from Classes import TokenClass
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDateTime import getCurrentDateTime, ifDateTimeIsEmpty
+from MyDateTime import ifDateTimeIsEmpty, getUtcDateTime
 from MyBondClass import MyBondClass
 
 
@@ -69,7 +69,7 @@ class CouponsThread(QThread):
 
                 '------------Выбор временного интервала------------'
                 qdt_from: datetime = bond_class.bond.state_reg_date
-                qdt_to: datetime = getCurrentDateTime() if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else bond_class.bond.maturity_date
+                qdt_to: datetime = getUtcDateTime() if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else bond_class.bond.maturity_date
                 '--------------------------------------------------'
 
                 exception_flag = True  # Индикатор наличия исключения.
@@ -83,11 +83,11 @@ class CouponsThread(QThread):
 
                     """----------------Подсчёт статистических параметров----------------"""
                     if ifFirstIteration():  # Не выполняется до второго запроса.
-                        delta: float = (getCurrentDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
+                        delta: float = (getUtcDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
                         printInConsole('{0} из {1} ({2:.2f}с)'.format(bond_number, bonds_count, delta))
                     else:
                         printInConsole('{0} из {1}'.format(bond_number, bonds_count))
-                    self.control_point = getCurrentDateTime()  # Промежуточная точка отсчёта времени.
+                    self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
                     """-----------------------------------------------------------------"""
 
                     with Client(self.token.token) as client:

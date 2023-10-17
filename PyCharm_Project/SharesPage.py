@@ -6,7 +6,7 @@ from tinkoff.invest import Share, InstrumentStatus, ShareType
 from Classes import TokenClass
 from DividendsModel import DividendsModel, DividendsProxyModel
 from DividendsThread import DividendsThread
-from MyDateTime import getCurrentDateTime
+from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getShares
 from MyShareClass import MyShareClass
 from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
@@ -764,8 +764,8 @@ class SharesPage(QtWidgets.QWidget):
 
         self.dividends_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
 
-        self.dividends_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(DividendsThread.thread_name, getCurrentDateTime())))
-        self.dividends_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(DividendsThread.thread_name, getCurrentDateTime())))
+        self.dividends_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(DividendsThread.thread_name, getMoscowDateTime())))
+        self.dividends_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(DividendsThread.thread_name, getMoscowDateTime())))
         """----------------------------------------------------------------------------"""
         self.dividends_thread.start()  # Запускаем поток.
 

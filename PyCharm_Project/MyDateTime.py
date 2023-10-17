@@ -1,11 +1,16 @@
 import datetime
 
 
-def getCurrentDateTime() -> datetime.datetime:
+def getUtcDateTime() -> datetime.datetime:
+    """Возвращает текущие дату и время в UTC."""
+    tz: datetime.tzinfo = datetime.timezone.utc
+    return datetime.datetime.now(tz)
+
+
+def getMoscowDateTime() -> datetime.datetime:
     """Возвращает текущие дату и время UTC+3."""
-    cur_datetime: datetime.datetime = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=3)))
-    # cur_datetime: datetime.datetime = QDateTime().currentDateTime().toPyDateTime()  # Текущая дата
-    return cur_datetime
+    tz: datetime.tzinfo = datetime.timezone(offset=datetime.timedelta(hours=3), name='МСК')
+    return datetime.datetime.now(tz)
 
 
 def getMicrosecondsCountFromDateTime(date_and_time: datetime.datetime) -> int:
@@ -16,11 +21,11 @@ def getMicrosecondsCountFromDateTime(date_and_time: datetime.datetime) -> int:
 
 def ifDateTimeIsEmpty(date_and_time: datetime.datetime) -> bool:
     """Проверка datetime на наличие данных."""
-    """
+    '''
     date_and_time_utc.timestamp() возвращает количество секунд с учётом микросекунд с начала эпохи.
     Это значение имеет тип float. Тип float не рекомендуется сравнивать с нулём,
     поэтому я вручную конвертирую секунды в микросекунды, чтобы получить тип int.
-    """
+    '''
     return True if getMicrosecondsCountFromDateTime(date_and_time) == 0 else False
 
 

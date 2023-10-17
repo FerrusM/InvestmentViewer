@@ -4,7 +4,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 from tinkoff.invest import Client, Dividend, RequestError
 from Classes import TokenClass
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDateTime import getCurrentDateTime
+from MyDateTime import getUtcDateTime
 from MyRequests import MyResponse, getDividends
 from MyShareClass import MyShareClass
 
@@ -79,11 +79,11 @@ class DividendsThread(QThread):
 
                     """----------------Подсчёт статистических параметров----------------"""
                     if self.request_count > 0:  # Не выполняется до второго запроса.
-                        delta: float = (getCurrentDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
+                        delta: float = (getUtcDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
                         printInConsole('{0} из {1} ({2:.2f}c)'.format(share_number, shares_count, delta))
                     else:
                         printInConsole('{0} из {1}'.format(share_number, shares_count))
-                    self.control_point = getCurrentDateTime()  # Промежуточная точка отсчёта времени.
+                    self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
                     """-----------------------------------------------------------------"""
 
                     with Client(self.token.token) as client:

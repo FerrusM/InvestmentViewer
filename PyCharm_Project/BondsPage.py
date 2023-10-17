@@ -5,12 +5,12 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import InstrumentStatus, Bond
 from tinkoff.invest.schemas import RiskLevel
-from BondsModel import BondsModel, BondsProxyModel, ifBondIsMaturity
+from BondsModel import BondsModel, BondsProxyModel
 from Classes import TokenClass
 from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
-from MyBondClass import MyBondClass
-from MyDateTime import getCurrentDateTime
+from MyBondClass import MyBondClass, MyBond
+from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
 from TokenModel import TokenListModel
@@ -329,8 +329,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
             """Фильтр по погашенности."""
             match cur_filter:
                 case 'Все': return True
-                case 'Непогашенные': return not ifBondIsMaturity(bond)
-                case 'Погашенные': return ifBondIsMaturity(bond)
+                case 'Непогашенные': return not MyBond.ifBondIsMaturity(bond)
+                case 'Погашенные': return MyBond.ifBondIsMaturity(bond)
                 case _: raise ValueError('Некорректное значение фильтра \"Погашенность\" ({0})!'.format(cur_filter))
 
         def appFilter_RiskLevel(risk_level: RiskLevel, cur_filter: str) -> bool:
@@ -946,8 +946,8 @@ class BondsPage(QtWidgets.QWidget):
 
         self.groupBox_view.sourceModel().coupons_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
 
-        self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(CouponsThread.thread_name, getCurrentDateTime())))
-        self.groupBox_view.sourceModel().coupons_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(CouponsThread.thread_name, getCurrentDateTime())))
+        self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(CouponsThread.thread_name, getMoscowDateTime())))
+        self.groupBox_view.sourceModel().coupons_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(CouponsThread.thread_name, getMoscowDateTime())))
         """----------------------------------------------------------------------------"""
         self.groupBox_view.sourceModel().coupons_receiving_thread.start()  # Запускаем поток.
 
