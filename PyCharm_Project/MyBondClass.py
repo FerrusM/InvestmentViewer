@@ -91,10 +91,7 @@ class MyBond:
 
 class MyBondClass(QObject):
     """Класс облигации, дополненный параметрами (последняя цена, купоны) и функциями."""
-
-    """------------------------Сигналы------------------------"""
     setCoupons_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении списка купонов.
-    """-------------------------------------------------------"""
 
     def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None, ):
         super().__init__()  # __init__() QObject.

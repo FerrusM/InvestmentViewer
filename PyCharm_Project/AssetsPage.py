@@ -2,8 +2,10 @@ from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, pyqtSlot, QSize
 from tinkoff.invest import InstrumentType, Asset
 from AssetsModel import AssetsTreeModel
+from AssetsThread import AssetsThread, AssetClass
 from Classes import TokenClass, MyTreeView
-from MyRequests import MyResponse, getAssets
+from MyDateTime import getMoscowDateTime
+from MyRequests import MyResponse, getAssets, RequestTryClass
 from TokenModel import TokenListModel
 
 
@@ -203,7 +205,7 @@ class GroupBox_AssetFullsReceiving(QtWidgets.QGroupBox):
         self.progressBar.setMaximum(0)
         self.progressBar.setProperty('value', 0)
         self.progressBar.setObjectName('progressBar')
-        self.progressBar.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
+        self.progressBar.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
         self.verticalLayout_main.addWidget(self.progressBar)
 
         self.reset()  # Сбрасывает progressBar.
@@ -348,30 +350,6 @@ class AssetsPage(QtWidgets.QWidget):
         self.horizontalLayout_top.setStretch(1, 1)
         self.verticalLayout_main.addLayout(self.horizontalLayout_top)
 
-
-        # self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        # self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        # self.verticalLayout_main.setSpacing(2)
-        # self.verticalLayout_main.setObjectName('verticalLayout_main')
-        #
-        # '''------------------Панель выполнения запроса------------------'''
-        # self.groupBox_request: GroupBox_AssetsRequest = GroupBox_AssetsRequest('groupBox_request', self)
-        # self.verticalLayout_main.addWidget(self.groupBox_request)
-        # '''-------------------------------------------------------------'''
-        #
-        # self.verticalLayout_fulls_receiving = QtWidgets.QVBoxLayout()
-        # self.verticalLayout_fulls_receiving.setSpacing(0)
-        # self.verticalLayout_fulls_receiving.setObjectName('verticalLayout_fulls_receiving')
-        #
-        # """------------Панель прогресса получения дивидендов------------"""
-        # self.groupBox_fulls_receiving: GroupBox_AssetFullsReceiving = GroupBox_AssetFullsReceiving('groupBox_fulls_receiving', self)
-        # self.verticalLayout_fulls_receiving.addWidget(self.groupBox_fulls_receiving)
-        # """-------------------------------------------------------------"""
-        #
-        # spacerItem = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
-        # self.verticalLayout_fulls_receiving.addItem(spacerItem)
-
-
         ''''------------------Панель отображения активов------------------'''
         self.groupBox_view: GroupBox_AssetsTreeView = GroupBox_AssetsTreeView('groupBox_view', self)
         self.verticalLayout_main.addWidget(self.groupBox_view)
@@ -380,6 +358,7 @@ class AssetsPage(QtWidgets.QWidget):
 
         '''-----------------------------------------------------------'''
         self.__token: TokenClass | None = None
+        self.full_assets_thread: AssetsThread | None = None  # Поток получения информации об активах.
         '''-----------------------------------------------------------'''
 
         self.groupBox_request.currentTokenChanged.connect(self.onTokenChanged)
@@ -400,22 +379,59 @@ class AssetsPage(QtWidgets.QWidget):
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
         """Функция, выполняемая при выборе пустого значения вместо токена."""
+        self._stopAssetsThread()  # Останавливает поток получения информации об активах.
         self.token = None
         self.groupBox_view.setAssets([])  # Передаём в исходную модель данные.
         self.groupBox_request.setCount(0)  # Количество полученных активов.
+        self.groupBox_fulls_receiving.reset()  # Сбрасывает progressBar.
 
     @pyqtSlot(TokenClass, InstrumentType)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instruments_type: InstrumentType):
         """Функция, выполняемая при изменении выбранного токена."""
+        self._stopAssetsThread()  # Останавливает поток получения информации об активах.
         self.token = token
-        assets_response: MyResponse = getAssets(token.token, instruments_type)  # Получение активов.
-        assert assets_response.request_occurred, 'Запрос активов не был произведён.'
+
+        assets_try_count: RequestTryClass = RequestTryClass()
+        assets_response: MyResponse = MyResponse()
+        while assets_try_count and not assets_response.ifDataSuccessfullyReceived():
+            assets_response: MyResponse = getAssets(token.token, instruments_type)  # Получение активов.
+            assert assets_response.request_occurred, 'Запрос активов не был произведён.'
+            assets_try_count += 1
+
         if assets_response.ifDataSuccessfullyReceived():  # Если список активов был получен.
             assets: list[Asset] = assets_response.response_data  # Извлекаем список активов.
-            self.groupBox_request.setCount(len(assets))  # Количество полученных активов.
             self.groupBox_view.setAssets(assets)  # Передаём в исходную модель данные.
+            self.groupBox_request.setCount(len(assets))  # Количество полученных активов.
+
+            if assets:  # Если список не пуст.
+                assetclass_list: list[AssetClass] = [AssetClass(asset) for asset in assets]
+                self._startAssetsThread(token, assetclass_list)  # Запускает поток получения информации об активах.
         else:
             self.groupBox_view.setAssets([])  # Передаём в исходную модель данные.
             self.groupBox_request.setCount(0)  # Количество полученных активов.
+            self.groupBox_fulls_receiving.reset()  # Сбрасывает progressBar.
 
-            # self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+    def _startAssetsThread(self, token: TokenClass, asset_class_list: list[AssetClass]):
+        """Запускает поток получения информации об активах."""
+        assert self.full_assets_thread is None, 'Поток получения информации об активах должен быть завершён!'
+
+        self.full_assets_thread = AssetsThread(token_class=token, assets=asset_class_list)
+        '''---------------------Подключаем сигналы потока к слотам---------------------'''
+        self.full_assets_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
+
+        self.full_assets_thread.setProgressBarRange_signal.connect(self.groupBox_fulls_receiving.setRange)
+        self.full_assets_thread.setProgressBarValue_signal.connect(self.groupBox_fulls_receiving.setValue)
+
+        self.full_assets_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
+
+        self.full_assets_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(AssetsThread.__name__, getMoscowDateTime())))
+        self.full_assets_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(AssetsThread.__name__, getMoscowDateTime())))
+        '''----------------------------------------------------------------------------'''
+        self.full_assets_thread.start()  # Запускаем поток.
+
+    def _stopAssetsThread(self):
+        """Останавливает поток получения информации об активах."""
+        if self.full_assets_thread is not None:  # Если поток был создан.
+            self.full_assets_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
+            self.full_assets_thread.wait()  # Ждём завершения потока.
+            self.full_assets_thread = None

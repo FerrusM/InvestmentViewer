@@ -7,7 +7,7 @@ from Classes import TokenClass
 from DividendsModel import DividendsModel, DividendsProxyModel
 from DividendsThread import DividendsThread
 from MyDateTime import getMoscowDateTime
-from MyRequests import MyResponse, getShares
+from MyRequests import MyResponse, getShares, RequestTryClass
 from MyShareClass import MyShareClass
 from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
 from SharesModel import SharesProxyModel, SharesModel
@@ -476,7 +476,7 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
 
         _translate = QtCore.QCoreApplication.translate
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ДИВИДЕНДОВ'))
-        self.progressBar_dividends.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
+        self.progressBar_dividends.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
 
         self.reset()  # Сбрасывает progressBar.
 
@@ -723,8 +723,14 @@ class SharesPage(QtWidgets.QWidget):
         """Функция, выполняемая при изменении выбранного токена."""
         self._stopDividendsThread()  # Останавливаем поток получения дивидендов.
         self.token = token
-        shares_response: MyResponse = getShares(token.token, instrument_status)  # Получение акций.
-        assert shares_response.request_occurred, 'Запрос акций не был произведён.'
+
+        shares_try_count: RequestTryClass = RequestTryClass()
+        shares_response: MyResponse = MyResponse()
+        while shares_try_count and not shares_response.ifDataSuccessfullyReceived():
+            shares_response: MyResponse = getShares(token.token, instrument_status)  # Получение акций.
+            assert shares_response.request_occurred, 'Запрос акций не был произведён.'
+            shares_try_count += 1
+
         if shares_response.ifDataSuccessfullyReceived():  # Если список акций был получен.
             shares: list[Share] = shares_response.response_data  # Получаем список акций.
             self.shares = shares
@@ -748,8 +754,7 @@ class SharesPage(QtWidgets.QWidget):
 
     def _startDividendsThread(self, token: TokenClass, share_class_list: list[MyShareClass]):
         """Запускает поток получения дивидендов."""
-        if self.dividends_thread is not None:
-            raise ValueError('Поток заполнения дивидендов не может быть запущен до того как будет завершён предыдущий!')
+        assert self.dividends_thread is None, 'Поток заполнения дивидендов должен быть завершён!'
 
         self.dividends_thread = DividendsThread(parent=self, token_class=token, share_class_list=share_class_list)
         """---------------------Подключаем сигналы потока к слотам---------------------"""

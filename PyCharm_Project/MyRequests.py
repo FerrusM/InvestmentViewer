@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
-    InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset
+    InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset, AssetFull
 
 
 class RequestTryClass:
@@ -231,3 +231,27 @@ def getAssets(token: str, instruments_type: InstrumentType) -> MyResponse:
             request_error_flag = False  # Флаг наличия RequestError.
         request_occurred = True  # Флаг произведённого запроса.
     return MyResponse('get_assets()', request_occurred, assets, exception_flag, exception, request_error_flag, request_error)
+
+
+def getAssetBy(token: str, asset_uid: str) -> MyResponse:
+    """Получает и возвращает данные об активе."""
+    asset_full: AssetFull | None = None
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            asset_full = client.instruments.get_asset_by(asset_uid)
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse('get_asset_by()', request_occurred, asset_full, exception_flag, exception, request_error_flag, request_error)

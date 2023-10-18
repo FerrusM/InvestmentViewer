@@ -107,7 +107,7 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         """------------------------------------retranslateUi------------------------------------"""
         _translate = QtCore.QCoreApplication.translate
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ КУПОНОВ'))
-        self.progressBar_coupons.setFormat(_translate('MainWindow', '%v из %m (%p%)'))
+        self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
         self.label_coupons_type.setToolTip(_translate('MainWindow', 'Тип купона.'))
         self.label_coupons_type.setText(_translate('MainWindow', 'Тип купонов:'))
         self.comboBox_coupons_type.setItemText(0, _translate('MainWindow', 'Любой'))
@@ -929,8 +929,7 @@ class BondsPage(QtWidgets.QWidget):
 
     def _startCouponsThread(self, bonds: list[MyBondClass]):
         """Запускает поток получения купонов."""
-        if self.groupBox_view.sourceModel().coupons_receiving_thread is not None:
-            raise ValueError('Поток заполнения купонов не может быть запущен до того как будет завершён предыдущий!')
+        assert self.groupBox_view.sourceModel().coupons_receiving_thread is None, 'Поток получения купонов должен быть завершён!'
 
         self.groupBox_view.sourceModel().coupons_receiving_thread = CouponsThread(token_class=self.token, bond_class_list=bonds)
         """---------------------Подключаем сигналы потока к слотам---------------------"""
