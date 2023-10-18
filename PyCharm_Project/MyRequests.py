@@ -243,7 +243,7 @@ def getAssetBy(token: str, asset_uid: str) -> MyResponse:
     request_error: RequestError | None = None  # RequestError.
     with Client(token) as client:
         try:
-            asset_full = client.instruments.get_asset_by(asset_uid)
+            asset_full = client.instruments.get_asset_by(id=asset_uid)
         except RequestError as error:
             request_error_flag = True  # Флаг наличия RequestError.
             request_error = error  # RequestError.
