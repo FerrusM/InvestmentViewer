@@ -2,7 +2,7 @@ from __future__ import annotations
 import enum
 import typing
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtSignal, QCoreApplication
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QBrush
 from PyQt6.QtWidgets import QPushButton, QStyledItemDelegate, QAbstractItemView
 from tinkoff.invest import Account
 from Classes import TokenClass, reportAccountAccessLevel, reportAccountType, reportAccountStatus, Column
@@ -46,9 +46,9 @@ class TreeLevel(enum.IntEnum):
 
 class TreeProxyModel(QAbstractItemModel):
     """Иерархическая модель токенов."""
-    TOKEN_BACKGROUND_COLOR: QColor = QColor(0xe0e8ef)  # Цвет фона токена.
-    ACCOUNT_BACKGROUND_COLOR: QColor = QColor(0xffffe0)  # Цвет фона счёта.
-    TOKEN_FOREGROUND_COLOR: QColor = QColor(191, 0, 0)  # Цвет текста неверного токена.
+    TOKEN_BACKGROUND_COLOR: QBrush = QBrush(0xe0e8ef)  # Цвет фона токена.
+    ACCOUNT_BACKGROUND_COLOR: QBrush = QBrush(0xffffe0)  # Цвет фона счёта.
+    TOKEN_FOREGROUND_COLOR: QBrush = QBrush(0xbf0000)  # Цвет текста неверного токена.
 
     class DeleteButtonDelegate(QStyledItemDelegate):
         """Делегат кнопок удаления."""

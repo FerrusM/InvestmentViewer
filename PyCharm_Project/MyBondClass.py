@@ -96,7 +96,7 @@ class MyBondClass(QObject):
     setCoupons_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении списка купонов.
     """-------------------------------------------------------"""
 
-    def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None):
+    def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None, ):
         super().__init__()  # __init__() QObject.
         self.bond: Bond = bond
         self.last_price: LastPrice | None = last_price
@@ -225,8 +225,8 @@ class MyBondClass(QObject):
         if self.last_price is None or MyLastPrice.isEmpty(self.last_price):  # Проверка цены.
             return None
 
-            # Если цена облигации неизвестна, то рассчитывается так, будто цена облигации равняется номиналу.
-            absolute_profit -= (MoneyValueToMyMoneyValue(self.bond.nominal) * TINKOFF_COMMISSION)
+            # # Если цена облигации неизвестна, то рассчитывается так, будто цена облигации равняется номиналу.
+            # absolute_profit -= (MoneyValueToMyMoneyValue(self.bond.nominal) * TINKOFF_COMMISSION)
         else:
             # Если облигация будет погашена до выбранной даты включительно.
             if calculation_datetime >= self.bond.maturity_date:

@@ -2,7 +2,7 @@ import typing
 from datetime import datetime
 from decimal import Decimal
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QBrush
 from tinkoff.invest import Coupon, CouponType
 from Classes import Column
 from MyBondClass import MyBondClass, MyCoupon
@@ -35,7 +35,8 @@ def reportCouponRate(bond_class: MyBondClass, coupon: Coupon | None) -> str:
 class CouponColumn(Column):
     """Класс столбца таблицы купонов."""
     def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
-                 background_function=None, foreground_function=None, date_dependence: bool = False, calculation_datetime: datetime | None = None):
+                 background_function=lambda bond_class, coupon: QBrush(Qt.GlobalColor.lightGray) if MyCoupon.ifCouponHasBeenPaid(coupon) else None,
+                 foreground_function=None, date_dependence: bool = False, calculation_datetime: datetime | None = None):
         super().__init__(header, header_tooltip, data_function, display_function, tooltip_function, background_function, foreground_function)
         self._date_dependence: bool = date_dependence  # Флаг зависимости от даты.
         self._calculation_datetime: datetime | None = calculation_datetime  # Дата расчёта.
@@ -51,8 +52,6 @@ class CouponColumn(Column):
 
 class CouponsModel(QAbstractTableModel):
     """Модель для отображения купонов облигаций."""
-    PAID_BACKGROUND_COLOR: QColor = QColor(Qt.GlobalColor.lightGray)  # Цвет фона выплаченных купонов.
-
     def __init__(self):
         super().__init__()  # __init__() QAbstractTableModel.
         self._bond_class: MyBondClass | None = None
@@ -60,46 +59,37 @@ class CouponsModel(QAbstractTableModel):
             CouponColumn(header='Дата выплаты',
                          header_tooltip='Дата выплаты купона.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_date,
-                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.coupon_date),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.coupon_date)),
             CouponColumn(header='Дата фиксации реестра',
                          header_tooltip='(Опционально) Дата фиксации реестра для выплаты купона.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.fix_date,
-                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.fix_date),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.fix_date)),
             CouponColumn(header='Номер',
                          header_tooltip='Номер купона.',
-                         data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_number,
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_number),
             CouponColumn(header='Тип купона',
                          header_tooltip='Тип купона.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_type,
-                         display_function=lambda bond_class, coupon: None if coupon is None else reportCouponType(coupon.coupon_type),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         display_function=lambda bond_class, coupon: None if coupon is None else reportCouponType(coupon.coupon_type)),
             CouponColumn(header='Выплата на одну облигацию',
                          header_tooltip='Выплата на одну облигацию.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.pay_one_bond,
-                         display_function=lambda bond_class, coupon: None if coupon is None else MyMoneyValue.report(coupon.pay_one_bond, 2),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         display_function=lambda bond_class, coupon: None if coupon is None else MyMoneyValue.report(coupon.pay_one_bond, 2)),
             CouponColumn(header='Ставка',
                          header_tooltip='Ставка купона.',
                          data_function=lambda bond_class, coupon: bond_class.getCouponRate(coupon),
-                         display_function=lambda bond_class, coupon: reportCouponRate(bond_class, coupon),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         display_function=lambda bond_class, coupon: reportCouponRate(bond_class, coupon)),
             CouponColumn(header='Купонный период в днях',
                          header_tooltip='Купонный период в днях.',
-                         data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_period,
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_period),
             CouponColumn(header='Начало купонного периода',
                          header_tooltip='Начало купонного периода.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_start_date,
-                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.coupon_start_date),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None),
+                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.coupon_start_date)),
             CouponColumn(header='Окончание купонного периода',
                          header_tooltip='Окончание купонного периода.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_end_date,
-                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.coupon_end_date),
-                         background_function=lambda bond_class, coupon: self.PAID_BACKGROUND_COLOR if MyCoupon.ifCouponHasBeenPaid(coupon) else None)
+                         display_function=lambda bond_class, coupon: None if coupon is None else reportSignificantInfoFromDateTime(coupon.coupon_end_date))
         )
 
     def updateData(self, bond_class: MyBondClass | None):

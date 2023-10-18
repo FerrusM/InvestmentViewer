@@ -4,14 +4,14 @@ import enum
 import typing
 from decimal import Decimal
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel, pyqtSlot, QVariant
-from PyQt6.QtGui import QColor, QBrush
+from PyQt6.QtGui import QBrush
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon
 from Classes import reportTradingStatus, Column
 from CouponsThread import CouponsThread
 from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime
 from MyQuotation import MyQuotation, MyDecimal
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
-from MyBondClass import MyBondClass, MyLastPrice, TINKOFF_COMMISSION, NDFL, MyCoupon, MyBond
+from MyBondClass import MyBondClass, MyLastPrice, TINKOFF_COMMISSION, NDFL, MyCoupon, MyBond, DAYS_IN_YEAR
 
 
 def reportRiskLevel(risk_level: RiskLevel) -> str:
@@ -59,10 +59,9 @@ class update_source_class:
         return self._source_model.dataChanged.emit(self._source_top_left_index, self._source_bottom_right_index)
 
 
-def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> str | None:
+def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> str | QVariant:
     """Функция для отображения рассчитанного НКД."""
-    if bond_class.coupons is None:  # Если купоны ещё не были получены.
-        return None
+    if bond_class.coupons is None: return QVariant()  # Если купоны ещё не были получены, то не отображаем ничего.
 
     def getLastCoupon(coupons: list[bond_class.coupons]) -> int:
         """Находит и возвращает номер последнего купона."""
@@ -105,7 +104,7 @@ def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> st
 
 
 @pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-def tooltipCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime, with_fix: bool = True) -> str | None:
+def tooltipCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime, with_fix: bool = True) -> str:
     """Функция для отображения подсказки рассчитанного НКД."""
     if bond_class.coupons is None:  # Если купоны ещё не были получены.
         return 'Купоны ещё не получены.'
@@ -143,18 +142,17 @@ def showCouponProfit(bond_class: MyBondClass, calculation_datetime: datetime) ->
 
 
 @pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-def showAbsoluteProfit(bond_class: MyBondClass, calculation_datetime: datetime) -> str | None:
+def showAbsoluteProfit(bond_class: MyBondClass, calculation_datetime: datetime) -> str | QVariant:
     """Функция для отображения абсолютной доходности облигации к дате расчёта."""
-    if bond_class.coupons is None: return None  # Если купоны ещё не были получены.
+    if bond_class.coupons is None: return QVariant()  # Если купоны ещё не были получены, то не отображаем ничего.
     absolute_profit: MyMoneyValue | None = bond_class.getAbsoluteProfit(calculation_datetime)
     return 'None' if absolute_profit is None else absolute_profit.report()
 
 
 @pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-def showRelativeProfit(bond_class: MyBondClass, calculation_datetime: datetime) -> str | None:
+def showRelativeProfit(bond_class: MyBondClass, calculation_datetime: datetime) -> str | QVariant:
     """Функция для отображения относительной доходности облигации к дате расчёта."""
-    if bond_class.coupons is None:  # Если купоны ещё не были получены.
-        return None
+    if bond_class.coupons is None: return QVariant()  # Если купоны ещё не были получены, то не отображаем ничего.
     relative_profit: Decimal | None = bond_class.getRelativeProfit(calculation_datetime)
     return 'None' if relative_profit is None else '{0}%'.format(MyDecimal.report((relative_profit * 100), 2))
 
@@ -271,23 +269,24 @@ class BondsModel(QAbstractTableModel):
         BOND_FIGI = 0
         BOND_ISIN = 1
         BOND_NAME = 2
-        LOT_LAST_PRICE = 3
-        BOND_NKD = 4
-        CALCULATED_NKD = 5
-        BOND_NOMINAL = 6
-        BOND_INITIAL_NOMINAL = 7
-        BOND_MIN_PRICE_INCREMENT = 8
-        BOND_LOT = 9
-        BOND_TRADING_STATUS = 10
-        BOND_AMORTIZATION_FLAG = 11
-        DAYS_TO_MATURITY = 12
-        BOND_MATURITY_DATE = 13
-        BOND_CURRENCY = 14
-        BOND_COUNTRY_OF_RISK_NAME = 15
-        DATE_COUPON_PROFIT = 16
-        DATE_ABSOLUTE_PROFIT = 17
-        DATE_RELATIVE_PROFIT = 18
+        BOND_LOT = 3
+        LOT_LAST_PRICE = 4
+        BOND_NKD = 5
+        CALCULATED_NKD = 6
+        BOND_NOMINAL = 7
+        BOND_INITIAL_NOMINAL = 8
+        BOND_MIN_PRICE_INCREMENT = 9
+        BOND_AMORTIZATION_FLAG = 10
+        DAYS_TO_MATURITY = 11
+        BOND_MATURITY_DATE = 12
+        BOND_CURRENCY = 13
+        BOND_COUNTRY_OF_RISK_NAME = 14
+        DATE_COUPON_PROFIT = 15
+        DATE_ABSOLUTE_PROFIT = 16
+        DATE_RELATIVE_PROFIT = 17
+        DATE_ANNUAL_PROFIT = 18
         BOND_RISK_LEVEL = 19
+        BOND_TRADING_STATUS = 20
 
     def __init__(self, entered_datetime: datetime, current_datetime: datetime = getUtcDateTime()):
         super().__init__()  # __init__() QAbstractTableModel.
@@ -373,6 +372,25 @@ class BondsModel(QAbstractTableModel):
                     raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(left_data))
             else:
                 raise TypeError('Некорректный тип переменной в функции lessThan_RiskLevel!')
+
+        def getAnnualProfit(bond_class: MyBondClass, calculation_datetime: datetime, start_datetime: datetime = getUtcDateTime()) -> Decimal | None:
+            """Возвращает доходность облигации за выбранный период в пересчёте на год."""
+            def getCountOfDaysBetweenTwoDates(start_dt: datetime, end_dt: datetime) -> int:
+                """Подсчитывает и возвращает количество дней между двумя датами."""
+                return (end_dt.date() - start_dt.date()).days
+            relative_profit: Decimal | None = bond_class.getRelativeProfit(calculation_datetime)  # Рассчитывает относительную доходность к выбранной дате.
+            if relative_profit is None: return None
+            days_count: int = getCountOfDaysBetweenTwoDates(start_datetime, calculation_datetime)
+            if days_count < 1:
+                return None
+            else:
+                return (relative_profit / days_count) * DAYS_IN_YEAR
+
+        @pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def showAnnualProfit(bond_class: MyBondClass, calculation_datetime: datetime) -> str | QVariant:
+            if bond_class.coupons is None: return QVariant()  # Если купоны ещё не были получены, то не отображаем ничего.
+            annual_profit: Decimal | None = getAnnualProfit(bond_class, calculation_datetime)
+            return 'None' if annual_profit is None else '{0}%'.format(MyDecimal.report((annual_profit * 100), 2))
         '''-----------------------------------------------------------------------------------------------'''
 
         self.columns: dict[int, BondColumn] = {
@@ -388,6 +406,13 @@ class BondsModel(QAbstractTableModel):
                 BondColumn(header='Название',
                            header_tooltip='Название инструмента.',
                            data_function=lambda bond_class: bond_class.bond.name),
+            self.Columns.BOND_LOT:
+                BondColumn(header='Лотность',
+                           header_tooltip='Лотность инструмента.',
+                           data_function=lambda bond_class: bond_class.bond.lot,
+                           display_function=lambda bond_class: str(bond_class.bond.lot),
+                           sort_role=Qt.ItemDataRole.UserRole,
+                           lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             self.Columns.LOT_LAST_PRICE:
                 BondColumn(header='Цена лота',
                            header_tooltip='Цена последней сделки по лоту облигации.',
@@ -434,18 +459,6 @@ class BondsModel(QAbstractTableModel):
                            display_function=lambda bond_class: MyQuotation.report(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
-            self.Columns.BOND_LOT:
-                BondColumn(header='Лотность',
-                           header_tooltip='Лотность инструмента.',
-                           data_function=lambda bond_class: bond_class.bond.lot,
-                           display_function=lambda bond_class: str(bond_class.bond.lot),
-                           sort_role=Qt.ItemDataRole.UserRole,
-                           lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
-            self.Columns.BOND_TRADING_STATUS:
-                BondColumn(header='Режим торгов',
-                           header_tooltip='Текущий режим торгов инструмента.',
-                           data_function=lambda bond_class: bond_class.bond.trading_status,
-                           display_function=lambda bond_class: reportTradingStatus(bond_class.bond.trading_status)),
             self.Columns.BOND_AMORTIZATION_FLAG:
                 BondColumn(header='Амортизация',
                            header_tooltip='Признак облигации с амортизацией долга.',
@@ -503,6 +516,13 @@ class BondsModel(QAbstractTableModel):
                            coupon_dependence=True,
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lessThan_RelativeProfit),
+            self.Columns.DATE_ANNUAL_PROFIT:
+                BondColumn(header='Годовая доходность',
+                           header_tooltip='Относительная доходность к выбранной дате в пересчёте на год.',
+                           data_function=lambda bond_class, entered_dt: getAnnualProfit(bond_class, entered_dt),
+                           display_function=showAnnualProfit,
+                           date_dependence=True,
+                           coupon_dependence=True),
             self.Columns.BOND_RISK_LEVEL:
                 BondColumn(header='Риск',
                            header_tooltip='Уровень риска.',
@@ -510,7 +530,12 @@ class BondsModel(QAbstractTableModel):
                            display_function=lambda bond_class: reportRiskLevel(bond_class.bond.risk_level),
                            sort_role=Qt.ItemDataRole.UserRole,
                            # lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role),
-                           lessThan=lessThan_RiskLevel)
+                           lessThan=lessThan_RiskLevel),
+            self.Columns.BOND_TRADING_STATUS:
+                BondColumn(header='Режим торгов',
+                           header_tooltip='Текущий режим торгов инструмента.',
+                           data_function=lambda bond_class: bond_class.bond.trading_status,
+                           display_function=lambda bond_class: reportTradingStatus(bond_class.bond.trading_status))
         }
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
@@ -572,7 +597,7 @@ class BondsModel(QAbstractTableModel):
 
 class BondsProxyModel(QSortFilterProxyModel):
     """Моя прокси-модель облигаций."""
-    DEPENDS_ON_DATE_COLOR: QColor = QColor(Qt.GlobalColor.darkRed)  # Цвет фона заголовков, зависящих от даты расчёта.
+    DEPENDS_ON_DATE_COLOR: QBrush = QBrush(Qt.GlobalColor.darkRed)  # Цвет фона заголовков, зависящих от даты расчёта.
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         """Функция headerData объявлена в прокси-модели, чтобы названия строк не сортировались вместе с данными."""
@@ -584,7 +609,7 @@ class BondsProxyModel(QSortFilterProxyModel):
         elif role == Qt.ItemDataRole.ForegroundRole:
             if orientation == Qt.Orientation.Horizontal:
                 if self.sourceModel().columns[section].dependsOnEnteredDate():
-                    return QBrush(self.DEPENDS_ON_DATE_COLOR)
+                    return self.DEPENDS_ON_DATE_COLOR
 
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель."""
