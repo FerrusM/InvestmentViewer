@@ -9,7 +9,6 @@ from MyBondClass import MyBondClass
 
 class CouponsThread(QThread):
     """Поток получения купонов."""
-    thread_name: str = 'CouponsThread'
     receive_coupons_method_name: str = 'GetBondCoupons'
 
     """------------------------Сигналы------------------------"""
@@ -45,7 +44,7 @@ class CouponsThread(QThread):
 
     def run(self) -> None:
         def printInConsole(text: str):
-            self.printText_signal.emit('{0}: {1}'.format(self.thread_name, text))
+            self.printText_signal.emit('{0}: {1}'.format(CouponsThread.__name__, text))
 
         def ifFirstIteration() -> bool:
             """Возвращает True, если поток не сделал ни одного запроса. Иначе возвращает False."""
@@ -95,10 +94,10 @@ class CouponsThread(QThread):
                             coupons: list[Coupon] = client.instruments.get_bond_coupons(figi=bond_class.bond.figi, from_=qdt_from, to=qdt_to).events
                         except RequestError as error:
                             self.request_error_count += 1  # Количество RequestError.
-                            self.showRequestError_signal.emit('{0} ({1})'.format('get_bond_coupons()', self.thread_name), error)
+                            self.showRequestError_signal.emit('{0} ({1})'.format('get_bond_coupons()', CouponsThread.__name__), error)
                         except Exception as error:
                             self.exception_count += 1  # Количество исключений.
-                            self.showException_signal.emit('{0} ({1})'.format('get_bond_coupons()', self.thread_name), error)
+                            self.showException_signal.emit('{0} ({1})'.format('get_bond_coupons()', CouponsThread.__name__), error)
                         else:  # Если исключения не было.
                             exception_flag = False
                             self.clearStatusBar_signal.emit()

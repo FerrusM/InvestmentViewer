@@ -945,8 +945,8 @@ class BondsPage(QtWidgets.QWidget):
 
         self.groupBox_view.sourceModel().coupons_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
 
-        self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(CouponsThread.thread_name, getMoscowDateTime())))
-        self.groupBox_view.sourceModel().coupons_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(CouponsThread.thread_name, getMoscowDateTime())))
+        self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(CouponsThread.__name__, getMoscowDateTime())))
+        self.groupBox_view.sourceModel().coupons_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(CouponsThread.__name__, getMoscowDateTime())))
         """----------------------------------------------------------------------------"""
         self.groupBox_view.sourceModel().coupons_receiving_thread.start()  # Запускаем поток.
 

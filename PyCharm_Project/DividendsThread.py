@@ -11,8 +11,6 @@ from MyShareClass import MyShareClass
 
 class DividendsThread(QThread):
     """Поток получения дивидендов."""
-
-    thread_name: str = 'DividendsThread'
     receive_dividends_method_name: str = 'GetDividends'
 
     """------------------------Сигналы------------------------"""
@@ -52,7 +50,7 @@ class DividendsThread(QThread):
 
     def run(self) -> None:
         def printInConsole(text: str):
-            self.printText_signal.emit('{0}: {1}'.format(self.thread_name, text))
+            self.printText_signal.emit('{0}: {1}'.format(DividendsThread.__name__, text))
 
         shares_count: int = len(self.shares)  # Количество акций.
         self.setProgressBarRange_signal.emit(0, shares_count)  # Задаёт минимум и максимум progressBar'а заполнения дивидендов.
@@ -91,10 +89,10 @@ class DividendsThread(QThread):
                             dividends: list[Dividend] = client.instruments.get_dividends(figi=share_class.share.figi).dividends
                         except RequestError as error:
                             self.request_error_count += 1  # Количество RequestError.
-                            self.showRequestError_signal.emit('{0} ({1})'.format('get_dividends()', self.thread_name), error)
+                            self.showRequestError_signal.emit('{0} ({1})'.format('get_dividends()', DividendsThread.__name__), error)
                         except Exception as error:
                             self.exception_count += 1  # Количество исключений.
-                            self.showException_signal.emit('{0} ({1})'.format('get_dividends()', self.thread_name), error)
+                            self.showException_signal.emit('{0} ({1})'.format('get_dividends()', DividendsThread.__name__), error)
                         else:  # Если исключения не было.
                             exception_flag = False
                             self.clearStatusBar_signal.emit()
@@ -106,10 +104,10 @@ class DividendsThread(QThread):
                     # dividends: list[Dividend] = dividends_response.response_data
                     # if dividends_response.request_error_flag:
                     #     self.request_error_count += 1  # Количество RequestError.
-                    #     self.showRequestError_signal.emit('{0} ({1})'.format(dividends_response.method, self.thread_name), error)
+                    #     self.showRequestError_signal.emit('{0} ({1})'.format(dividends_response.method, DividendsThread.__name__), error)
                     # elif dividends_response.exception_flag:
                     #     self.exception_count += 1  # Количество исключений.
-                    #     self.showException_signal.emit('{0} ({1})'.format('get_dividends()', self.thread_name), error)
+                    #     self.showException_signal.emit('{0} ({1})'.format('get_dividends()', DividendsThread.__name__), error)
                     # else:  # Если исключения не было.
                     #     self.request_count += 1  # Подсчитываем запрос.
 

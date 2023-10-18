@@ -769,8 +769,8 @@ class SharesPage(QtWidgets.QWidget):
 
         self.dividends_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
 
-        self.dividends_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(DividendsThread.thread_name, getMoscowDateTime())))
-        self.dividends_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(DividendsThread.thread_name, getMoscowDateTime())))
+        self.dividends_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(DividendsThread.__name__, getMoscowDateTime())))
+        self.dividends_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(DividendsThread.__name__, getMoscowDateTime())))
         """----------------------------------------------------------------------------"""
         self.dividends_thread.start()  # Запускаем поток.
 

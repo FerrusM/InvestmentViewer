@@ -24,7 +24,6 @@ class AssetClass(QObject):
 
 class AssetsThread(QThread):
     """Поток получения полной информации об активах."""
-    # thread_name: str = 'AssetsThread'
     receive_assetfulls_method_name: str = 'GetAssetBy'
 
     '''------------------------Сигналы------------------------'''
