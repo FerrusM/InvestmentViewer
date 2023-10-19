@@ -33,6 +33,9 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(2)
         self.verticalLayout_main.setObjectName('verticalLayout_main')
 
+        _translate = QtCore.QCoreApplication.translate
+
+        '''----------------------------------Заголовок----------------------------------'''
         self.label_title = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -45,7 +48,9 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.label_title.setFont(font)
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
+        self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ КУПОНОВ'))
         self.verticalLayout_main.addWidget(self.label_title)
+        '''-----------------------------------------------------------------------------'''
 
         self.progressBar_coupons = QtWidgets.QProgressBar(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -59,6 +64,7 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.progressBar_coupons.setProperty('value', 0)
         self.progressBar_coupons.setTextVisible(True)
         self.progressBar_coupons.setObjectName('progressBar_coupons')
+        self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
         self.verticalLayout_main.addWidget(self.progressBar_coupons)
 
         '''---------------------------Строка с выбором типа купонов---------------------------'''
@@ -73,6 +79,8 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.label_coupons_type.sizePolicy().hasHeightForWidth())
         self.label_coupons_type.setSizePolicy(sizePolicy)
         self.label_coupons_type.setObjectName('label_coupons_type')
+        self.label_coupons_type.setToolTip(_translate('MainWindow', 'Тип купона.'))
+        self.label_coupons_type.setText(_translate('MainWindow', 'Тип купонов:'))
         self.horizontalLayout_coupons_type.addWidget(self.label_coupons_type)
 
         spacerItem_1 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -86,15 +94,17 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.comboBox_coupons_type.setSizePolicy(sizePolicy)
         self.comboBox_coupons_type.setStyleSheet('')
         self.comboBox_coupons_type.setObjectName('comboBox_coupons_type')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
-        self.comboBox_coupons_type.addItem('')
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Любой'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Постоянный'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Фиксированный'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Переменный'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Плавающий'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Дисконт'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Ипотечный'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Прочее'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Неопределённый'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Нет купонов'))
+        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Разные купоны'))
         self.horizontalLayout_coupons_type.addWidget(self.comboBox_coupons_type)
 
         spacerItem_2 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -103,23 +113,6 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_coupons_type)
         self.verticalLayout_main.setStretch(1, 1)
-
-        """------------------------------------retranslateUi------------------------------------"""
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ КУПОНОВ'))
-        self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
-        self.label_coupons_type.setToolTip(_translate('MainWindow', 'Тип купона.'))
-        self.label_coupons_type.setText(_translate('MainWindow', 'Тип купонов:'))
-        self.comboBox_coupons_type.setItemText(0, _translate('MainWindow', 'Любой'))
-        self.comboBox_coupons_type.setItemText(1, _translate('MainWindow', 'Постоянный'))
-        self.comboBox_coupons_type.setItemText(2, _translate('MainWindow', 'Фиксированный'))
-        self.comboBox_coupons_type.setItemText(3, _translate('MainWindow', 'Переменный'))
-        self.comboBox_coupons_type.setItemText(4, _translate('MainWindow', 'Плавающий'))
-        self.comboBox_coupons_type.setItemText(5, _translate('MainWindow', 'Дисконт'))
-        self.comboBox_coupons_type.setItemText(6, _translate('MainWindow', 'Ипотечный'))
-        self.comboBox_coupons_type.setItemText(7, _translate('MainWindow', 'Прочее'))
-        self.comboBox_coupons_type.setItemText(8, _translate('MainWindow', 'Неопределённый'))
-        """-------------------------------------------------------------------------------------"""
 
         self.reset()  # Сбрасывает progressBar.
 

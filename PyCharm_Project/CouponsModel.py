@@ -22,7 +22,9 @@ def reportCouponType(coupon_type: CouponType) -> str:
         case CouponType.COUPON_TYPE_FIX: return 'Фиксированный'
         case CouponType.COUPON_TYPE_VARIABLE: return 'Переменный'
         case CouponType.COUPON_TYPE_OTHER: return 'Прочее'
-        case _: raise ValueError('Некорректное значение типа купона ({0})!'.format(coupon_type))
+        case _:
+            assert False, 'Некорректное значение типа купона ({0})!'.format(coupon_type)
+            return ''
 
 
 def reportCouponRate(bond_class: MyBondClass, coupon: Coupon | None) -> str:
@@ -30,6 +32,22 @@ def reportCouponRate(bond_class: MyBondClass, coupon: Coupon | None) -> str:
     coupon_rate: Decimal | None = bond_class.getCouponRate(coupon)
     # return 'None' if coupon_rate is None else '{:.2f}%'.format(coupon_rate*100)
     return 'None' if coupon_rate is None else '{0}%'.format(MyDecimal.report(coupon_rate*100, 2))
+
+
+def reportCouponTypeTip(coupon_type: CouponType) -> str:
+    """Возвращает toolTip для типа купона."""
+    match coupon_type:
+        case CouponType.COUPON_TYPE_UNSPECIFIED: return 'Неопределенное значение.'
+        case CouponType.COUPON_TYPE_CONSTANT: return 'Ставки всех купонов одинаковы и известны при первичном размещении.'
+        case CouponType.COUPON_TYPE_FLOATING: return 'Купон не фиксирован, а изменяется вместе с каким-либо внешним показателем: инфляцией, ключевой ставкой или иным индикатором, который еще называют базовой или референсной ставкой.'
+        case CouponType.COUPON_TYPE_DISCOUNT: return 'Дисконтные облигации на нашем сайте понимаются как облигации с нулевым купоном.'
+        case CouponType.COUPON_TYPE_MORTGAGE: return 'Ипотечный'
+        case CouponType.COUPON_TYPE_FIX: return 'Ставки купонов неодинаковы, но известны при первичном размещении.'
+        case CouponType.COUPON_TYPE_VARIABLE: return 'Ставки купонов могут быть неодинаковыми и некоторые из них неизвестны при первичном размещении.'
+        case CouponType.COUPON_TYPE_OTHER: return 'Прочее.'
+        case _:
+            assert False, 'Некорректное значение типа купона ({0})!'.format(coupon_type)
+            return ''
 
 
 class CouponColumn(Column):
@@ -70,7 +88,8 @@ class CouponsModel(QAbstractTableModel):
             CouponColumn(header='Тип купона',
                          header_tooltip='Тип купона.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.coupon_type,
-                         display_function=lambda bond_class, coupon: None if coupon is None else reportCouponType(coupon.coupon_type)),
+                         display_function=lambda bond_class, coupon: None if coupon is None else reportCouponType(coupon.coupon_type),
+                         tooltip_function=lambda bond_class, coupon: reportCouponTypeTip(coupon.coupon_type)),
             CouponColumn(header='Выплата на одну облигацию',
                          header_tooltip='Выплата на одну облигацию.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.pay_one_bond,
