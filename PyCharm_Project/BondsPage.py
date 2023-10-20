@@ -151,6 +151,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         self.setObjectName(object_name)
+        _translate = QtCore.QCoreApplication.translate
+        self.setTitle(_translate('MainWindow', 'Фильтры облигаций'))
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -165,6 +167,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         """----------------------------Погашенность----------------------------"""
         self.label_maturity = QtWidgets.QLabel(self)
         self.label_maturity.setObjectName('label_maturity')
+        self.label_maturity.setToolTip(_translate("MainWindow", "Флаг, отображающий погашенность облигации к текущей дате."))
+        self.label_maturity.setText(_translate("MainWindow", "Погашенность:"))
         self.gridLayout_main.addWidget(self.label_maturity, 0, 0, 1, 1)
 
         self.comboBox_maturity = QtWidgets.QComboBox(self)
@@ -174,15 +178,17 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_maturity.sizePolicy().hasHeightForWidth())
         self.comboBox_maturity.setSizePolicy(sizePolicy)
         self.comboBox_maturity.setObjectName('comboBox_maturity')
-        self.comboBox_maturity.addItem('')
-        self.comboBox_maturity.addItem('')
-        self.comboBox_maturity.addItem('')
+        self.comboBox_maturity.addItem(_translate("MainWindow", "Все"))
+        self.comboBox_maturity.addItem(_translate("MainWindow", "Непогашенные"))
+        self.comboBox_maturity.addItem(_translate("MainWindow", "Погашенные"))
         self.gridLayout_main.addWidget(self.comboBox_maturity, 0, 1, 1, 1)
         """--------------------------------------------------------------------"""
 
         """---------------------------Плавающий купон---------------------------"""
         self.label_floating_coupon_flag = QtWidgets.QLabel(self)
         self.label_floating_coupon_flag.setObjectName('label_floating_coupon_flag')
+        self.label_floating_coupon_flag.setToolTip(_translate("MainWindow", "Признак облигации с плавающим купоном."))
+        self.label_floating_coupon_flag.setText(_translate("MainWindow", "Плавающий купон:"))
         self.gridLayout_main.addWidget(self.label_floating_coupon_flag, 0, 2, 1, 1)
 
         self.comboBox_floating_coupon_flag = QtWidgets.QComboBox(self)
@@ -192,15 +198,17 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_floating_coupon_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_floating_coupon_flag.setSizePolicy(sizePolicy)
         self.comboBox_floating_coupon_flag.setObjectName('comboBox_floating_coupon_flag')
-        self.comboBox_floating_coupon_flag.addItem('')
-        self.comboBox_floating_coupon_flag.addItem('')
-        self.comboBox_floating_coupon_flag.addItem('')
+        self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "Все"))
+        self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "True"))
+        self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "False"))
         self.gridLayout_main.addWidget(self.comboBox_floating_coupon_flag, 0, 3, 1, 1)
         """---------------------------------------------------------------------"""
 
         """----------------------------Уровень риска----------------------------"""
         self.label_risk_level = QtWidgets.QLabel(self)
         self.label_risk_level.setObjectName('label_risk_level')
+        self.label_risk_level.setToolTip(_translate("MainWindow", "Уровень риска."))
+        self.label_risk_level.setText(_translate("MainWindow", "Уровень риска:"))
         self.gridLayout_main.addWidget(self.label_risk_level, 1, 0, 1, 1)
 
         self.comboBox_risk_level = QtWidgets.QComboBox(self)
@@ -210,17 +218,19 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_risk_level.sizePolicy().hasHeightForWidth())
         self.comboBox_risk_level.setSizePolicy(sizePolicy)
         self.comboBox_risk_level.setObjectName('comboBox_risk_level')
-        self.comboBox_risk_level.addItem('')
-        self.comboBox_risk_level.addItem('')
-        self.comboBox_risk_level.addItem('')
-        self.comboBox_risk_level.addItem('')
-        self.comboBox_risk_level.addItem('')
+        self.comboBox_risk_level.addItem(_translate("MainWindow", "Любой"))
+        self.comboBox_risk_level.addItem(_translate("MainWindow", "Низкий"))
+        self.comboBox_risk_level.addItem(_translate("MainWindow", "Средний"))
+        self.comboBox_risk_level.addItem(_translate("MainWindow", "Высокий"))
+        self.comboBox_risk_level.addItem(_translate("MainWindow", "Неизвестен"))
         self.gridLayout_main.addWidget(self.comboBox_risk_level, 1, 1, 1, 1)
         """---------------------------------------------------------------------"""
 
         """----------------------------Бессрочность----------------------------"""
         self.label_perpetual_flag = QtWidgets.QLabel(self)
         self.label_perpetual_flag.setObjectName('label_perpetual_flag')
+        self.label_perpetual_flag.setToolTip(_translate("MainWindow", "Признак бессрочной облигации."))
+        self.label_perpetual_flag.setText(_translate("MainWindow", "Бессрочность:"))
         self.gridLayout_main.addWidget(self.label_perpetual_flag, 1, 2, 1, 1)
 
         self.comboBox_perpetual_flag = QtWidgets.QComboBox(self)
@@ -230,15 +240,17 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_perpetual_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_perpetual_flag.setSizePolicy(sizePolicy)
         self.comboBox_perpetual_flag.setObjectName('comboBox_perpetual_flag')
-        self.comboBox_perpetual_flag.addItem('')
-        self.comboBox_perpetual_flag.addItem('')
-        self.comboBox_perpetual_flag.addItem('')
+        self.comboBox_perpetual_flag.addItem(_translate("MainWindow", "Все"))
+        self.comboBox_perpetual_flag.addItem(_translate("MainWindow", "True"))
+        self.comboBox_perpetual_flag.addItem(_translate("MainWindow", "False"))
         self.gridLayout_main.addWidget(self.comboBox_perpetual_flag, 1, 3, 1, 1)
         """--------------------------------------------------------------------"""
 
         """-----------------------------Амортизация-----------------------------"""
         self.label_amortization_flag = QtWidgets.QLabel(self)
         self.label_amortization_flag.setObjectName('label_amortization_flag')
+        self.label_amortization_flag.setToolTip(_translate("MainWindow", "Признак облигации с амортизацией долга."))
+        self.label_amortization_flag.setText(_translate("MainWindow", "Амортизация:"))
         self.gridLayout_main.addWidget(self.label_amortization_flag, 2, 0, 1, 1)
 
         self.comboBox_amortization_flag = QtWidgets.QComboBox(self)
@@ -248,15 +260,17 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_amortization_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_amortization_flag.setSizePolicy(sizePolicy)
         self.comboBox_amortization_flag.setObjectName('comboBox_amortization_flag')
-        self.comboBox_amortization_flag.addItem('')
-        self.comboBox_amortization_flag.addItem('')
-        self.comboBox_amortization_flag.addItem('')
+        self.comboBox_amortization_flag.addItem(_translate("MainWindow", "Все"))
+        self.comboBox_amortization_flag.addItem(_translate("MainWindow", "True"))
+        self.comboBox_amortization_flag.addItem(_translate("MainWindow", "False"))
         self.gridLayout_main.addWidget(self.comboBox_amortization_flag, 2, 1, 1, 1)
         """---------------------------------------------------------------------"""
 
         """-------------------------------Суборд-------------------------------"""
         self.label_subordinated_flag = QtWidgets.QLabel(self)
         self.label_subordinated_flag.setObjectName('label_subordinated_flag')
+        self.label_subordinated_flag.setToolTip(_translate("MainWindow", "Признак субординированной облигации."))
+        self.label_subordinated_flag.setText(_translate("MainWindow", "Суборд:"))
         self.gridLayout_main.addWidget(self.label_subordinated_flag, 2, 2, 1, 1)
 
         self.comboBox_subordinated_flag = QtWidgets.QComboBox(self)
@@ -266,50 +280,13 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_subordinated_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_subordinated_flag.setSizePolicy(sizePolicy)
         self.comboBox_subordinated_flag.setObjectName('comboBox_subordinated_flag')
-        self.comboBox_subordinated_flag.addItem('')
-        self.comboBox_subordinated_flag.addItem('')
-        self.comboBox_subordinated_flag.addItem('')
+        self.comboBox_subordinated_flag.addItem(_translate("MainWindow", "Все"))
+        self.comboBox_subordinated_flag.addItem(_translate("MainWindow", "True"))
+        self.comboBox_subordinated_flag.addItem(_translate("MainWindow", "False"))
         self.gridLayout_main.addWidget(self.comboBox_subordinated_flag, 2, 3, 1, 1)
         """--------------------------------------------------------------------"""
 
         self.verticalLayout_main.addLayout(self.gridLayout_main)
-
-        """------------------------------------retranslateUi------------------------------------"""
-        _translate = QtCore.QCoreApplication.translate
-        self.setTitle(_translate('MainWindow', 'Фильтры облигаций'))
-        self.label_maturity.setToolTip(_translate("MainWindow", "Флаг, отображающий погашенность облигации к текущей дате."))
-        self.label_maturity.setText(_translate("MainWindow", "Погашенность:"))
-        self.comboBox_maturity.setItemText(0, _translate("MainWindow", "Все"))
-        self.comboBox_maturity.setItemText(1, _translate("MainWindow", "Непогашенные"))
-        self.comboBox_maturity.setItemText(2, _translate("MainWindow", "Погашенные"))
-        self.label_floating_coupon_flag.setToolTip(_translate("MainWindow", "Признак облигации с плавающим купоном."))
-        self.label_floating_coupon_flag.setText(_translate("MainWindow", "Плавающий купон:"))
-        self.comboBox_floating_coupon_flag.setItemText(0, _translate("MainWindow", "Все"))
-        self.comboBox_floating_coupon_flag.setItemText(1, _translate("MainWindow", "True"))
-        self.comboBox_floating_coupon_flag.setItemText(2, _translate("MainWindow", "False"))
-        self.label_risk_level.setToolTip(_translate("MainWindow", "Уровень риска."))
-        self.label_risk_level.setText(_translate("MainWindow", "Уровень риска:"))
-        self.comboBox_risk_level.setItemText(0, _translate("MainWindow", "Любой"))
-        self.comboBox_risk_level.setItemText(1, _translate("MainWindow", "Низкий"))
-        self.comboBox_risk_level.setItemText(2, _translate("MainWindow", "Средний"))
-        self.comboBox_risk_level.setItemText(3, _translate("MainWindow", "Высокий"))
-        self.comboBox_risk_level.setItemText(4, _translate("MainWindow", "Неизвестен"))
-        self.label_perpetual_flag.setToolTip(_translate("MainWindow", "Признак бессрочной облигации."))
-        self.label_perpetual_flag.setText(_translate("MainWindow", "Бессрочность:"))
-        self.comboBox_perpetual_flag.setItemText(0, _translate("MainWindow", "Все"))
-        self.comboBox_perpetual_flag.setItemText(1, _translate("MainWindow", "True"))
-        self.comboBox_perpetual_flag.setItemText(2, _translate("MainWindow", "False"))
-        self.label_amortization_flag.setToolTip(_translate("MainWindow", "Признак облигации с амортизацией долга."))
-        self.label_amortization_flag.setText(_translate("MainWindow", "Амортизация:"))
-        self.comboBox_amortization_flag.setItemText(0, _translate("MainWindow", "Все"))
-        self.comboBox_amortization_flag.setItemText(1, _translate("MainWindow", "True"))
-        self.comboBox_amortization_flag.setItemText(2, _translate("MainWindow", "False"))
-        self.label_subordinated_flag.setToolTip(_translate("MainWindow", "Признак субординированной облигации."))
-        self.label_subordinated_flag.setText(_translate("MainWindow", "Суборд:"))
-        self.comboBox_subordinated_flag.setItemText(0, _translate("MainWindow", "Все"))
-        self.comboBox_subordinated_flag.setItemText(1, _translate("MainWindow", "True"))
-        self.comboBox_subordinated_flag.setItemText(2, _translate("MainWindow", "False"))
-        """-------------------------------------------------------------------------------------"""
 
         self.comboBox_maturity.setCurrentIndex(1)
         self.comboBox_floating_coupon_flag.setCurrentIndex(0)

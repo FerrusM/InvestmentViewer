@@ -21,7 +21,9 @@ def reportRiskLevel(risk_level: RiskLevel) -> str:
         case RiskLevel.RISK_LEVEL_LOW: return 'Низкий'
         case RiskLevel.RISK_LEVEL_MODERATE: return 'Средний'
         case RiskLevel.RISK_LEVEL_HIGH: return 'Высокий'
-        case _: raise ValueError('Неизвестное значение переменной класса RiskLevel ({0})!'.format(risk_level))
+        case _:
+            assert False, 'Неизвестное значение переменной класса RiskLevel ({0}) в функции {1}!'.format(risk_level, reportRiskLevel.__name__)
+            return ''
 
 
 class BondColumn(Column):
@@ -299,7 +301,6 @@ class BondsModel(QAbstractTableModel):
         @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def lessThan_MyMoneyValue_or_None(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
             """Функция сортировки для значений MyMoneyValue | None."""
-            FUNCTION_NAME: str = 'lessThan_MyMoneyValue_or_None'
             left_data: MyMoneyValue | None = left.data(role=role)
             right_data: MyMoneyValue | None = right.data(role=role)
             if type(left_data) == MyMoneyValue:
@@ -308,7 +309,7 @@ class BondsModel(QAbstractTableModel):
                 elif right_data is None:
                     return False
                 else:
-                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
+                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), lessThan_MyMoneyValue_or_None.__name__)
                     return False
             elif left_data is None:
                 if type(right_data) == MyMoneyValue:
@@ -316,16 +317,15 @@ class BondsModel(QAbstractTableModel):
                 elif right_data is None:
                     return False
                 else:
-                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
+                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), lessThan_MyMoneyValue_or_None.__name__)
                     return False
             else:
-                assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
+                assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), lessThan_MyMoneyValue_or_None.__name__)
                 return True
 
         @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def lessThan_RelativeProfit(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
-            """Функция сортировки для столбца DATE_RELATIVE_PROFIT."""
-            FUNCTION_NAME: str = 'lessThan_RelativeProfit'
+        def lessThan_Decimal_or_None(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole):
+            """Функция сортировки для значений Decimal | None."""
             left_data: Decimal | None = left.data(role=role)
             right_data: Decimal | None = right.data(role=role)
             if type(left_data) == Decimal:
@@ -334,7 +334,7 @@ class BondsModel(QAbstractTableModel):
                 elif right_data is None:
                     return False
                 else:
-                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
+                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), lessThan_Decimal_or_None.__name__)
                     return False
             elif left_data is None:
                 if type(right_data) == Decimal:
@@ -342,10 +342,10 @@ class BondsModel(QAbstractTableModel):
                 elif right_data is None:
                     return False
                 else:
-                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), FUNCTION_NAME)
+                    assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), lessThan_Decimal_or_None.__name__)
                     return False
             else:
-                assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), FUNCTION_NAME)
+                assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), lessThan_Decimal_or_None.__name__)
                 return True
 
         @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
@@ -515,14 +515,16 @@ class BondsModel(QAbstractTableModel):
                            date_dependence=True,
                            coupon_dependence=True,
                            sort_role=Qt.ItemDataRole.UserRole,
-                           lessThan=lessThan_RelativeProfit),
+                           lessThan=lessThan_Decimal_or_None),
             self.Columns.DATE_ANNUAL_PROFIT:
                 BondColumn(header='Годовая доходность',
                            header_tooltip='Относительная доходность к выбранной дате в пересчёте на год.',
                            data_function=lambda bond_class, entered_dt: getAnnualProfit(bond_class, entered_dt),
                            display_function=showAnnualProfit,
                            date_dependence=True,
-                           coupon_dependence=True),
+                           coupon_dependence=True,
+                           sort_role=Qt.ItemDataRole.UserRole,
+                           lessThan=lessThan_Decimal_or_None),
             self.Columns.BOND_RISK_LEVEL:
                 BondColumn(header='Риск',
                            header_tooltip='Уровень риска.',

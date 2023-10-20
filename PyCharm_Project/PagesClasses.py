@@ -79,6 +79,8 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(2)
         self.verticalLayout_main.setObjectName('verticalLayout_main')
 
+        _translate = QtCore.QCoreApplication.translate
+
         """------------------------Заголовок------------------------"""
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
@@ -96,6 +98,7 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.label_title.setFont(font)
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
+        self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
         self.horizontalLayout_title.addWidget(self.label_title)
 
         self.label_count = QtWidgets.QLabel(self)
@@ -106,6 +109,7 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.label_count.setObjectName('label_count')
+        self.label_count.setText(_translate('MainWindow', '0'))
         self.horizontalLayout_title.addWidget(self.label_count)
 
         spacerItem2 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -121,6 +125,8 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
         self.label_token = QtWidgets.QLabel(self)
         self.label_token.setObjectName('label_token')
+        self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
+        self.label_token.setText(_translate('MainWindow', 'Токен:'))
         self.horizontalLayout_token.addWidget(self.label_token)
 
         spacerItem3 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -128,7 +134,7 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
         self.comboBox_token = QtWidgets.QComboBox(self)
         self.comboBox_token.setObjectName('comboBox_token')
-        self.comboBox_token.addItem('')
+        self.comboBox_token.addItem(_translate('MainWindow', 'Не выбран'))
         self.horizontalLayout_token.addWidget(self.comboBox_token)
 
         spacerItem4 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -136,15 +142,6 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_token)
         """-----------------------------------------------------------"""
-
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
-        self.label_count.setText(_translate('MainWindow', '0'))
-        self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
-        self.label_token.setText(_translate('MainWindow', 'Токен:'))
-        self.comboBox_token.setItemText(0, _translate('MainWindow', 'Не выбран'))
-
-        self.comboBox_token.setCurrentIndex(0)
 
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
         def onTokenChangedSlot():

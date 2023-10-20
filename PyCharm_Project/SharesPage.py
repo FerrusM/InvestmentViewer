@@ -65,7 +65,7 @@ class GroupBox_OnlySharesFilters(QtWidgets.QGroupBox):
         self.gridLayout_main.addWidget(self.comboBox_div_yield_flag, 0, 3, 1, 1)
         """--------------------------------------------------------------------"""
 
-        """------------------------------------retranslateUi------------------------------------"""
+        '''------------------------------------retranslateUi------------------------------------'''
         _translate = QtCore.QCoreApplication.translate
         self.setTitle(_translate('MainWindow', 'Фильтры акций'))
         self.label_share_type.setToolTip(_translate('MainWindow', 'Тип акции.'))
@@ -85,7 +85,7 @@ class GroupBox_OnlySharesFilters(QtWidgets.QGroupBox):
         self.comboBox_div_yield_flag.setItemText(0, _translate('MainWindow', 'Все'))
         self.comboBox_div_yield_flag.setItemText(1, _translate('MainWindow', 'True'))
         self.comboBox_div_yield_flag.setItemText(2, _translate('MainWindow', 'False'))
-        """-------------------------------------------------------------------------------------"""
+        '''-------------------------------------------------------------------------------------'''
 
         '''------------------------------------Фильтры акций------------------------------------'''
         def appFilter_ShareType(share_type: ShareType, filter: str) -> bool:
