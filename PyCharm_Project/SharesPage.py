@@ -664,6 +664,17 @@ class SharesPage(QtWidgets.QWidget):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.setTokensModel(token_list_model)
 
+    def __reset(self):
+        """Сбрасывает акции."""
+        self.shares = []
+        self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
+        self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
+        '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
+        self.groupBox_request.setCount(0)  # Количество полученных акций.
+        self.groupBox_filters.setCount(0)  # Количество отобранных акций.
+        '''---------------------------------------------------------------------------------'''
+        self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
+
     @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onStatusChanged(self, instrument_status: InstrumentStatus):
         """Функция, выполняемая при изменении выбранного статуса инструмента."""
@@ -674,14 +685,7 @@ class SharesPage(QtWidgets.QWidget):
             Если token is None, то все параметры и так уже должны иметь пустые значения,
             поэтому, возможно, этот код лишний.
             '''
-            self.shares = []
-            self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
-            self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
-            '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
-            self.groupBox_request.setCount(0)  # Количество полученных акций.
-            self.groupBox_filters.setCount(0)  # Количество отобранных акций.
-            '''---------------------------------------------------------------------------------'''
-            self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
+            self.__reset()  # Сбрасывает акции.
         else:
             shares_response: MyResponse = getShares(token.token, instrument_status)  # Получение акций.
             assert shares_response.request_occurred, 'Запрос акций не был произведён.'
@@ -701,28 +705,14 @@ class SharesPage(QtWidgets.QWidget):
                 if share_class_list:  # Если список не пуст.
                     self._startDividendsThread(token, share_class_list)  # Запускает поток получения дивидендов.
             else:
-                self.shares = []
-                self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
-                self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
-                '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
-                self.groupBox_request.setCount(0)  # Количество полученных акций.
-                self.groupBox_filters.setCount(0)  # Количество отобранных акций.
-                '''---------------------------------------------------------------------------------'''
-                self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
+                self.__reset()  # Сбрасывает акции.
 
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
         """Функция, выполняемая при выборе пустого значения вместо токена."""
         self._stopDividendsThread()  # Останавливаем поток получения дивидендов.
         self.token = None
-        self.shares = []
-        self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
-        self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
-        '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
-        self.groupBox_request.setCount(0)  # Количество полученных акций.
-        self.groupBox_filters.setCount(0)  # Количество отобранных акций.
-        '''---------------------------------------------------------------------------------'''
-        self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
+        self.__reset()  # Сбрасывает акции.
 
     @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
@@ -751,14 +741,7 @@ class SharesPage(QtWidgets.QWidget):
             if share_class_list:  # Если список не пуст.
                 self._startDividendsThread(token, share_class_list)  # Запускает поток получения дивидендов.
         else:
-            self.shares = []
-            self.groupBox_view.setShares([])  # Передаём в исходную модель данные.
-            self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
-            '''-----------------Обновляет отображение количеств акций в моделях-----------------'''
-            self.groupBox_request.setCount(0)  # Количество полученных акций.
-            self.groupBox_filters.setCount(0)  # Количество отобранных акций.
-            '''---------------------------------------------------------------------------------'''
-            self.groupBox_dividends_receiving.reset()  # Сбрасывает progressBar.
+            self.__reset()  # Сбрасывает акции.
 
     def _startDividendsThread(self, token: TokenClass, share_class_list: list[MyShareClass]):
         """Запускает поток получения дивидендов."""

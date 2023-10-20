@@ -817,6 +817,17 @@ class BondsPage(QtWidgets.QWidget):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
 
+    def __reset(self):
+        """Сбрасывает облигации."""
+        self.bonds = []
+        self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+        self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
+        '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
+        self.groupBox_request.setCount(0)  # Количество полученных облигаций.
+        self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
+        '''---------------------------------------------------------------------------------'''
+        self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+
     @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onStatusChanged(self, instrument_status: InstrumentStatus):
         """Функция, выполняемая при изменении выбранного статуса инструмента."""
@@ -827,14 +838,7 @@ class BondsPage(QtWidgets.QWidget):
             Если token is None, то все параметры и так уже должны иметь пустые значения,
             поэтому, возможно, этот код лишний.
             '''
-            self.bonds = []
-            self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-            self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-            '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-            self.groupBox_request.setCount(0)  # Количество полученных облигаций.
-            self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
-            '''---------------------------------------------------------------------------------'''
-            self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+            self.__reset()  # Сбрасывает облигации.
         else:
             bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
             assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
@@ -852,28 +856,14 @@ class BondsPage(QtWidgets.QWidget):
                 if bond_class_list:  # Если список не пуст.
                     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
             else:
-                self.bonds = []
-                self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-                '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-                self.groupBox_request.setCount(0)  # Количество полученных облигаций.
-                self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
-                '''---------------------------------------------------------------------------------'''
-                self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+                self.__reset()  # Сбрасывает облигации.
 
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
         """Функция, выполняемая при выборе пустого значения вместо токена."""
         self._stopCouponsThread()  # Останавливаем поток получения купонов.
         self.token = None
-        self.bonds = []
-        self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-        self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-        '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-        self.groupBox_request.setCount(0)  # Количество полученных облигаций.
-        self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
-        '''---------------------------------------------------------------------------------'''
-        self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+        self.__reset()  # Сбрасывает облигации.
 
     @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
@@ -902,14 +892,7 @@ class BondsPage(QtWidgets.QWidget):
             if bond_class_list:  # Если список не пуст.
                 self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
         else:
-            self.bonds = []
-            self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-            self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-            '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-            self.groupBox_request.setCount(0)  # Количество полученных облигаций.
-            self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
-            '''---------------------------------------------------------------------------------'''
-            self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+            self.__reset()  # Сбрасывает облигации.
 
     def _startCouponsThread(self, bonds: list[MyBondClass]):
         """Запускает поток получения купонов."""

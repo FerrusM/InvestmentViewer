@@ -118,7 +118,3 @@ class LimitsPage(QtWidgets.QWidget):
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
-
-    # def getCurrentToken(self) -> TokenClass | None:
-    #     """Возвращает выбранный в ComboBox'е токен."""
-    #     return self.groupBox_request.getCurrentToken()
