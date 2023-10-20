@@ -11,7 +11,7 @@ from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
 from MyBondClass import MyBondClass, MyBond
 from MyDateTime import getMoscowDateTime
-from MyRequests import MyResponse, getBonds
+from MyRequests import MyResponse, getBonds, RequestTryClass
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
 from TokenModel import TokenListModel
 
@@ -553,6 +553,8 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(2)
         self.verticalLayout_main.setObjectName('verticalLayout_main')
 
+        _translate = QtCore.QCoreApplication.translate
+
         '''------------------------Заголовок------------------------'''
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
@@ -560,8 +562,6 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
 
         spacerItem47 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
         self.horizontalLayout_title.addItem(spacerItem47)
-
-        _translate = QtCore.QCoreApplication.translate
 
         self.lineEdit_search = QtWidgets.QLineEdit(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -760,6 +760,7 @@ class BondsPage(QtWidgets.QWidget):
             if token is None:
                 self.bonds = []
                 self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
                 '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
                 self.groupBox_request.setCount(0)  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
@@ -774,6 +775,7 @@ class BondsPage(QtWidgets.QWidget):
                 '''---------------------------------------------------------------------------------'''
                 bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
                 self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
+                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
                 if bond_class_list:  # Если список не пуст.
                     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
 
@@ -827,6 +829,7 @@ class BondsPage(QtWidgets.QWidget):
             '''
             self.bonds = []
             self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+            self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
             '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
             self.groupBox_request.setCount(0)  # Количество полученных облигаций.
             self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
@@ -845,11 +848,13 @@ class BondsPage(QtWidgets.QWidget):
                 '''---------------------------------------------------------------------------------'''
                 bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
                 self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
+                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
                 if bond_class_list:  # Если список не пуст.
                     self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
             else:
                 self.bonds = []
                 self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
                 '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
                 self.groupBox_request.setCount(0)  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
@@ -863,6 +868,7 @@ class BondsPage(QtWidgets.QWidget):
         self.token = None
         self.bonds = []
         self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+        self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
         '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
         self.groupBox_request.setCount(0)  # Количество полученных облигаций.
         self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
@@ -874,8 +880,14 @@ class BondsPage(QtWidgets.QWidget):
         """Функция, выполняемая при изменении выбранного токена."""
         self._stopCouponsThread()  # Останавливаем поток получения купонов.
         self.token = token
-        bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
-        assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
+
+        bonds_try_count: RequestTryClass = RequestTryClass(3)
+        bonds_response: MyResponse = MyResponse()
+        while bonds_try_count and not bonds_response.ifDataSuccessfullyReceived():
+            bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
+            assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
+            bonds_try_count += 1
+
         if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
             bonds: list[Bond] = bonds_response.response_data  # Извлекаем список облигаций.
             self.bonds = bonds
@@ -886,11 +898,13 @@ class BondsPage(QtWidgets.QWidget):
             '''---------------------------------------------------------------------------------'''
             bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
             self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
+            self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
             if bond_class_list:  # Если список не пуст.
                 self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
         else:
             self.bonds = []
             self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+            self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
             '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
             self.groupBox_request.setCount(0)  # Количество полученных облигаций.
             self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
