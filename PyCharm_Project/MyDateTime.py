@@ -13,6 +13,16 @@ def getMoscowDateTime() -> datetime.datetime:
     return datetime.datetime.now(tz)
 
 
+def getCountOfDaysBetweenTwoDates(start_date: datetime.date, end_date: datetime.date) -> int:
+    """Подсчитывает и возвращает количество дней между двумя датами."""
+    return (end_date - start_date).days
+
+
+def getCountOfDaysBetweenTwoDateTimes(start_dt: datetime.datetime, end_dt: datetime.datetime) -> int:
+    """Подсчитывает и возвращает количество дней между двумя датами."""
+    return getCountOfDaysBetweenTwoDates(start_dt.date(), end_dt.date())
+
+
 def getMicrosecondsCountFromDateTime(date_and_time: datetime.datetime) -> int:
     """Получает количество микросекунд со времён эпохи в datetime.datetime."""
     date_and_time_utc: datetime.datetime = date_and_time.replace(tzinfo=datetime.timezone.utc)  # Преобразуем в формат UTC.

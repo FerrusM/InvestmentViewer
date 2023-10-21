@@ -93,6 +93,13 @@ class AssetsThread(QThread):
                     assert assetfull_response.request_occurred, 'Запрос информации об активе не был произведён.'
                     self.request_count += 1  # Подсчитываем запрос.
                     self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
+
+                    '''------------------------Сообщаем об ошибке------------------------'''
+                    if assetfull_response.request_error_flag:
+                        printInConsole('RequestError {0}'.format(assetfull_response.request_error))
+                    elif assetfull_response.exception_flag:
+                        printInConsole('Exception {0}'.format(assetfull_response.exception))
+                    '''------------------------------------------------------------------'''
                     """------------------------------------------------------------------------------"""
                     assetfull_try_count += 1
 

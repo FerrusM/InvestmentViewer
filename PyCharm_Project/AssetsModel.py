@@ -108,7 +108,6 @@ class AssetsTreeModel(QAbstractItemModel):
         ASSET_SIXTH = 5
         ASSET_SEVENTH = 6
         ASSET_EIGHTH = 7
-        ASSET_NINTH = 8
 
     def __init__(self):
         super().__init__()  # __init__() QAbstractItemModel.
@@ -140,16 +139,12 @@ class AssetsTreeModel(QAbstractItemModel):
                         data_function=lambda item: item.data.asset.instrument_kind,
                         display_function=lambda item: reportInstrumentType(item.data.instrument_kind))),
             self.Columns.ASSET_SEVENTH:
-                (AssetColumn(),
-                 Column(header='Id позиции',
-                        data_function=lambda item: item.data.position_uid)),
-            self.Columns.ASSET_EIGHTH:
-                (AssetColumn(header='Бренд',
+                (AssetColumn(header='Наименование бренда',
                              header_tooltip='Наименование бренда.',
                              data_function=lambda item: None if item.data.full_asset is None else item.data.full_asset.brand.name,
                              full_dependence=True),
                  Column()),
-            self.Columns.ASSET_NINTH:
+            self.Columns.ASSET_EIGHTH:
                 (AssetColumn(header='Компания',
                              header_tooltip='Компания.',
                              data_function=lambda item: None if item.data.full_asset is None else item.data.full_asset.brand.company,

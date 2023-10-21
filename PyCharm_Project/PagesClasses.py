@@ -4,6 +4,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass
+from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
 from TokenModel import TokenListModel
 
@@ -28,15 +29,54 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.verticalLayout_main.setObjectName('verticalLayout_main')
 
         """-----------------Заголовок "Дата расчёта"-----------------"""
+        # self.label_title = QtWidgets.QLabel(self)
+        # font = QtGui.QFont()
+        # font.setBold(True)
+        # self.label_title.setFont(font)
+        # self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
+        # self.label_title.setObjectName('label_title')
+        # self.label_title.setText(QtCore.QCoreApplication.translate('MainWindow', 'ДАТА РАСЧЁТА'))
+        # self.verticalLayout_main.addWidget(self.label_title)
+        """----------------------------------------------------------"""
+
+        _translate = QtCore.QCoreApplication.translate
+
+        '''--------------------------Заголовок "Дата расчёта"--------------------------'''
+        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_title.setSpacing(0)
+        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+
+        spacerItem44 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem44)
+
+        spacerItem45 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem45)
+
         self.label_title = QtWidgets.QLabel(self)
         font = QtGui.QFont()
         font.setBold(True)
         self.label_title.setFont(font)
         self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.label_title.setObjectName('label_title')
-        self.label_title.setText(QtCore.QCoreApplication.translate('MainWindow', 'ДАТА РАСЧЁТА'))
-        self.verticalLayout_main.addWidget(self.label_title)
-        """----------------------------------------------------------"""
+        self.label_title.setText(_translate('MainWindow', 'ДАТА РАСЧЁТА'))
+        self.horizontalLayout_title.addWidget(self.label_title)
+
+        self.label_days_before = QtWidgets.QLabel(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.label_days_before.sizePolicy().hasHeightForWidth())
+        self.label_days_before.setSizePolicy(sizePolicy)
+        self.label_days_before.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.label_days_before.setObjectName('label_days_before')
+        self.label_days_before.setText(_translate('MainWindow', '0'))
+        self.horizontalLayout_title.addWidget(self.label_days_before)
+
+        spacerItem46 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_title.addItem(spacerItem46)
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        '''----------------------------------------------------------------------------'''
 
         """------------------Календарь с выбором даты------------------"""
         self.calendarWidget = QtWidgets.QCalendarWidget(self)
@@ -49,6 +89,16 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.calendarWidget.setObjectName('calendarWidget')
         self.verticalLayout_main.addWidget(self.calendarWidget)
         """------------------------------------------------------------"""
+
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        def updateDaysBeforeCount():
+            """Обновляет количество дней до даты расчёта."""
+            start_date: date = getMoscowDateTime().date()
+            end_date: date = self.getDate()
+            days_count: int = getCountOfDaysBetweenTwoDates(start_date, end_date)
+            self.label_days_before.setText(_translate('MainWindow', str(days_count)))
+
+        self.calendarWidget.selectionChanged.connect(updateDaysBeforeCount)
 
     def getDate(self) -> date:
         """Возвращает выбранную в календаре дату в формате datetime.date."""

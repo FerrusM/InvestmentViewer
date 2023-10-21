@@ -8,7 +8,8 @@ from PyQt6.QtGui import QBrush
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon
 from Classes import reportTradingStatus, Column, update_class
 from CouponsThread import CouponsThread
-from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime
+from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime, \
+    getCountOfDaysBetweenTwoDateTimes
 from MyQuotation import MyQuotation, MyDecimal
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyBondClass import MyBondClass, MyLastPrice, TINKOFF_COMMISSION, NDFL, MyCoupon, MyBond, DAYS_IN_YEAR
@@ -362,12 +363,12 @@ class BondsModel(QAbstractTableModel):
 
         def getAnnualProfit(bond_class: MyBondClass, calculation_datetime: datetime, start_datetime: datetime = getUtcDateTime()) -> Decimal | None:
             """Возвращает доходность облигации за выбранный период в пересчёте на год."""
-            def getCountOfDaysBetweenTwoDates(start_dt: datetime, end_dt: datetime) -> int:
-                """Подсчитывает и возвращает количество дней между двумя датами."""
-                return (end_dt.date() - start_dt.date()).days
+            # def getCountOfDaysBetweenTwoDates(start_dt: datetime, end_dt: datetime) -> int:
+            #     """Подсчитывает и возвращает количество дней между двумя датами."""
+            #     return (end_dt.date() - start_dt.date()).days
             relative_profit: Decimal | None = bond_class.getRelativeProfit(calculation_datetime)  # Рассчитывает относительную доходность к выбранной дате.
             if relative_profit is None: return None
-            days_count: int = getCountOfDaysBetweenTwoDates(start_datetime, calculation_datetime)
+            days_count: int = getCountOfDaysBetweenTwoDateTimes(start_datetime, calculation_datetime)
             if days_count < 1:
                 return None
             else:
