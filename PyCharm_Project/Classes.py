@@ -1,6 +1,6 @@
 from datetime import datetime
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 
@@ -10,6 +10,19 @@ class MyTreeView(QtWidgets.QTreeView):
         """Авторазмер всех столбцов TreeView под содержимое."""
         for i in range(self.model().columnCount()):
             self.resizeColumnToContents(i)  # Авторазмер i-го столбца под содержимое.
+
+
+class update_class:
+    def __init__(self, model: QAbstractTableModel | QAbstractItemModel, top_left_index: QModelIndex, bottom_right_index: QModelIndex):
+        self._model: QAbstractTableModel | QAbstractItemModel = model
+        self._top_left_index: QModelIndex = top_left_index
+        self._bottom_right_index: QModelIndex = bottom_right_index
+
+    def __call__(self):
+        if not hasattr(self, '_model'):
+            pass
+            return
+        return self._model.dataChanged.emit(self._top_left_index, self._bottom_right_index)
 
 
 class Column:

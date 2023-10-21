@@ -2,20 +2,37 @@ from __future__ import annotations
 import enum
 import typing
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt
-from tinkoff.invest import Asset, AssetInstrument, AssetType, InstrumentType
-from Classes import Column
+from tinkoff.invest import AssetInstrument, AssetType, InstrumentType
+from AssetsThread import AssetClass
+from Classes import Column, update_class
+
+
+class AssetColumn(Column):
+    """Класс столбца таблицы активов."""
+    def __init__(self, header: str | None = None, header_tooltip: str | None = None,
+                 data_function=None, display_function=None, tooltip_function=None,
+                 background_function=None, foreground_function=None,
+                 lessThan=None, sort_role: Qt.ItemDataRole = Qt.ItemDataRole.UserRole,
+                 full_dependence: bool = False):
+        super().__init__(header, header_tooltip, data_function, display_function, tooltip_function,
+                         background_function, foreground_function, lessThan, sort_role)
+        self._full_dependence: bool = full_dependence  # Флаг зависимости от AssetFull.
+
+    def dependsOnFull(self) -> bool:
+        """Возвращает True, если значение столбца зависит от AssetFull."""
+        return self._full_dependence
 
 
 class TreeItem:
-    def __init__(self, parent: TreeItem | None, data: list[Asset] | Asset | AssetInstrument | None, children: list[TreeItem], row: int, hierarchy_level: int):
+    def __init__(self, parent: TreeItem | None, data: AssetClass | AssetInstrument | None, children: list[TreeItem], row: int, hierarchy_level: int):
         self._parent: TreeItem | None = parent  # Родительский элемент.
-        self.__data: Asset | AssetInstrument | None = data
+        self.__data: AssetClass | AssetInstrument | None = data
         self._children: list[TreeItem] = children  # Список дочерних элементов.
         self._row: int = row  # Номер строки элемента.
         self._hierarchy_level: int = hierarchy_level
 
     @property
-    def data(self) -> list[Asset] | Asset | AssetInstrument | None:
+    def data(self) -> AssetClass | AssetInstrument | None:
         return self.__data
 
     def parent(self) -> TreeItem | None:
@@ -90,58 +107,82 @@ class AssetsTreeModel(QAbstractItemModel):
         ASSET_FIFTH = 4
         ASSET_SIXTH = 5
         ASSET_SEVENTH = 6
+        ASSET_EIGHTH = 7
+        ASSET_NINTH = 8
 
     def __init__(self):
         super().__init__()  # __init__() QAbstractItemModel.
-        self.columns: dict[int, (Column, Column)] = {
+        self.columns: dict[int, (AssetColumn, Column)] = {
             self.Columns.ASSET_FIRST:
-                (Column(header='uid',
-                        data_function=lambda item: item.data.uid),
+                (AssetColumn(header='uid',
+                             data_function=lambda item: item.data.asset.uid),
                  Column(data_function=lambda item: item.data.uid)),
             self.Columns.ASSET_SECOND:
-                (Column(header='Тип актива',
-                        data_function=lambda item: item.data.type,
-                        display_function=lambda item: reportAssetType(item.data.type)),
+                (AssetColumn(header='Тип актива',
+                             data_function=lambda item: item.data.asset.type,
+                             display_function=lambda item: reportAssetType(item.data.asset.type)),
                  Column(data_function=lambda item: item.data.figi)),
             self.Columns.ASSET_THIRD:
-                (Column(header='Наименование актива',
-                        data_function=lambda item: item.data.name),
+                (AssetColumn(header='Наименование актива',
+                             data_function=lambda item: item.data.asset.name),
                  Column(data_function=lambda item: item.data.instrument_type)),
             self.Columns.ASSET_FOURTH:
-                (Column(),
+                (AssetColumn(),
                  Column(header='Тикер',
                         data_function=lambda item: item.data.ticker)),
             self.Columns.ASSET_FIFTH:
-                (Column(),
+                (AssetColumn(),
                  Column(header='Класс-код',
                         data_function=lambda item: item.data.class_code)),
             self.Columns.ASSET_SIXTH:
-                (Column(),
+                (AssetColumn(),
                  Column(header='Тип инструмента',
-                        data_function=lambda item: item.data.instrument_kind,
+                        data_function=lambda item: item.data.asset.instrument_kind,
                         display_function=lambda item: reportInstrumentType(item.data.instrument_kind))),
             self.Columns.ASSET_SEVENTH:
-                (Column(),
+                (AssetColumn(),
                  Column(header='Id позиции',
-                        data_function=lambda item: item.data.position_uid))
+                        data_function=lambda item: item.data.position_uid)),
+            self.Columns.ASSET_EIGHTH:
+                (AssetColumn(header='Бренд',
+                             header_tooltip='Наименование бренда.',
+                             data_function=lambda item: None if item.data.full_asset is None else item.data.full_asset.brand.name,
+                             full_dependence=True),
+                 Column()),
+            self.Columns.ASSET_NINTH:
+                (AssetColumn(header='Компания',
+                             header_tooltip='Компания.',
+                             data_function=lambda item: None if item.data.full_asset is None else item.data.full_asset.brand.company,
+                             full_dependence=True),
+                 Column())
         }
         self._root_item: TreeItem = TreeItem(None, None, [], 0, -1)
-        self._assets: list[Asset] = []
+        self._assets: list[AssetClass] = []
 
-    def setAssets(self, assets: list[Asset]):
+    def setAssets(self, assets: list[AssetClass]):
         """Устанавливает данные модели."""
         self.beginResetModel()  # Начинает операцию сброса модели.
         self._assets = assets
+        '''---------------Создание иерархической структуры---------------'''
         assets_items: list[TreeItem] = []
-        for i, asset in enumerate(self._assets):
-            asset_item: TreeItem = TreeItem(self._root_item, asset, [], i, 0)
+        for i, asset_class in enumerate(self._assets):
+            asset_item: TreeItem = TreeItem(self._root_item, asset_class, [], i, 0)
             asset_instruments: list[TreeItem] = []
-            for j, instrument in enumerate(asset.instruments):
+            for j, instrument in enumerate(asset_class.asset.instruments):
                 instrument_item: TreeItem = TreeItem(asset_item, instrument, [], j, 1)
                 asset_instruments.append(instrument_item)
             asset_item.setChildren(asset_instruments)
             assets_items.append(asset_item)
         self._root_item.setChildren(assets_items)
+        '''--------------------------------------------------------------'''
+
+        for row, asset_class in enumerate(self._assets):
+            for column, (asset_column, instrument_column) in enumerate(self.columns.values()):
+                if asset_column.dependsOnFull():
+                    index: QModelIndex = self.index(row, column, QModelIndex())
+                    # asset_class.setAssetFull_signal.connect(lambda: self.dataChanged.emit(index, index))  # Подключаем слот обновления.
+                    asset_class.setAssetFull_signal.connect(update_class(self, index, index))  # Подключаем слот обновления.
+
         self.endResetModel()  # Завершает операцию сброса модели.
 
     def rowCount(self, parent: QModelIndex = ...) -> int:

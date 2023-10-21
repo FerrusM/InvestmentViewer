@@ -307,7 +307,7 @@ class GroupBox_AssetsTreeView(QtWidgets.QGroupBox):
         self.treeView_assets.setModel(assets_model)  # Подключаем модель к TreeView.
         self.treeView_assets.resizeColumnsToContents()  # Авторазмер всех столбцов под содержимое.
 
-    def setAssets(self, assets: list[Asset]):
+    def setAssets(self, assets: list[AssetClass]):
         """Устанавливает активы для отображения."""
         self.treeView_assets.model().setAssets(assets)
         self.treeView_assets.expandAll()  # Разворачивает все элементы.
@@ -391,7 +391,7 @@ class AssetsPage(QtWidgets.QWidget):
         self._stopAssetsThread()  # Останавливает поток получения информации об активах.
         self.token = token
 
-        assets_try_count: RequestTryClass = RequestTryClass()
+        assets_try_count: RequestTryClass = RequestTryClass(2)
         assets_response: MyResponse = MyResponse()
         while assets_try_count and not assets_response.ifDataSuccessfullyReceived():
             assets_response: MyResponse = getAssets(token.token, instruments_type)  # Получение активов.
@@ -400,11 +400,11 @@ class AssetsPage(QtWidgets.QWidget):
 
         if assets_response.ifDataSuccessfullyReceived():  # Если список активов был получен.
             assets: list[Asset] = assets_response.response_data  # Извлекаем список активов.
-            self.groupBox_view.setAssets(assets)  # Передаём в исходную модель данные.
-            self.groupBox_request.setCount(len(assets))  # Количество полученных активов.
 
-            if assets:  # Если список не пуст.
-                assetclass_list: list[AssetClass] = [AssetClass(asset) for asset in assets]
+            assetclass_list: list[AssetClass] = [AssetClass(asset) for asset in assets]
+            self.groupBox_view.setAssets(assetclass_list)  # Передаём в исходную модель данные.
+            self.groupBox_request.setCount(len(assetclass_list))  # Количество полученных активов.
+            if assetclass_list:  # Если список не пуст.
                 self._startAssetsThread(token, assetclass_list)  # Запускает поток получения информации об активах.
         else:
             self.groupBox_view.setAssets([])  # Передаём в исходную модель данные.

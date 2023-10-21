@@ -137,6 +137,12 @@ class CouponsModel(QAbstractTableModel):
 
 class CouponsProxyModel(QSortFilterProxyModel):
     """Прокси-модель купонов."""
+    def sourceModel(self) -> CouponsModel:
+        """Возвращает исходную модель."""
+        source_model = super().sourceModel()
+        assert type(source_model) == CouponsModel
+        return typing.cast(CouponsModel, source_model)
+
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         # Функция headerData объявлена в прокси-модели, чтобы
         # названия строк не сортировались вместе с данными.

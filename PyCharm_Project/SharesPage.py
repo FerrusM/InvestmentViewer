@@ -720,7 +720,7 @@ class SharesPage(QtWidgets.QWidget):
         self._stopDividendsThread()  # Останавливаем поток получения дивидендов.
         self.token = token
 
-        shares_try_count: RequestTryClass = RequestTryClass(3)
+        shares_try_count: RequestTryClass = RequestTryClass(2)
         shares_response: MyResponse = MyResponse()
         while shares_try_count and not shares_response.ifDataSuccessfullyReceived():
             shares_response: MyResponse = getShares(token.token, instrument_status)  # Получение акций.

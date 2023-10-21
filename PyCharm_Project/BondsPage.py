@@ -871,7 +871,7 @@ class BondsPage(QtWidgets.QWidget):
         self._stopCouponsThread()  # Останавливаем поток получения купонов.
         self.token = token
 
-        bonds_try_count: RequestTryClass = RequestTryClass(3)
+        bonds_try_count: RequestTryClass = RequestTryClass(2)
         bonds_response: MyResponse = MyResponse()
         while bonds_try_count and not bonds_response.ifDataSuccessfullyReceived():
             bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.

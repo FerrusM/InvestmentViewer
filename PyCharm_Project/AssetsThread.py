@@ -96,6 +96,6 @@ class AssetsThread(QThread):
                     """------------------------------------------------------------------------------"""
                     assetfull_try_count += 1
 
-                assetfull: AssetFull | None = assetfull_response.response_data if assetfull_response.ifDataSuccessfullyReceived() else None
+                assetfull: AssetFull | None = assetfull_response.response_data.asset if assetfull_response.ifDataSuccessfullyReceived() else None
                 if assetfull is None: continue  # Если поток был прерван или если информация не была получена.
                 asset_class.setAssetFull(assetfull)  # Записываем информацию об активе в AssetClass.

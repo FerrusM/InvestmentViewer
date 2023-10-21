@@ -6,7 +6,7 @@ from decimal import Decimal
 from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel, pyqtSlot, QVariant
 from PyQt6.QtGui import QBrush
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon
-from Classes import reportTradingStatus, Column
+from Classes import reportTradingStatus, Column, update_class
 from CouponsThread import CouponsThread
 from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime
 from MyQuotation import MyQuotation, MyDecimal
@@ -46,19 +46,6 @@ class BondColumn(Column):
     def dependsOnCoupons(self) -> bool:
         """Зависит ли значение столбца от купонов."""
         return self._coupon_dependence
-
-
-class update_source_class:
-    def __init__(self, source_model: BondsModel, source_top_left_index: QModelIndex, source_bottom_right_index: QModelIndex):
-        self._source_model: BondsModel = source_model
-        self._source_top_left_index: QModelIndex = source_top_left_index
-        self._source_bottom_right_index: QModelIndex = source_bottom_right_index
-
-    def __call__(self):
-        if not hasattr(self, '_source_model'):
-            pass
-            return
-        return self._source_model.dataChanged.emit(self._source_top_left_index, self._source_bottom_right_index)
 
 
 def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> str | QVariant:
@@ -563,7 +550,7 @@ class BondsModel(QAbstractTableModel):
                 if bond_column.dependsOnCoupons():
                     source_index: QModelIndex = self.index(row, column)
                     # bond_class.setCoupons_signal.connect(lambda: self.dataChanged.emit(source_index, source_index))  # Подключаем слот обновления.
-                    bond_class.setCoupons_signal.connect(update_source_class(self, source_index, source_index))  # Подключаем слот обновления.
+                    bond_class.setCoupons_signal.connect(update_class(self, source_index, source_index))  # Подключаем слот обновления.
         self.endResetModel()  # Завершает операцию сброса модели.
 
     def setDateTime(self, entered_datetime: datetime):
