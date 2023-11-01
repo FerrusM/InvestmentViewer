@@ -11,7 +11,8 @@ from MyRequests import MyResponse, getShares, RequestTryClass
 from MyShareClass import MyShareClass
 from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
 from SharesModel import SharesProxyModel, SharesModel
-from TokenModel import TokenListModel
+# from old_TokenModel import TokenListModel
+from new_TokenModel import TokenListModel
 
 
 class GroupBox_OnlySharesFilters(QtWidgets.QGroupBox):

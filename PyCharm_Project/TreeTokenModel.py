@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import QPushButton, QStyledItemDelegate, QAbstractItemView
 from tinkoff.invest import Account
 from Classes import TokenClass, reportAccountAccessLevel, reportAccountType, reportAccountStatus, Column
 from MyDateTime import reportSignificantInfoFromDateTime
-from TokenModel import TokenModel
+# from old_TokenModel import TokenModel
+from new_TokenModel import TokenModel
 
 
 class TreeItem:

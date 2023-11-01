@@ -6,7 +6,8 @@ from AssetsThread import AssetsThread, AssetClass
 from Classes import TokenClass, MyTreeView
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getAssets, RequestTryClass
-from TokenModel import TokenListModel
+# from old_TokenModel import TokenListModel
+from new_TokenModel import TokenListModel
 
 
 class GroupBox_AssetsRequest(QtWidgets.QGroupBox):

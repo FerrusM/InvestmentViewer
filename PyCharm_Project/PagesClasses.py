@@ -6,7 +6,8 @@ from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass
 from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
-from TokenModel import TokenListModel
+# from old_TokenModel import TokenListModel
+from new_TokenModel import TokenListModel
 
 
 class GroupBox_CalculationDate(QtWidgets.QGroupBox):

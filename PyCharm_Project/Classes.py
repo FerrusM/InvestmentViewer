@@ -3,6 +3,7 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
+from MyDateTime import getUtcDateTime
 
 
 class MyTreeView(QtWidgets.QTreeView):
@@ -62,8 +63,11 @@ class Column:
 
 class TokenClass:
     """Мой класс для хранения всей информации, связанной с токеном."""
-    def __init__(self, token: str, accounts: list[Account], unary_limits: list[MyUnaryLimit], stream_limits: list[MyStreamLimit], response_datetime: datetime = datetime.now()):
-        self.token: str = token
+    def __init__(self, token: str, accounts: list[Account],
+                 unary_limits: list[MyUnaryLimit], stream_limits: list[MyStreamLimit],
+                 name: str = '', response_datetime: datetime = getUtcDateTime()):
+        self.token: str = token  # Токен.
+        self.name: str = name  # Название токена.
         self.accounts: list[Account] = accounts  # Список аккаунтов.
         self.unary_limits: list[MyUnaryLimit] = unary_limits  # Unary-лимиты.
 

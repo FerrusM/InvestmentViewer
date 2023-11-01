@@ -13,7 +13,8 @@ from MyBondClass import MyBondClass, MyBond
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
-from TokenModel import TokenListModel
+# from old_TokenModel import TokenListModel
+from new_TokenModel import TokenListModel
 
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):

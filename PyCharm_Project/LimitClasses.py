@@ -101,8 +101,8 @@ class MyUnaryLimit:
 class MyStreamLimit:
     """Класс stream-лимита, дополненный семафором."""
     def __init__(self, stream_limit: StreamLimit):
-        # self.stream_limit: StreamLimit = stream_limit
         self.limit: int = stream_limit.limit  # Максимальное количество stream-соединений.
+        self.open: int = stream_limit.open  # Текущее количество открытых stream-соединений.
         '''---------Получение списка сервисов и имён методов---------'''
         self.methods: list[MyMethod] = []
         for full_method in stream_limit.streams:

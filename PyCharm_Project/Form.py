@@ -2,8 +2,10 @@ from PyQt6 import QtCore, QtWidgets
 from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from LimitsPage import LimitsPage
+from MyDatabase import MyDatabase
 from SharesPage import SharesPage
-from TokenModel import TokenModel, TokenListModel
+# from old_TokenModel import TokenModel, TokenListModel
+from new_TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
 
 
@@ -74,8 +76,10 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
         super().__init__()  # __init__() QMainWindow и Ui_MainWindow.
         self.setupUi(self)  # Инициализация нашего дизайна.
 
+        self._database: MyDatabase = MyDatabase()
+
         """---------------------Модель токенов---------------------"""
-        token_model: TokenModel = TokenModel()
+        token_model: TokenModel = TokenModel(self._database, self)
         """--------------------------------------------------------"""
 
         """---------------------Модель доступа---------------------"""
