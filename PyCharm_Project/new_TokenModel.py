@@ -144,24 +144,19 @@ class TokenModel(QAbstractItemModel):
 
     def deleteToken(self, token_index: QModelIndex) -> TokenClass:
         """Удаляет токен."""
-        # token_row: int = token_index.row()
-        # self.beginRemoveRows(QModelIndex(), token_row, token_row)
-        #
-        # # manager_token: str = self.token_manager.deleteToken(token_row)
-        # self._database.deleteToken()
-        #
-        # '''-------------------Удаление токена из базы данных-------------------'''
-        # ...
-        # '''--------------------------------------------------------------------'''
-        #
-        # # model_token: TokenClass = self._tokens.pop(token_row)
-        # # if not manager_token == model_token.token:
-        # #     raise ValueError('Удалён неверный токен из менеджера ({0} вместо {1})!'.format(manager_token, model_token))
-        # self.endRemoveRows()
-        # self.dataChanged.emit(token_index, token_index)  # Испускаем сигнал о том, что данные модели были изменены.
-        # return model_token
+        token_row: int = token_index.row()
+        self.beginRemoveRows(QModelIndex(), token_row, token_row)
 
-        ...
+        # token: str = self.token_manager.deleteToken(token_row)
+        token: str = token_index.data(role=Qt.ItemDataRole.DisplayRole)
+        self._database.deleteToken(token)  # Удаление токена из базы данных.
+
+        model_token: TokenClass = self._tokens.pop(token_row)
+        if not token == model_token.token:
+            raise ValueError('Несоответствие удаляемого токена ({0} и {1})!'.format(token, model_token))
+        self.endRemoveRows()
+        self.dataChanged.emit(token_index, token_index)  # Испускаем сигнал о том, что данные модели были изменены.
+        return model_token
 
 
 class TokenListModel(QIdentityProxyModel):

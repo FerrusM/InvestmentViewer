@@ -20,11 +20,12 @@ class MyDatabase(QSqlDatabase):
         ''')
         exec_flag: bool = query.exec()
         assert exec_flag
+        assert exec_flag, query.lastError().text()
         '''------------------------------------------------'''
 
         '''------------Создание таблиц лимитов------------'''
-        query = QSqlQuery(self)
-        query.prepare('''
+        unary_limits_query = QSqlQuery(self)
+        unary_limits_query.prepare('''
         CREATE TABLE IF NOT EXISTS UnaryLimits (
         token TEXT,
         limit_per_minute INTEGER,
@@ -32,8 +33,8 @@ class MyDatabase(QSqlDatabase):
         FOREIGN KEY (token) REFERENCES Tokens(token)
         )
         ''')
-        exec_flag: bool = query.exec()
-        assert exec_flag
+        exec_flag: bool = unary_limits_query.exec()
+        assert exec_flag, unary_limits_query.lastError().text()
 
         query = QSqlQuery(self)
         query.prepare('''
@@ -46,7 +47,7 @@ class MyDatabase(QSqlDatabase):
         )
         ''')
         exec_flag: bool = query.exec()
-        assert exec_flag
+        assert exec_flag, query.lastError().text()
         '''-----------------------------------------------'''
 
         '''------------------Создание таблицы счетов------------------'''
@@ -66,8 +67,23 @@ class MyDatabase(QSqlDatabase):
         )
         ''')
         exec_flag: bool = query.exec()
-        assert exec_flag
+        assert exec_flag, query.lastError().text()
         '''-----------------------------------------------------------'''
+
+        '''------------Триггер перед удалением токена------------'''
+        tokens_on_delete_trigger_query = QSqlQuery(self)
+        tokens_on_delete_trigger_query.prepare('''
+        CREATE TRIGGER IF NOT EXISTS Tokens_on_delete_trigger BEFORE DELETE
+        ON Tokens
+        BEGIN
+            DELETE FROM UnaryLimits WHERE token = OLD.token;
+            DELETE FROM StreamLimits WHERE token = OLD.token;
+            DELETE FROM Accounts WHERE token = OLD.token;
+        END;
+        ''')
+        tokens_on_delete_trigger_exec_flag: bool = tokens_on_delete_trigger_query.exec()
+        assert tokens_on_delete_trigger_exec_flag, tokens_on_delete_trigger_query.lastError().text()
+        '''------------------------------------------------------'''
 
         '''------------------Создание таблицы облигаций------------------'''
         query = QSqlQuery(self)
@@ -126,7 +142,7 @@ class MyDatabase(QSqlDatabase):
         )
         ''')
         exec_flag: bool = query.exec()
-        assert exec_flag
+        assert exec_flag, query.lastError().text()
         '''--------------------------------------------------------------'''
 
         '''--------------------Создание таблицы акций--------------------'''
@@ -176,7 +192,7 @@ class MyDatabase(QSqlDatabase):
         )
         ''')
         exec_flag: bool = query.exec()
-        assert exec_flag
+        assert exec_flag, query.lastError().text()
         '''--------------------------------------------------------------'''
 
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
@@ -201,7 +217,7 @@ class MyDatabase(QSqlDatabase):
         query.bindValue(':token', token.token)
         query.bindValue(':name', token.name)
         exec_flag: bool = query.exec()
-        assert exec_flag
+        assert exec_flag, query.lastError().text()
 
         for unary_limit in token.unary_limits:
             query = QSqlQuery(self)
@@ -213,7 +229,7 @@ class MyDatabase(QSqlDatabase):
             query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
             query.bindValue(':methods', ', '.join([method.full_method for method in unary_limit.methods]))
             exec_flag: bool = query.exec()
-            assert exec_flag
+            assert exec_flag, query.lastError().text()
 
         for stream_limit in token.stream_limits:
             query = QSqlQuery(self)
@@ -226,7 +242,7 @@ class MyDatabase(QSqlDatabase):
             query.bindValue(':streams', ', '.join([method.full_method for method in stream_limit.methods]))
             query.bindValue(':open', stream_limit.open)
             exec_flag: bool = query.exec()
-            assert exec_flag
+            assert exec_flag, query.lastError().text()
 
         for account in token.accounts:
             query = QSqlQuery(self)
@@ -243,8 +259,12 @@ class MyDatabase(QSqlDatabase):
             query.bindValue(':closed_date', MyDatabase.convertDateTimeToText(account.closed_date))
             query.bindValue(':access_level', int(account.access_level))
             exec_flag: bool = query.exec()
-            assert exec_flag
+            assert exec_flag, query.lastError().text()
 
-    def deleteToken(self):
+    def deleteToken(self, token: str):
         """Удаляет токен и все связанные с ним данные."""
-        ...
+        query = QSqlQuery(self)
+        query.prepare('DELETE FROM Tokens WHERE token = :token')
+        query.bindValue(':token', token)
+        exec_flag: bool = query.exec()
+        assert exec_flag, query.lastError().text()

@@ -1,3 +1,5 @@
+import typing
+
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QModelIndex, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
@@ -118,9 +120,21 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
 
         self.treeView_saved_tokens.setItemDelegateForColumn(tree_token_model.Columns.TOKEN_DELETE_BUTTON, delete_button_delegate)
 
+        self.onUpdateView()  # Обновление отображения модели.
+        tree_token_model.modelReset.connect(self.onUpdateView)
+
+    def model(self):
+        """Возвращает модель."""
+        model = self.treeView_saved_tokens.model()
+        assert type(model) == TreeProxyModel
+        return typing.cast(TreeProxyModel, model)
+
+    def onUpdateView(self):
+        """Выполняется после обновления модели."""
+        model: TreeProxyModel = self.model()
         self.treeView_saved_tokens.expandAll()  # Разворачивает все элементы.
         self.treeView_saved_tokens.resizeColumnsToContents()  # Авторазмер всех столбцов под содержимое.
-        self.label_count.setText(str(tree_token_model.getTokensCount()))  # Отображаем количество сохранённых токенов.
+        self.label_count.setText(str(model.getTokensCount()))  # Отображаем количество сохранённых токенов.
 
 
 class GroupBox_NewToken(QtWidgets.QGroupBox):
