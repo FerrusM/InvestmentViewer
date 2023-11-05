@@ -10,6 +10,7 @@ from Classes import TokenClass
 from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
 from MyBondClass import MyBondClass, MyBond
+from MyDatabase import MyDatabase
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
@@ -649,9 +650,11 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
 
 class BondsPage(QtWidgets.QWidget):
     """Страница облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, db: MyDatabase, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)  # QWidget __init__().
         self.setObjectName(object_name)
+
+        self.database: MyDatabase = db
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -845,6 +848,7 @@ class BondsPage(QtWidgets.QWidget):
             assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
             if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
                 bonds: list[Bond] = bonds_response.response_data  # Получаем список облигаций.
+                self.database.addBonds(bonds)  # Добавляем облигации в таблицу облигаций.
                 self.bonds = bonds
                 filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
                 '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
@@ -881,6 +885,7 @@ class BondsPage(QtWidgets.QWidget):
 
         if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
             bonds: list[Bond] = bonds_response.response_data  # Извлекаем список облигаций.
+            self.database.addBonds(bonds)  # Добавляем облигации в таблицу облигаций.
             self.bonds = bonds
             filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
             '''---------------Обновляет отображение количеств облигаций в моделях---------------'''

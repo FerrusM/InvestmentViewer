@@ -95,5 +95,8 @@ class MyQuotation(Quotation):
         value: Decimal = self.getDecimal() * Decimal(other)
         return MyQuotation(decimal_to_quotation(value))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.report(2)
+
+    def __repr__(self: Quotation) -> str:
+        return '{0}.{1}'.format(self.units, str(self.nano).zfill(9))

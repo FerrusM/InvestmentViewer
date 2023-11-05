@@ -20,9 +20,9 @@ class MyMoneyValue(MoneyValue):
         """Возвращает котировку Quotation."""
         return Quotation(units=self.units, nano=self.nano)
 
-    def getMyQuotation(self) -> MyQuotation:
+    def getMyQuotation(self: MoneyValue) -> MyQuotation:
         """Возвращает котировку MyQuotation."""
-        return MyQuotation(self.getQuotation())
+        return MyQuotation(MyMoneyValue.getQuotation(self))
 
     def getDecimal(self: MoneyValue) -> Decimal:
         """Конвертирует MyMoneyValue в Decimal."""
@@ -82,8 +82,11 @@ class MyMoneyValue(MoneyValue):
         else:
             return self.currency < other.currency
 
-    def __str__(self):
-        return '{0} {1}'.format(self.getMyQuotation(), self.currency)
+    def __str__(self: MoneyValue) -> str:
+        return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self), self.currency)
+
+    def __repr__(self: MoneyValue) -> str:
+        return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self).__repr__(), self.currency)
 
 
 # def reportMoneyValue(mv: MoneyValue, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:

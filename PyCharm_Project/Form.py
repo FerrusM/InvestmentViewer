@@ -10,7 +10,7 @@ from TokensPage import TokensPage
 
 
 class Ui_MainWindow(object):
-    def setupUi(self, main_window: QtWidgets.QMainWindow):
+    def setupUi(self, main_window: QtWidgets.QMainWindow, db: MyDatabase):
         main_window.setObjectName('InvestmentWindow')
         main_window.resize(1200, 800)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -48,7 +48,7 @@ class Ui_MainWindow(object):
         """----------------------------------------------------------------------------"""
 
         """-----------------------------Страница "Облигации"-----------------------------"""
-        self.tab_bonds: BondsPage = BondsPage('tab_bonds')
+        self.tab_bonds: BondsPage = BondsPage(db, 'tab_bonds')
         self.tabWidget.addTab(self.tab_bonds, _translate('MainWindow', 'Облигации'))
         """------------------------------------------------------------------------------"""
 
@@ -74,9 +74,8 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
     """Главная форма."""
     def __init__(self):
         super().__init__()  # __init__() QMainWindow и Ui_MainWindow.
-        self.setupUi(self)  # Инициализация нашего дизайна.
-
         self._database: MyDatabase = MyDatabase()
+        self.setupUi(self, self._database)  # Инициализация нашего дизайна.
 
         """---------------------Модель токенов---------------------"""
         token_model: TokenModel = TokenModel(self._database, self)

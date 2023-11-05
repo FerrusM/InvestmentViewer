@@ -1,5 +1,4 @@
 import typing
-
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import QModelIndex, pyqtSignal, pyqtSlot
 from PyQt6.QtWidgets import QMessageBox
