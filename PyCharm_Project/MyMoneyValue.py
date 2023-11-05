@@ -8,7 +8,7 @@ from MyQuotation import MyQuotation
 class MyMoneyValue(MoneyValue):
     """Класс MoneyValue, дополненный функциями."""
     def __init__(self, currency: str, value: Quotation = Quotation(units=0, nano=0)):
-        self.currency = currency  # Валюта.
+        self.currency: str = currency  # Валюта.
         self._setQuotation(value)  # Задаёт котировку.
 
     def _setQuotation(self, value: Quotation):
@@ -28,9 +28,9 @@ class MyMoneyValue(MoneyValue):
         """Конвертирует MyMoneyValue в Decimal."""
         return quotation_to_decimal(MyMoneyValue.getQuotation(self))
 
-    def report(self: MoneyValue, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
-        """Конвертирует MoneyValue в str."""
-        return MyQuotation.report(MyMoneyValue.getQuotation(self), ndigits, delete_decimal_zeros) + ' ' + self.currency
+    # def report(self: MoneyValue, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
+    #     """Конвертирует MoneyValue в str."""
+    #     return MyQuotation.__str__(MyMoneyValue.getQuotation(self), ndigits, delete_decimal_zeros) + ' ' + self.currency
 
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
     def __checkOtherType(other):
@@ -82,15 +82,12 @@ class MyMoneyValue(MoneyValue):
         else:
             return self.currency < other.currency
 
-    def __str__(self: MoneyValue) -> str:
-        return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self), self.currency)
+    def __str__(self: MoneyValue, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
+        return '{0} {1}'.format(MyQuotation.__str__(MyMoneyValue.getQuotation(self), ndigits, delete_decimal_zeros), self.currency)
 
     def __repr__(self: MoneyValue) -> str:
         return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self).__repr__(), self.currency)
 
-
-# def reportMoneyValue(mv: MoneyValue, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
-#     return reportQuotation(Quotation(units=mv.units, nano=mv.nano), ndigits, delete_decimal_zeros) + ' ' + mv.currency
 
 def ifCurrenciesAreEqual(*currency_tuple) -> bool:
     """Функция возвращает True, если валюты переданных переменных равны, иначе возвращает False."""
@@ -100,6 +97,6 @@ def ifCurrenciesAreEqual(*currency_tuple) -> bool:
     return len(set((element.currency if isinstance(element, MoneyValue) else element) for element in currency_tuple)) == 1
 
 
-def MoneyValueToMyMoneyValue(money_value: MoneyValue):
+def MoneyValueToMyMoneyValue(money_value: MoneyValue) -> MyMoneyValue:
     """Конвертирует MoneyValue в MyMoneyValue."""
     return MyMoneyValue(money_value.currency, Quotation(units=money_value.units, nano=money_value.nano))

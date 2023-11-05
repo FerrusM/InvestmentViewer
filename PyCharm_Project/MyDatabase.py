@@ -1,4 +1,3 @@
-from math import ceil
 from sqlite3 import connect, Connection, SQLITE_LIMIT_VARIABLE_NUMBER
 from datetime import datetime
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
@@ -137,7 +136,7 @@ class MyDatabase(QSqlDatabase):
         floating_coupon_flag BOOL,
         perpetual_flag BOOL,
         amortization_flag BOOL,
-        min_price_increment,
+        min_price_increment TEXT,
         api_trade_available_flag BOOL,
         uid TEXT,
         real_exchange INTEGER,
@@ -281,14 +280,10 @@ class MyDatabase(QSqlDatabase):
 
     def addBonds(self, bonds: list[Bond]):
         """Добавляет облигации в таблицу облигаций."""
-
-        # U = sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER
-        # count_of_variables: int = len(bonds) * 8
-        # print('Кол-во variables: {0}'.format(count_of_variables))
-
         if bonds:  # Если список облигаций не пуст.
             VARIABLES_COUNT: int = 50  # Количество variables в каждом insert.
             bonds_in_pack: int = int(self.limit / VARIABLES_COUNT)
+            assert bonds_in_pack > 0
 
             def partition(array: list, length=bonds_in_pack):
                 for j in range(0, len(array), length):

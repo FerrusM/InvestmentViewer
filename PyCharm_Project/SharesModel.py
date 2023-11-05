@@ -74,7 +74,7 @@ class SharesModel(QAbstractTableModel):
                        header_tooltip='Цена последней сделки по лоту акции.',
                        data_function=lambda share_class: share_class.getLotLastPrice(),
                        display_function=lambda share_class: share_class.reportLotLastPrice(),
-                       tooltip_function=lambda share_class: 'Нет данных.' if share_class.last_price is None else 'last_price:\nfigi = {0},\nprice = {1},\ntime = {2},\ninstrument_uid = {3}.\n\nlot = {4}'.format(share_class.last_price.figi, MyQuotation.report(share_class.last_price.price), share_class.last_price.time, share_class.last_price.instrument_uid, share_class.share.lot)),
+                       tooltip_function=lambda share_class: 'Нет данных.' if share_class.last_price is None else 'last_price:\nfigi = {0},\nprice = {1},\ntime = {2},\ninstrument_uid = {3}.\n\nlot = {4}'.format(share_class.last_price.figi, MyQuotation.__str__(share_class.last_price.price, 2), share_class.last_price.time, share_class.last_price.instrument_uid, share_class.share.lot)),
             self.Columns.SHARE_LOT:
                 Column(header='Лотность',
                        header_tooltip='Лотность инструмента. Возможно совершение операций только на количества ценной бумаги, кратные этому параметру.',
@@ -100,7 +100,7 @@ class SharesModel(QAbstractTableModel):
                 Column(header='Номинал',
                        header_tooltip='Номинал.',
                        data_function=lambda share_class: share_class.share.nominal,
-                       display_function=lambda share_class: MyMoneyValue.report(share_class.share.nominal, 2)),
+                       display_function=lambda share_class: MyMoneyValue.__str__(share_class.share.nominal, 2)),
             self.Columns.SHARE_DIV_YIELD_FLAG:
                 Column(header='Дивиденды',
                        header_tooltip='Признак наличия дивидендной доходности.',

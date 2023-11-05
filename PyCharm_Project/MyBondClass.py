@@ -111,7 +111,7 @@ class MyBondClass(QObject):
         last_price: MyMoneyValue | None = self.getLastPrice()
         if last_price is None: return 'Нет данных'
         if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
-        return MyMoneyValue.report(last_price, ndigits, delete_decimal_zeros)
+        return MyMoneyValue.__str__(last_price, ndigits, delete_decimal_zeros)
 
     def getLotLastPrice(self) -> MyMoneyValue | None:
         """Рассчитывает последнюю цену лота."""
@@ -124,7 +124,7 @@ class MyBondClass(QObject):
         last_price: MyMoneyValue | None = self.getLastPrice()
         if last_price is None: return 'Нет данных'
         if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
-        return MyMoneyValue.report(last_price * self.bond.lot, ndigits, delete_decimal_zeros)
+        return MyMoneyValue.__str__(last_price * self.bond.lot, ndigits, delete_decimal_zeros)
 
     def getCoupon(self, coupon_number: int) -> Coupon | None:
         """Возвращает купон, соответствующий переданному порядковому номеру.

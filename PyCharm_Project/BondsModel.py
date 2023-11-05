@@ -88,7 +88,7 @@ def showCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime) -> st
                 return 'Все купоны выплачены'
             else:
                 calculated_aci: MyMoneyValue | None = bond_class.calculateACI(entered_datetime, True)
-                return 'None' if calculated_aci is None else calculated_aci.report()
+                return 'None' if calculated_aci is None else calculated_aci.__str__()
         else:
             return 'Все купоны выплачены'
 
@@ -104,7 +104,7 @@ def tooltipCalculatedACI(bond_class: MyBondClass, entered_datetime: datetime, wi
     current_coupon: Coupon | None = bond_class.getCurrentCoupon(entered_datetime)  # Купон облигации, соответствующий выбранной дате.
     if current_coupon is None:
         return 'Не удалось определить текущий купон.'
-    report: str = 'Текущий купон: {0}. {1}'.format(current_coupon.coupon_number, MyMoneyValue.report(current_coupon.pay_one_bond, -1))
+    report: str = 'Текущий купон: {0}. {1}'.format(current_coupon.coupon_number, MyMoneyValue.__str__(current_coupon.pay_one_bond, -1))
 
     """---------MyCoupon.getCouponACI(current_coupon, entered_datetime, True)---------"""
     if not MyCoupon.ifCouponIsCurrent(current_coupon, entered_datetime):  # Если указанная дата не находится в границах купонного периода.
@@ -128,7 +128,7 @@ def showCouponProfit(bond_class: MyBondClass, calculation_datetime: datetime) ->
     """Функция для отображения купонной доходности облигации к дате расчёта."""
     if bond_class.coupons is None: return None  # Если купоны ещё не были заполнены.
     coupon_profit: MyMoneyValue | None = bond_class.getCouponAbsoluteProfit(calculation_datetime)
-    return 'None' if coupon_profit is None else coupon_profit.report()
+    return 'None' if coupon_profit is None else coupon_profit.__str__()
 
 
 @pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
@@ -136,7 +136,7 @@ def showAbsoluteProfit(bond_class: MyBondClass, calculation_datetime: datetime) 
     """Функция для отображения абсолютной доходности облигации к дате расчёта."""
     if bond_class.coupons is None: return QVariant()  # Если купоны ещё не были получены, то не отображаем ничего.
     absolute_profit: MyMoneyValue | None = bond_class.getAbsoluteProfit(calculation_datetime)
-    return 'None' if absolute_profit is None else absolute_profit.report()
+    return 'None' if absolute_profit is None else absolute_profit.__str__()
 
 
 @pyqtSlot(MyBondClass, datetime)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
@@ -168,7 +168,7 @@ def reportCouponAbsoluteProfitCalculation(bond_class: MyBondClass, calculation_d
         if current_datetime < coupon.coupon_start_date and calculation_datetime > coupon.coupon_end_date:
             pay_one_bond: MyMoneyValue = MoneyValueToMyMoneyValue(coupon.pay_one_bond) * (1 - NDFL)
             profit += pay_one_bond  # Прибавляем величину купонной выплаты с учётом НДФЛ.
-            report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.report(coupon.pay_one_bond), MyMoneyValue.report(pay_one_bond))
+            report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.__str__(coupon.pay_one_bond), MyMoneyValue.__str__(pay_one_bond))
         # Если текущий (в цикле) купон является текущим на дату начала расчёта.
         elif MyCoupon.ifCouponIsCurrent(coupon, current_datetime):
             # Если фиксация реестра не была произведена.
@@ -177,13 +177,13 @@ def reportCouponAbsoluteProfitCalculation(bond_class: MyBondClass, calculation_d
                 if calculation_datetime >= coupon.coupon_date:
                     pay_one_bond: MyMoneyValue = MoneyValueToMyMoneyValue(coupon.pay_one_bond) * (1 - NDFL)
                     profit += pay_one_bond  # Прибавляем величину купонной выплаты с учётом НДФЛ.
-                    report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.report(coupon.pay_one_bond), MyMoneyValue.report(pay_one_bond))
+                    report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.__str__(coupon.pay_one_bond), MyMoneyValue.__str__(pay_one_bond))
                 # Если фиксация текущего на дату начала расчёта купона будет произведена до даты конца расчёта.
                 elif MyCoupon.ifRegistryWasFixed(coupon, calculation_datetime):
                     # Всё равно прибавляем величину купонной выплаты с учётом НДФЛ, хоть она и придёт только в день выплаты.
                     pay_one_bond: MyMoneyValue = MoneyValueToMyMoneyValue(coupon.pay_one_bond) * (1 - NDFL)
                     profit += pay_one_bond  # Прибавляем величину купонной выплаты с учётом НДФЛ.
-                    report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%) (Купон будет выплачен после выбранной даты)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.report(coupon.pay_one_bond), MyMoneyValue.report(pay_one_bond))
+                    report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%) (Купон будет выплачен после выбранной даты)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.__str__(coupon.pay_one_bond), MyMoneyValue.__str__(pay_one_bond))
                 # Если фиксация реестра и выплата купона произойдут после даты конца расчёта.
                 else:
                     aci: MyMoneyValue | None = MyCoupon.getCouponACI(coupon, calculation_datetime, False)  # НКД купона к дате конца расчёта.
@@ -191,7 +191,7 @@ def reportCouponAbsoluteProfitCalculation(bond_class: MyBondClass, calculation_d
                         return "Купон {0}: Купонный период равен нулю.".format(str(coupon.coupon_number))
                     aci_with_ndfl = aci * (1 - NDFL)  # Учитываем НДФЛ.
                     profit += aci_with_ndfl  # Прибавляем НКД с учётом НДФЛ.
-                    report += "\n\t{0} Начисленный НКД: +{2} ({1} - 0,13%)".format(reportDateIfOnlyDate(calculation_datetime), MyMoneyValue.report(aci), MyMoneyValue.report(aci_with_ndfl))
+                    report += "\n\t{0} Начисленный НКД: +{2} ({1} - 0,13%)".format(reportDateIfOnlyDate(calculation_datetime), MyMoneyValue.__str__(aci), MyMoneyValue.__str__(aci_with_ndfl))
         # Если текущий (в цикле) купон является текущим на дату конца расчёта.
         elif MyCoupon.ifCouponIsCurrent(coupon, calculation_datetime):
             # Если фиксация реестра будет произведена на дату конца расчёта.
@@ -199,15 +199,15 @@ def reportCouponAbsoluteProfitCalculation(bond_class: MyBondClass, calculation_d
                 # Прибавляем величину купонной выплаты с учётом НДФЛ, хоть она и придёт только в день выплаты.
                 pay_one_bond: MyMoneyValue = MoneyValueToMyMoneyValue(coupon.pay_one_bond) * (1 - NDFL)
                 profit += pay_one_bond  # Прибавляем величину купонной выплаты с учётом НДФЛ.
-                report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%) (Купон будет выплачен после выбранной даты)".format(reportDateIfOnlyDate(coupon.coupon_date), str(coupon.coupon_number), MyMoneyValue.report(coupon.pay_one_bond), MyMoneyValue.report(pay_one_bond))
+                report += "\n\t{0} Купон {1}: +{3} ({2} - 0,13%) (Купон будет выплачен после выбранной даты)".format(reportDateIfOnlyDate(coupon.coupon_date), coupon.coupon_number, MyMoneyValue.__str__(coupon.pay_one_bond), MyMoneyValue.__str__(pay_one_bond))
             # Если фиксация реестра не была произведена.
             else:
                 aci: MyMoneyValue | None = MyCoupon.getCouponACI(coupon, calculation_datetime, False)  # НКД купона к указанной дате.
                 if aci is None:  # Купонный период равен нулю.
-                    return "Купон {0}: Купонный период равен нулю.".format(str(coupon.coupon_number))
+                    return "Купон {0}: Купонный период равен нулю.".format(coupon.coupon_number)
                 aci_with_ndfl = aci * (1 - NDFL)  # Учитываем НДФЛ.
                 profit += aci_with_ndfl  # Прибавляем НКД с учётом НДФЛ.
-                report += "\n\t{0} Начисленный НКД: +{2} ({1} - 0,13%)".format(reportDateIfOnlyDate(calculation_datetime), MyMoneyValue.report(aci), MyMoneyValue.report(aci_with_ndfl))
+                report += "\n\t{0} Начисленный НКД: +{2} ({1} - 0,13%)".format(reportDateIfOnlyDate(calculation_datetime), MyMoneyValue.__str__(aci), MyMoneyValue.__str__(aci_with_ndfl))
     return report
 
 
@@ -222,13 +222,13 @@ def reportAbsoluteProfitCalculation(bond_class: MyBondClass, entered_datetime: d
     coupon_profit: MyMoneyValue | None = bond_class.getCouponAbsoluteProfit(entered_datetime)  # Купонный доход к выбранной дате.
     if coupon_profit is None: return "Не удалось рассчитать купонную доходность."
     absolute_profit += coupon_profit
-    report: str = "Расчёт купонного дохода к выбранной дате:\n\t{0}\n\tКупонная доходность: {1}".format(reportCouponAbsoluteProfitCalculation(bond_class, entered_datetime), MyMoneyValue.report(coupon_profit))
+    report: str = "Расчёт купонного дохода к выбранной дате:\n\t{0}\n\tКупонная доходность: {1}".format(reportCouponAbsoluteProfitCalculation(bond_class, entered_datetime), MyMoneyValue.__str__(coupon_profit))
     """---------------------------------------------"""
 
     """---------------Учитываем НКД в цене---------------"""
     # НКД, указанная в облигации, учитывает дату фиксации реестра.
     absolute_profit -= bond_class.bond.aci_value  # Вычитаем НКД.
-    report += "\nНКД, указанный в облигации: - {0}".format(MyMoneyValue.report(bond_class.bond.aci_value))
+    report += "\nНКД, указанный в облигации: - {0}".format(MyMoneyValue.__str__(bond_class.bond.aci_value))
     """--------------------------------------------------"""
 
     """--Учитываем возможное погашение облигации к выбранной дате--"""
@@ -241,13 +241,13 @@ def reportAbsoluteProfitCalculation(bond_class: MyBondClass, entered_datetime: d
             absolute_profit += bond_class.bond.nominal
             last_price_value: MyMoneyValue = bond_class.getLastPrice()
             absolute_profit -= (last_price_value * (1.0 + TINKOFF_COMMISSION))
-            report += "\nОблигация будет погашена до выбранной даты.\nРазница между номиналом и ценой с учётом комиссии: {0}".format(MyMoneyValue.report(MoneyValueToMyMoneyValue(bond_class.bond.nominal) - (last_price_value * (1.0 + TINKOFF_COMMISSION))))
+            report += "\nОблигация будет погашена до выбранной даты.\nРазница между номиналом и ценой с учётом комиссии: {0}".format(MyMoneyValue.__str__(MoneyValueToMyMoneyValue(bond_class.bond.nominal) - (last_price_value * (1.0 + TINKOFF_COMMISSION))))
     else:
         # Если цена облигации неизвестна, то рассчитывается так, будто цена облигации равняется номиналу.
         absolute_profit -= (MoneyValueToMyMoneyValue(bond_class.bond.nominal) * TINKOFF_COMMISSION)
         report += "\nЦена облигации неизвестна, используем в расчёте номинал.\nНоминал облигации с учётом комиссии: {0}".format(bond_class.bond.nominal)
     """------------------------------------------------------------"""
-    report += "\nИтого: {0}".format(MyMoneyValue.report(absolute_profit))
+    report += "\nИтого: {0}".format(MyMoneyValue.__str__(absolute_profit))
     return report
 
 
@@ -406,14 +406,14 @@ class BondsModel(QAbstractTableModel):
                            header_tooltip='Цена последней сделки по лоту облигации.',
                            data_function=lambda bond_class: bond_class.getLotLastPrice(),
                            display_function=lambda bond_class: bond_class.reportLotLastPrice(),
-                           tooltip_function=lambda bond_class: 'Нет данных.' if bond_class.last_price is None else 'last_price:\nfigi = {0},\nprice = {1},\ntime = {2},\ninstrument_uid = {3}.\n\nlot = {4}'.format(bond_class.last_price.figi, MyQuotation.report(bond_class.last_price.price), bond_class.last_price.time, bond_class.last_price.instrument_uid, bond_class.bond.lot),
+                           tooltip_function=lambda bond_class: 'Нет данных.' if bond_class.last_price is None else 'last_price:\nfigi = {0},\nprice = {1},\ntime = {2},\ninstrument_uid = {3}.\n\nlot = {4}'.format(bond_class.last_price.figi, MyQuotation.__str__(bond_class.last_price.price, 2), bond_class.last_price.time, bond_class.last_price.instrument_uid, bond_class.bond.lot),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lessThan_MyMoneyValue_or_None),
             self.Columns.BOND_NKD:
                 BondColumn(header='НКД',
                            header_tooltip='Значение НКД (накопленного купонного дохода) на дату.',
                            data_function=lambda bond_class: bond_class.bond.aci_value,
-                           display_function=lambda bond_class: MyMoneyValue.report(bond_class.bond.aci_value),
+                           display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.aci_value),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lambda left, right, role: MyMoneyValue.__lt__(left.data(role=role), right.data(role=role))),
             self.Columns.CALCULATED_NKD:
@@ -430,21 +430,21 @@ class BondsModel(QAbstractTableModel):
                 BondColumn(header='Номинал',
                            header_tooltip='Номинал облигации.',
                            data_function=lambda bond_class: bond_class.bond.nominal,
-                           display_function=lambda bond_class: MyMoneyValue.report(bond_class.bond.nominal, 2),
+                           display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.nominal, 2),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lambda left, right, role: MyMoneyValue.__lt__(left.data(role=role), right.data(role=role))),
             self.Columns.BOND_INITIAL_NOMINAL:
                 BondColumn(header='Начальный номинал',
                            header_tooltip='Первоначальный номинал облигации.',
                            data_function=lambda bond_class: bond_class.bond.initial_nominal,
-                           display_function=lambda bond_class: MyMoneyValue.report(bond_class.bond.initial_nominal),
+                           display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.initial_nominal),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lambda left, right, role: MyMoneyValue.__lt__(left.data(role=role), right.data(role=role))),
             self.Columns.BOND_MIN_PRICE_INCREMENT:
                 BondColumn(header='Шаг цены',
                            header_tooltip='Минимальное изменение цены определённого инструмента.',
                            data_function=lambda bond_class: bond_class.bond.min_price_increment,
-                           display_function=lambda bond_class: MyQuotation.report(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True),
+                           display_function=lambda bond_class: MyQuotation.__str__(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             self.Columns.BOND_AMORTIZATION_FLAG:

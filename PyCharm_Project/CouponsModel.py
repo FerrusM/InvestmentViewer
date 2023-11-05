@@ -93,7 +93,7 @@ class CouponsModel(QAbstractTableModel):
             CouponColumn(header='Выплата на одну облигацию',
                          header_tooltip='Выплата на одну облигацию.',
                          data_function=lambda bond_class, coupon: None if coupon is None else coupon.pay_one_bond,
-                         display_function=lambda bond_class, coupon: None if coupon is None else MyMoneyValue.report(coupon.pay_one_bond, 2)),
+                         display_function=lambda bond_class, coupon: None if coupon is None else MyMoneyValue.__str__(coupon.pay_one_bond, 2)),
             CouponColumn(header='Ставка',
                          header_tooltip='Ставка купона.',
                          data_function=lambda bond_class, coupon: bond_class.getCouponRate(coupon),
