@@ -307,6 +307,5 @@ class MyBondClass(QObject):
         """Рассчитывает НКД (накопленный купонный доход) облигации к выбранной дате."""
         # Купон облигации, соответствующий выбранной дате.
         current_coupon: Coupon | None = self.getCurrentCoupon(calculation_datetime)
-        if current_coupon is None:
-            return None
+        if current_coupon is None: return None
         return MyCoupon.getCouponACI(current_coupon, calculation_datetime, with_fix)

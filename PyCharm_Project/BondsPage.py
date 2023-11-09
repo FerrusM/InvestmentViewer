@@ -904,7 +904,7 @@ class BondsPage(QtWidgets.QWidget):
         """Запускает поток получения купонов."""
         assert self.groupBox_view.sourceModel().coupons_receiving_thread is None, 'Поток получения купонов должен быть завершён!'
 
-        self.groupBox_view.sourceModel().coupons_receiving_thread = CouponsThread(token_class=self.token, bond_class_list=bonds)
+        self.groupBox_view.sourceModel().coupons_receiving_thread = CouponsThread(token_class=self.token, bond_class_list=bonds, db=self.database)
         """---------------------Подключаем сигналы потока к слотам---------------------"""
         # self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print, type=Qt.ConnectionType.BlockingQueuedConnection)  # Сигнал для отображения сообщений в консоли.
         self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.

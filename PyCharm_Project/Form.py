@@ -74,7 +74,11 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
     """Главная форма."""
     def __init__(self):
         super().__init__()  # __init__() QMainWindow и Ui_MainWindow.
+
+        """---------Открываем соединение с базой данных---------"""
         self._database: MyDatabase = MyDatabase()
+        """-----------------------------------------------------"""
+
         self.setupUi(self, self._database)  # Инициализация нашего дизайна.
 
         """---------------------Модель токенов---------------------"""

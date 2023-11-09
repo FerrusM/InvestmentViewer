@@ -1,6 +1,6 @@
 import typing
 from PyQt6.QtCore import QObject, QAbstractItemModel, QModelIndex, Qt, QVariant, QIdentityProxyModel
-from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 from tinkoff.invest import Account, UnaryLimit, StreamLimit
 from Classes import TokenClass
 from LimitClasses import MyUnaryLimit, MyStreamLimit
@@ -15,6 +15,8 @@ class TokenModel(QAbstractItemModel):
         self._tokens: list[TokenClass] = []  # Список класса TokenClass.
 
         """===========================Заполняем список токенов==========================="""
+        db: QSqlDatabase = MyDatabase.getDatabase()
+
         tokens_query = QSqlQuery(db)
         tokens_query.prepare('SELECT token, name FROM Tokens')
         exec_flag: bool = tokens_query.exec()
