@@ -1,27 +1,16 @@
-from sqlite3 import connect, Connection, SQLITE_LIMIT_VARIABLE_NUMBER
 from datetime import datetime
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
-from tinkoff.invest import Bond, Coupon
-from Classes import TokenClass
+from tinkoff.invest import Bond
+from Classes import TokenClass, MyDatabase
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
 
 
-class MyDatabase:
-    DATABASE_NAME: str = 'tinkoff_invest.db'
-    SQLITE_DRIVER: str = 'QSQLITE'
+class MainConnection(MyDatabase):
     CONNECTION_NAME: str = 'InvestmentViewer'
 
     def __init__(self):
-        """"""
-        '''-------------------------------------------------'''
-        # Создаем подключение к базе данных (файл my_database.db будет создан)
-        connection = connect(self.DATABASE_NAME)
-        self.limit = connection.getlimit(SQLITE_LIMIT_VARIABLE_NUMBER)
-        connection.close()
-        '''-------------------------------------------------'''
-
-        assert QSqlDatabase.isDriverAvailable(self.SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(self.SQLITE_DRIVER)
+        super().__init__()  # __init__() MyDatabase.
 
         """---------Открываем соединение с базой данных---------"""
         db: QSqlDatabase = QSqlDatabase.addDatabase(self.SQLITE_DRIVER, self.CONNECTION_NAME)
@@ -64,7 +53,6 @@ class MyDatabase:
             name TEXT
             )''')
             exec_flag: bool = query.exec()
-            assert exec_flag
             assert exec_flag, query.lastError().text()
             '''------------------------------------------------'''
 
@@ -352,8 +340,8 @@ class MyDatabase:
                 query.bindValue(':type', int(account.type))
                 query.bindValue(':name', account.name)
                 query.bindValue(':status', int(account.status))
-                query.bindValue(':opened_date', MyDatabase.convertDateTimeToText(account.opened_date))
-                query.bindValue(':closed_date', MyDatabase.convertDateTimeToText(account.closed_date))
+                query.bindValue(':opened_date', MainConnection.convertDateTimeToText(account.opened_date))
+                query.bindValue(':closed_date', MainConnection.convertDateTimeToText(account.closed_date))
                 query.bindValue(':access_level', int(account.access_level))
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
@@ -371,19 +359,19 @@ class MyDatabase:
         exec_flag: bool = query.exec()
         assert exec_flag, query.lastError().text()
 
-    def addBonds(self, bonds: list[Bond]):
+    @classmethod
+    def addBonds(cls, bonds: list[Bond]):
         """Добавляет облигации в таблицу облигаций."""
         if bonds:  # Если список облигаций не пуст.
             VARIABLES_COUNT: int = 50  # Количество variables в каждом insert.
-            bonds_in_pack: int = int(self.limit / VARIABLES_COUNT)
+            bonds_in_pack: int = int(cls.VARIABLE_LIMIT / VARIABLES_COUNT)
             assert bonds_in_pack > 0
 
             def partition(array: list, length=bonds_in_pack):
                 for j in range(0, len(array), length):
                     yield array[j:(j + length)]
 
-            db: QSqlDatabase = self.getDatabase()
-            print('addBonds: имя: {0}, open: {1}'.format(db.databaseName(), db.isOpen()))
+            db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
             assert transaction_flag
 
@@ -442,11 +430,11 @@ class MyDatabase:
                         query.bindValue(':name{0}'.format(i), bond.name)
                         query.bindValue(':exchange{0}'.format(i), bond.exchange)
                         query.bindValue(':coupon_quantity_per_year{0}'.format(i), bond.coupon_quantity_per_year)
-                        query.bindValue(':maturity_date{0}'.format(i), MyDatabase.convertDateTimeToText(bond.maturity_date))
+                        query.bindValue(':maturity_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.maturity_date))
                         query.bindValue(':nominal{0}'.format(i), MyMoneyValue.__repr__(bond.nominal))
                         query.bindValue(':initial_nominal{0}'.format(i), MyMoneyValue.__repr__(bond.initial_nominal))
-                        query.bindValue(':state_reg_date{0}'.format(i), MyDatabase.convertDateTimeToText(bond.state_reg_date))
-                        query.bindValue(':placement_date{0}'.format(i), MyDatabase.convertDateTimeToText(bond.placement_date))
+                        query.bindValue(':state_reg_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.state_reg_date))
+                        query.bindValue(':placement_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.placement_date))
                         query.bindValue(':placement_price{0}'.format(i), MyMoneyValue.__repr__(bond.placement_price))
                         query.bindValue(':aci_value{0}'.format(i), MyMoneyValue.__repr__(bond.aci_value))
                         query.bindValue(':country_of_risk{0}'.format(i), bond.country_of_risk)
@@ -473,8 +461,8 @@ class MyDatabase:
                         query.bindValue(':blocked_tca_flag{0}'.format(i), bond.blocked_tca_flag)
                         query.bindValue(':subordinated_flag{0}'.format(i), bond.subordinated_flag)
                         query.bindValue(':liquidity_flag{0}'.format(i), bond.liquidity_flag)
-                        query.bindValue(':first_1min_candle_date{0}'.format(i), MyDatabase.convertDateTimeToText(bond.first_1min_candle_date))
-                        query.bindValue(':first_1day_candle_date{0}'.format(i), MyDatabase.convertDateTimeToText(bond.first_1day_candle_date))
+                        query.bindValue(':first_1min_candle_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.first_1min_candle_date))
+                        query.bindValue(':first_1day_candle_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.first_1day_candle_date))
                         query.bindValue(':risk_level{0}'.format(i), int(bond.risk_level))
 
                     exec_flag: bool = query.exec()

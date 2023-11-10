@@ -363,9 +363,6 @@ class BondsModel(QAbstractTableModel):
 
         def getAnnualProfit(bond_class: MyBondClass, calculation_datetime: datetime, start_datetime: datetime = getUtcDateTime()) -> Decimal | None:
             """Возвращает доходность облигации за выбранный период в пересчёте на год."""
-            # def getCountOfDaysBetweenTwoDates(start_dt: datetime, end_dt: datetime) -> int:
-            #     """Подсчитывает и возвращает количество дней между двумя датами."""
-            #     return (end_dt.date() - start_dt.date()).days
             relative_profit: Decimal | None = bond_class.getRelativeProfit(calculation_datetime)  # Рассчитывает относительную доходность к выбранной дате.
             if relative_profit is None: return None
             days_count: int = getCountOfDaysBetweenTwoDateTimes(start_datetime, calculation_datetime)

@@ -1,6 +1,8 @@
+from sqlite3 import connect, Connection, SQLITE_LIMIT_VARIABLE_NUMBER
 from datetime import datetime
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
+from PyQt6.QtSql import QSqlDatabase
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyDateTime import getUtcDateTime
@@ -146,3 +148,23 @@ def reportTradingStatus(trading_status: int) -> str:
             return "Недоступна торговля в режиме внутренней ликвидности брокера"
         case _:
             raise ValueError("Некорректный режим торгов инструмента ({0})!".format(trading_status))
+
+
+class MyDatabase:
+    """Класс для хранения общих параметров соединений с БД."""
+    DATABASE_NAME: str = 'tinkoff_invest.db'
+    SQLITE_DRIVER: str = 'QSQLITE'
+
+    @staticmethod
+    def _getSQLiteLimitVariableNumber(database_name: str):
+        """Получает и возвращает лимит на количество переменных в одном запросе."""
+        # Создаем подключение к базе данных (файл DATABASE_NAME будет создан)
+        connection = connect(database_name)
+        limit: int = connection.getlimit(SQLITE_LIMIT_VARIABLE_NUMBER)
+        connection.close()
+        return limit
+
+    VARIABLE_LIMIT: int = _getSQLiteLimitVariableNumber(DATABASE_NAME)  # Лимит на количество переменных в одном запросе.
+
+    def __init__(self):
+        assert QSqlDatabase.isDriverAvailable(self.SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(self.SQLITE_DRIVER)

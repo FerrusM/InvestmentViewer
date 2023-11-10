@@ -4,18 +4,17 @@ from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 from tinkoff.invest import Account, UnaryLimit, StreamLimit
 from Classes import TokenClass
 from LimitClasses import MyUnaryLimit, MyStreamLimit
-from MyDatabase import MyDatabase
+from MyDatabase import MainConnection
 
 
 class TokenModel(QAbstractItemModel):
     """Модель токенов."""
-    def __init__(self, db: MyDatabase, parent: QObject | None = ...):
+    def __init__(self, parent: QObject | None = ...):
         super().__init__(parent)  # __init__() QSqlQueryModel.
-        self._database: MyDatabase = db
         self._tokens: list[TokenClass] = []  # Список класса TokenClass.
 
         """===========================Заполняем список токенов==========================="""
-        db: QSqlDatabase = MyDatabase.getDatabase()
+        db: QSqlDatabase = MainConnection.getDatabase()
 
         tokens_query = QSqlQuery(db)
         tokens_query.prepare('SELECT token, name FROM Tokens')
@@ -42,8 +41,8 @@ class TokenModel(QAbstractItemModel):
                     type=accounts_query.value(1),
                     name=accounts_query.value(2),
                     status=accounts_query.value(3),
-                    opened_date=MyDatabase.convertTextToDateTime(accounts_query.value(4)),
-                    closed_date=MyDatabase.convertTextToDateTime(accounts_query.value(5)),
+                    opened_date=MainConnection.convertTextToDateTime(accounts_query.value(4)),
+                    closed_date=MainConnection.convertTextToDateTime(accounts_query.value(5)),
                     access_level=accounts_query.value(6)
                 )
                 accounts.append(account)
@@ -135,10 +134,7 @@ class TokenModel(QAbstractItemModel):
         """Добавляет токен."""
         row_count: int = self.rowCount()
         self.beginInsertRows(QModelIndex(), row_count, row_count)
-
-        # self.token_manager.addToken(token_class.token)
-        self._database.addNewToken(token)  # Добавляет новый токен в базу данных.
-
+        MainConnection.addNewToken(token)  # Добавляет новый токен в базу данных.
         self._tokens.append(token)
         self.endInsertRows()
         new_index: QModelIndex = self.index(row_count, 0, QModelIndex())
@@ -149,9 +145,8 @@ class TokenModel(QAbstractItemModel):
         token_row: int = token_index.row()
         self.beginRemoveRows(QModelIndex(), token_row, token_row)
 
-        # token: str = self.token_manager.deleteToken(token_row)
         token: str = token_index.data(role=Qt.ItemDataRole.DisplayRole)
-        self._database.deleteToken(token)  # Удаление токена из базы данных.
+        MainConnection.deleteToken(token)  # Удаление токена из базы данных.
 
         model_token: TokenClass = self._tokens.pop(token_row)
         if not token == model_token.token:

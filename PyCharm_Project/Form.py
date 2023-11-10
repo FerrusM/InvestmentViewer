@@ -2,7 +2,7 @@ from PyQt6 import QtCore, QtWidgets
 from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from LimitsPage import LimitsPage
-from MyDatabase import MyDatabase
+from MyDatabase import MainConnection
 from SharesPage import SharesPage
 # from old_TokenModel import TokenModel, TokenListModel
 from new_TokenModel import TokenModel, TokenListModel
@@ -10,7 +10,7 @@ from TokensPage import TokensPage
 
 
 class Ui_MainWindow(object):
-    def setupUi(self, main_window: QtWidgets.QMainWindow, db: MyDatabase):
+    def setupUi(self, main_window: QtWidgets.QMainWindow):
         main_window.setObjectName('InvestmentWindow')
         main_window.resize(1200, 800)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -48,7 +48,7 @@ class Ui_MainWindow(object):
         """----------------------------------------------------------------------------"""
 
         """-----------------------------Страница "Облигации"-----------------------------"""
-        self.tab_bonds: BondsPage = BondsPage(db, 'tab_bonds')
+        self.tab_bonds: BondsPage = BondsPage('tab_bonds')
         self.tabWidget.addTab(self.tab_bonds, _translate('MainWindow', 'Облигации'))
         """------------------------------------------------------------------------------"""
 
@@ -75,14 +75,12 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()  # __init__() QMainWindow и Ui_MainWindow.
 
-        """---------Открываем соединение с базой данных---------"""
-        self._database: MyDatabase = MyDatabase()
-        """-----------------------------------------------------"""
+        self.__database: MainConnection = MainConnection()  # Открываем соединение с базой данных.
 
-        self.setupUi(self, self._database)  # Инициализация нашего дизайна.
+        self.setupUi(self)  # Инициализация дизайна.
 
         """---------------------Модель токенов---------------------"""
-        token_model: TokenModel = TokenModel(self._database, self)
+        token_model: TokenModel = TokenModel(self)
         """--------------------------------------------------------"""
 
         """---------------------Модель доступа---------------------"""

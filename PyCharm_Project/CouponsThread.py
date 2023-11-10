@@ -2,9 +2,9 @@ from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Client, Coupon, RequestError
-from Classes import TokenClass
+from Classes import TokenClass, MyDatabase
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDatabase import MyDatabase
+from MyDatabase import MainConnection
 from MyDateTime import ifDateTimeIsEmpty, getUtcDateTime
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -12,14 +12,11 @@ from MyMoneyValue import MyMoneyValue
 
 class CouponsThread(QThread):
     """Поток получения купонов."""
-    class DatabaseConnection:
-        DATABASE_NAME: str = 'tinkoff_invest.db'
-        SQLITE_DRIVER: str = 'QSQLITE'
+    class DatabaseConnection(MyDatabase):
         CONNECTION_NAME: str = 'InvestmentViewer_CouponsThread'
 
         def __init__(self):
-            """"""
-            assert QSqlDatabase.isDriverAvailable(self.SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(self.SQLITE_DRIVER)
+            super().__init__()  # __init__() MyDatabase.
 
             """---------Открываем соединение с базой данных---------"""
             db: QSqlDatabase = QSqlDatabase.addDatabase(self.SQLITE_DRIVER, self.CONNECTION_NAME)
@@ -36,71 +33,6 @@ class CouponsThread(QThread):
         def removeConnection(cls):
             """Удаляет соединение с базой данных."""
             cls.getDatabase().removeDatabase(cls.CONNECTION_NAME)
-
-        # @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
-        # def addCoupons(cls, figi: str, coupons: list[Coupon]):
-        #     """Добавляет купоны в таблицу купонов."""
-        #     db: QSqlDatabase = cls.getDatabase()
-        #     if coupons:  # Если список купонов не пуст.
-        #         coupons_count: int = len(coupons)  # Количество купонов.
-        #         assert [coupon.figi for coupon in coupons].count(figi) == coupons_count, 'Список купонов должен содержать один и тот же figi ({0})!'.format(figi)
-        #
-        #         transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        #         assert transaction_flag, db.lastError().text()
-        #
-        #         if transaction_flag:
-        #             '''---------------------------Добавляет купоны в таблицу купонов---------------------------'''
-        #             coupons_query = QSqlQuery(db)
-        #             sql_command: str = 'INSERT INTO Coupons (' \
-        #                                'figi, coupon_date, coupon_number, fix_date, pay_one_bond, coupon_type, ' \
-        #                                'coupon_start_date, coupon_end_date, coupon_period' \
-        #                                ') VALUES '
-        #             for i in range(coupons_count):
-        #                 if i > 0: sql_command += ', '  # Если добавляемый купон не первый.
-        #                 sql_command += '(' \
-        #                                ':figi{0}, :coupon_date{0}, :coupon_number{0}, :fix_date{0}, ' \
-        #                                ':pay_one_bond{0}, :coupon_type{0}, :coupon_start_date{0}, ' \
-        #                                ':coupon_end_date{0}, :coupon_period{0}' \
-        #                                ')'.format(i)
-        #
-        #             prepare_flag: bool = coupons_query.prepare(sql_command)
-        #             assert prepare_flag, coupons_query.lastError().text()
-        #
-        #             for i, coupon in enumerate(coupons):
-        #                 coupons_query.bindValue(':figi{0}'.format(i), coupon.figi)
-        #                 coupons_query.bindValue(':coupon_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.coupon_date))
-        #                 coupons_query.bindValue(':coupon_number{0}'.format(i), coupon.coupon_number)
-        #                 coupons_query.bindValue(':fix_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.fix_date))
-        #                 coupons_query.bindValue(':pay_one_bond{0}'.format(i), MyMoneyValue.__repr__(coupon.pay_one_bond))
-        #                 coupons_query.bindValue(':coupon_type{0}'.format(i), int(coupon.coupon_type))
-        #                 coupons_query.bindValue(':coupon_start_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.coupon_start_date))
-        #                 coupons_query.bindValue(':coupon_end_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.coupon_end_date))
-        #                 coupons_query.bindValue(':coupon_period{0}'.format(i), coupon.coupon_period)
-        #
-        #             coupons_exec_flag: bool = coupons_query.exec()
-        #             assert coupons_exec_flag, coupons_query.lastError().text()
-        #             '''----------------------------------------------------------------------------------------'''
-        #
-        #             '''---------------Добавляем информацию к облигации---------------'''
-        #             query = QSqlQuery(db)
-        #             query.prepare('UPDATE Bonds SET coupons = :coupons WHERE figi = :coupon_figi;')
-        #             query.bindValue(':coupons', 'Yes')
-        #             query.bindValue(':coupon_figi', figi)
-        #             exec_flag: bool = query.exec()
-        #             assert exec_flag, query.lastError().text()
-        #             '''--------------------------------------------------------------'''
-        #
-        #             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-        #             assert commit_flag
-        #     else:
-        #         '''---------------Добавляем информацию к облигации---------------'''
-        #         query = QSqlQuery(db)
-        #         query.prepare('UPDATE Bonds SET coupons = :coupons WHERE figi = :coupon_figi;')
-        #         query.bindValue(':coupons', 'No')
-        #         query.bindValue(':coupon_figi', figi)
-        #         exec_flag: bool = query.exec()
-        #         assert exec_flag, query.lastError().text()
-        #         '''--------------------------------------------------------------'''
 
         @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
         def setCoupons(cls, figi: str, coupons: list[Coupon]):
@@ -141,13 +73,13 @@ class CouponsThread(QThread):
 
                     for i, coupon in enumerate(coupons):
                         add_coupons_query.bindValue(':figi{0}'.format(i), coupon.figi)
-                        add_coupons_query.bindValue(':coupon_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.coupon_date))
+                        add_coupons_query.bindValue(':coupon_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.coupon_date))
                         add_coupons_query.bindValue(':coupon_number{0}'.format(i), coupon.coupon_number)
-                        add_coupons_query.bindValue(':fix_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.fix_date))
+                        add_coupons_query.bindValue(':fix_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.fix_date))
                         add_coupons_query.bindValue(':pay_one_bond{0}'.format(i), MyMoneyValue.__repr__(coupon.pay_one_bond))
                         add_coupons_query.bindValue(':coupon_type{0}'.format(i), int(coupon.coupon_type))
-                        add_coupons_query.bindValue(':coupon_start_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.coupon_start_date))
-                        add_coupons_query.bindValue(':coupon_end_date{0}'.format(i), MyDatabase.convertDateTimeToText(coupon.coupon_end_date))
+                        add_coupons_query.bindValue(':coupon_start_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.coupon_start_date))
+                        add_coupons_query.bindValue(':coupon_end_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.coupon_end_date))
                         add_coupons_query.bindValue(':coupon_period{0}'.format(i), coupon.coupon_period)
 
                     add_coupons_exec_flag: bool = add_coupons_query.exec()
@@ -195,7 +127,7 @@ class CouponsThread(QThread):
 
     releaseSemaphore_signal: pyqtSignal = pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
 
-    def __init__(self, token_class: TokenClass, bond_class_list: list[MyBondClass], db: MyDatabase):
+    def __init__(self, token_class: TokenClass, bond_class_list: list[MyBondClass]):
         super().__init__()  # __init__() QThread.
         self.token: TokenClass = token_class
         self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_coupons_method_name)
@@ -207,8 +139,6 @@ class CouponsThread(QThread):
         self.request_error_count: int = 0  # Количество RequestError.
         self.control_point: datetime | None = None  # Начальная точка отсчёта времени.
         """-------------------------------------------------"""
-
-        self.database: MyDatabase = db
 
     def run(self) -> None:
         def printInConsole(text: str):
@@ -278,9 +208,6 @@ class CouponsThread(QThread):
                     """------------------------------------------------------------------------"""
                 if exception_flag: break  # Если поток был прерван.
                 bond_class.setCoupons(coupons)  # Записываем список купонов в облигацию.
-
-                # self.DatabaseConnection.addCoupons(bond_class.bond.figi, coupons)  # Добавляем купоны в таблицу купонов.
                 self.DatabaseConnection.setCoupons(bond_class.bond.figi, coupons)  # Добавляем купоны в таблицу купонов.
-                # self.database.addCoupons(bond_class.bond.figi, coupons)  # Добавляем купоны в таблицу купонов.
 
             self.DatabaseConnection.removeConnection()  # Удаляет соединение с БД.
