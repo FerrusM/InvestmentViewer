@@ -4,6 +4,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass
+from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
 # from old_TokenModel import TokenListModel
@@ -734,7 +735,7 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
     всех доступных для торговли инструментов. Поэтому, если список облигаций пуст,
     то следует пропустить запрос цен последних сделок.
     '''
-    if class_list:  # Если список отфильтрованных облигаций не пуст.
+    if class_list:  # Если список не пуст.
         current_try_count: RequestTryClass = RequestTryClass()
         last_prices_response: MyResponse = MyResponse()
         while current_try_count and not last_prices_response.ifDataSuccessfullyReceived():
@@ -744,6 +745,7 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
 
         if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.
             last_prices: list[LastPrice] = last_prices_response.response_data
+            MainConnection.addLastPrices(last_prices)  # Добавляем последние цены в таблицу последних цен.
             zip_list: list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]] = []
             '''------------------Проверка полученного списка последних цен------------------'''
             last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]

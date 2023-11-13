@@ -1,6 +1,6 @@
 from datetime import datetime
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
-from tinkoff.invest import Bond
+from tinkoff.invest import Bond, LastPrice
 from Classes import TokenClass, MyDatabase
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
@@ -49,7 +49,7 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS Tokens (
-            token TEXT PRIMARY KEY,
+            token TEXT NOT NULL PRIMARY KEY,
             name TEXT
             )''')
             exec_flag: bool = query.exec()
@@ -60,9 +60,9 @@ class MainConnection(MyDatabase):
             unary_limits_query = QSqlQuery(db)
             unary_limits_query.prepare('''
             CREATE TABLE IF NOT EXISTS UnaryLimits (
-            token TEXT,
-            limit_per_minute INTEGER,
-            methods TEXT,
+            token TEXT NOT NULL,
+            limit_per_minute INTEGER NOT NULL,
+            methods TEXT NOT NULL,
             FOREIGN KEY (token) REFERENCES Tokens(token)
             )''')
             exec_flag: bool = unary_limits_query.exec()
@@ -71,10 +71,10 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS StreamLimits (
-            token TEXT,
-            limit_count INTEGER,
-            streams TEXT,
-            open INTEGER,
+            token TEXT NOT NULL,
+            limit_count INTEGER NOT NULL,
+            streams TEXT NOT NULL,
+            open INTEGER NOT NULL,
             FOREIGN KEY (token) REFERENCES Tokens(token)
             )''')
             exec_flag: bool = query.exec()
@@ -85,14 +85,14 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS Accounts (
-            token TEXT,
-            id TEXT,
-            type INTEGER,
-            name TEXT,
-            status INTEGER,
-            opened_date TEXT,
-            closed_date TEXT,
-            access_level INTEGER,
+            token TEXT NOT NULL,
+            id TEXT NOT NULL,
+            type INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            status INTEGER NOT NULL,
+            opened_date TEXT NOT NULL,
+            closed_date TEXT NOT NULL,
+            access_level INTEGER NOT NULL,
             PRIMARY KEY (token, id),
             FOREIGN KEY (token) REFERENCES Tokens(token)
             )''')
@@ -119,57 +119,57 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS Bonds (
-            figi TEXT,
-            ticker TEXT,
-            class_code TEXT,
-            isin TEXT,
-            lot INTEGER,
-            currency TEXT,
-            klong TEXT,
-            kshort TEXT,
-            dlong TEXT,
-            dshort TEXT,
-            dlong_min TEXT,
-            dshort_min TEXT,
-            short_enabled_flag BOOL,
-            name TEXT,
-            exchange TEXT,
-            coupon_quantity_per_year INTEGER,
-            maturity_date TEXT,
-            nominal TEXT,
-            initial_nominal TEXT,
-            state_reg_date TEXT,
-            placement_date TEXT,
-            placement_price TEXT,
-            aci_value TEXT,
-            country_of_risk TEXT,
-            country_of_risk_name TEXT,
-            sector TEXT,
-            issue_kind TEXT,
-            issue_size INTEGER,
-            issue_size_plan INTEGER,
-            trading_status INTEGER,
-            otc_flag BOOL,
-            buy_available_flag BOOL,
-            sell_available_flag BOOL,
-            floating_coupon_flag BOOL,
-            perpetual_flag BOOL,
-            amortization_flag BOOL,
-            min_price_increment TEXT,
-            api_trade_available_flag BOOL,
-            uid TEXT,
-            real_exchange INTEGER,
-            position_uid TEXT,
-            for_iis_flag BOOL,
-            for_qual_investor_flag BOOL,
-            weekend_flag BOOL,
-            blocked_tca_flag BOOL,
-            subordinated_flag BOOL,
-            liquidity_flag BOOL,
-            first_1min_candle_date TEXT,
-            first_1day_candle_date TEXT,
-            risk_level INTEGER,
-            coupons TEXT
+            figi TEXT NOT NULL,
+            ticker TEXT NOT NULL,
+            class_code TEXT NOT NULL,
+            isin TEXT NOT NULL,
+            lot INTEGER NOT NULL,
+            currency TEXT NOT NULL,
+            klong TEXT NOT NULL,
+            kshort TEXT NOT NULL,
+            dlong TEXT NOT NULL,
+            dshort TEXT NOT NULL,
+            dlong_min TEXT NOT NULL,
+            dshort_min TEXT NOT NULL,
+            short_enabled_flag BOOL NOT NULL,
+            name TEXT NOT NULL,
+            exchange TEXT NOT NULL,
+            coupon_quantity_per_year INTEGER NOT NULL,
+            maturity_date TEXT NOT NULL,
+            nominal TEXT NOT NULL,
+            initial_nominal TEXT NOT NULL,
+            state_reg_date TEXT NOT NULL,
+            placement_date TEXT NOT NULL,
+            placement_price TEXT NOT NULL,
+            aci_value TEXT NOT NULL,
+            country_of_risk TEXT NOT NULL,
+            country_of_risk_name TEXT NOT NULL,
+            sector TEXT NOT NULL,
+            issue_kind TEXT NOT NULL,
+            issue_size INTEGER NOT NULL,
+            issue_size_plan INTEGER NOT NULL,
+            trading_status INTEGER NOT NULL,
+            otc_flag BOOL NOT NULL,
+            buy_available_flag BOOL NOT NULL,
+            sell_available_flag BOOL NOT NULL,
+            floating_coupon_flag BOOL NOT NULL,
+            perpetual_flag BOOL NOT NULL,
+            amortization_flag BOOL NOT NULL,
+            min_price_increment TEXT NOT NULL,
+            api_trade_available_flag BOOL NOT NULL,
+            uid TEXT NOT NULL PRIMARY KEY,
+            real_exchange INTEGER NOT NULL,
+            position_uid TEXT NOT NULL,
+            for_iis_flag BOOL NOT NULL,
+            for_qual_investor_flag BOOL NOT NULL,
+            weekend_flag BOOL NOT NULL,
+            blocked_tca_flag BOOL NOT NULL,
+            subordinated_flag BOOL NOT NULL,
+            liquidity_flag BOOL NOT NULL,
+            first_1min_candle_date TEXT NOT NULL,
+            first_1day_candle_date TEXT NOT NULL,
+            risk_level INTEGER NOT NULL,
+            coupons TEXT NULL CHECK(coupons IS NULL OR coupons == 'Yes' OR coupons == 'No')
             )''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
@@ -179,15 +179,15 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS Coupons (
-            figi TEXT,
-            coupon_date TEXT,
-            coupon_number INTEGER,
-            fix_date TEXT,
-            pay_one_bond TEXT,
-            coupon_type INTEGER,
-            coupon_start_date TEXT,
-            coupon_end_date TEXT,
-            coupon_period INTEGER,
+            figi TEXT NOT NULL,
+            coupon_date TEXT NOT NULL,
+            coupon_number INTEGER NOT NULL,
+            fix_date TEXT NOT NULL,
+            pay_one_bond TEXT NOT NULL,
+            coupon_type INTEGER NOT NULL,
+            coupon_start_date TEXT NOT NULL,
+            coupon_end_date TEXT NOT NULL,
+            coupon_period INTEGER NOT NULL,
             PRIMARY KEY (figi, coupon_number),
             FOREIGN KEY (figi) REFERENCES Bonds(figi)
             )''')
@@ -225,46 +225,83 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS Shares (
-            figi TEXT,
-            ticker TEXT,
-            class_code TEXT,
-            isin TEXT,
-            lot INTEGER,
-            currency TEXT,
-            klong,
-            kshort,
-            dlong,
-            dshort,
-            dlong_min,
-            dshort_min,
-            short_enabled_flag BOOL,
-            name TEXT,
-            exchange TEXT, 
-            ipo_date TEXT,
-            issue_size INTEGER,
-            country_of_risk TEXT,
-            country_of_risk_name TEXT,
-            sector TEXT,
-            issue_size_plan INTEGER,
-            nominal,
-            trading_status INTEGER,
-            otc_flag BOOL,
-            buy_available_flag BOOL,
-            sell_available_flag BOOL,
-            div_yield_flag BOOL,
-            share_type INTEGER,
-            min_price_increment,
-            api_trade_available_flag BOOL,
-            uid TEXT,
-            real_exchange INTEGER,
-            position_uid TEXT,
-            for_iis_flag BOOL,
-            for_qual_investor_flag BOOL,
-            weekend_flag BOOL,
-            blocked_tca_flag BOOL,
-            liquidity_flag BOOL,
-            first_1min_candle_date TEXT,
-            first_1day_candle_date TEXT
+            figi TEXT NOT NULL,
+            ticker TEXT NOT NULL,
+            class_code TEXT NOT NULL,
+            isin TEXT NOT NULL,
+            lot INTEGER NOT NULL,
+            currency TEXT NOT NULL,
+            klong TEXT NOT NULL,
+            kshort TEXT NOT NULL,
+            dlong TEXT NOT NULL,
+            dshort TEXT NOT NULL,
+            dlong_min TEXT NOT NULL,
+            dshort_min TEXT NOT NULL,
+            short_enabled_flag BOOL NOT NULL,
+            name TEXT NOT NULL,
+            exchange TEXT NOT NULL, 
+            ipo_date TEXT NOT NULL,
+            issue_size INTEGER NOT NULL,
+            country_of_risk TEXT NOT NULL,
+            country_of_risk_name TEXT NOT NULL,
+            sector TEXT NOT NULL,
+            issue_size_plan INTEGER NOT NULL,
+            nominal TEXT NOT NULL,
+            trading_status INTEGER NOT NULL,
+            otc_flag BOOL NOT NULL,
+            buy_available_flag BOOL NOT NULL,
+            sell_available_flag BOOL NOT NULL,
+            div_yield_flag BOOL NOT NULL,
+            share_type INTEGER NOT NULL,
+            min_price_increment TEXT NOT NULL,
+            api_trade_available_flag BOOL NOT NULL,
+            uid TEXT NOT NULL PRIMARY KEY,
+            real_exchange INTEGER NOT NULL,
+            position_uid TEXT NOT NULL,
+            for_iis_flag BOOL NOT NULL,
+            for_qual_investor_flag BOOL NOT NULL,
+            weekend_flag BOOL NOT NULL,
+            blocked_tca_flag BOOL NOT NULL,
+            liquidity_flag BOOL NOT NULL,
+            first_1min_candle_date TEXT NOT NULL,
+            first_1day_candle_date TEXT NOT NULL
+            )''')
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''--------------------------------------------------------------'''
+
+            '''---------Создание представления figi-идентификаторов---------'''
+            query = QSqlQuery(db)
+            query.prepare('''
+            CREATE VIEW IF NOT EXISTS FinancialInstrumentGlobalIdentifiers (figi)
+            AS
+            SELECT Bonds.figi FROM Bonds UNION SELECT Shares.figi FROM Shares
+            ''')
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''-------------------------------------------------------------'''
+
+            '''----------Создание представления uid-идентификаторов----------'''
+            query = QSqlQuery(db)
+            query.prepare('''
+            CREATE VIEW IF NOT EXISTS InstrumentUniqueIdentifiers (uid)
+            AS
+            SELECT Bonds.uid FROM Bonds UNION SELECT Shares.uid FROM Shares
+            ''')
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''--------------------------------------------------------------'''
+
+            '''----------------Создание таблицы последних цен----------------'''
+            query = QSqlQuery(db)
+            query.prepare('''
+            CREATE TABLE IF NOT EXISTS LastPrices (
+            figi TEXT NOT NULL,
+            price TEXT NOT NULL,
+            time TEXT NOT NULL,
+            instrument_uid TEXT NOT NULL,
+            PRIMARY KEY (time, instrument_uid),
+            FOREIGN KEY (instrument_uid) REFERENCES InstrumentUniqueIdentifiers(uid) ON DELETE CASCADE
             )''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
@@ -410,6 +447,32 @@ class MainConnection(MyDatabase):
                                        ':first_1day_candle_date{0}, :risk_level{0}' \
                                        ')'.format(i)
 
+                    sql_command += ' ON CONFLICT(uid) DO ' \
+                                   'UPDATE SET figi = excluded.figi, ticker = excluded.ticker, ' \
+                                   'class_code = excluded.class_code, isin = excluded.isin, lot = excluded.lot, ' \
+                                   'currency = excluded.currency, klong = excluded.klong, kshort = excluded.kshort, ' \
+                                   'dlong = excluded.dlong, dshort = excluded.dshort, dlong_min = excluded.dlong_min, ' \
+                                   'dshort_min = excluded.dshort_min, short_enabled_flag = excluded.short_enabled_flag, ' \
+                                   'name = excluded.name, exchange = excluded.exchange, ' \
+                                   'coupon_quantity_per_year = excluded.coupon_quantity_per_year, ' \
+                                   'maturity_date = excluded.maturity_date, nominal = excluded.nominal, ' \
+                                   'initial_nominal = excluded.initial_nominal, state_reg_date = excluded.state_reg_date, ' \
+                                   'placement_date = excluded.placement_date, placement_price = excluded.placement_price, ' \
+                                   'aci_value = excluded.aci_value, country_of_risk = excluded.country_of_risk, ' \
+                                   'country_of_risk_name = excluded.country_of_risk_name, sector = excluded.sector, ' \
+                                   'issue_kind = excluded.issue_kind, issue_size = excluded.issue_size, ' \
+                                   'issue_size_plan = excluded.issue_size_plan, trading_status = excluded.trading_status, ' \
+                                   'otc_flag = excluded.otc_flag, buy_available_flag = excluded.buy_available_flag, ' \
+                                   'sell_available_flag = excluded.sell_available_flag, ' \
+                                   'floating_coupon_flag = excluded.floating_coupon_flag, perpetual_flag = excluded.perpetual_flag, ' \
+                                   'amortization_flag = excluded.amortization_flag, min_price_increment = excluded.min_price_increment, ' \
+                                   'api_trade_available_flag = excluded.api_trade_available_flag, real_exchange = excluded.real_exchange, ' \
+                                   'position_uid = excluded.position_uid, for_iis_flag = excluded.for_iis_flag, ' \
+                                   'for_qual_investor_flag = excluded.for_qual_investor_flag, weekend_flag = excluded.weekend_flag, ' \
+                                   'blocked_tca_flag = excluded.blocked_tca_flag, subordinated_flag = excluded.subordinated_flag, ' \
+                                   'liquidity_flag = excluded.liquidity_flag, first_1min_candle_date = excluded.first_1min_candle_date, ' \
+                                   'first_1day_candle_date = excluded.first_1day_candle_date, risk_level = excluded.risk_level;'
+
                     prepare_flag: bool = query.prepare(sql_command)
                     assert prepare_flag, query.lastError().text()
 
@@ -467,6 +530,42 @@ class MainConnection(MyDatabase):
 
                     exec_flag: bool = query.exec()
                     assert exec_flag, query.lastError().text()
+
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag
+
+    @classmethod
+    def addLastPrices(cls, last_prices: list[LastPrice]):
+        """Добавляет последние цены в таблицу последних цен."""
+        if last_prices:  # Если список последних цен не пуст.
+            db: QSqlDatabase = cls.getDatabase()
+            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+            assert transaction_flag
+
+            if transaction_flag:
+                query = QSqlQuery(db)
+                sql_command: str = 'INSERT INTO LastPrices (figi, price, time, instrument_uid) VALUES '
+                lp_count: int = len(last_prices)  # Количество последних цен.
+                for i in range(lp_count):
+                    if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
+                    sql_command += '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'.format(i)
+
+                '''---------------------Пробую совместить INSERT и UPDATE---------------------'''
+                sql_command += ' ON CONFLICT(time, instrument_uid) DO ' \
+                               'UPDATE SET figi = excluded.figi, price = excluded.price;'
+                '''---------------------------------------------------------------------------'''
+
+                prepare_flag: bool = query.prepare(sql_command)
+                assert prepare_flag, query.lastError().text()
+
+                for i, lp in enumerate(last_prices):
+                    query.bindValue(':figi{0}'.format(i), lp.figi)
+                    query.bindValue(':price{0}'.format(i), MyQuotation.__repr__(lp.price))
+                    query.bindValue(':time{0}'.format(i), MainConnection.convertDateTimeToText(lp.time))
+                    query.bindValue(':instrument_uid{0}'.format(i), lp.instrument_uid)
+
+                exec_flag: bool = query.exec()
+                assert exec_flag, query.lastError().text()
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag
