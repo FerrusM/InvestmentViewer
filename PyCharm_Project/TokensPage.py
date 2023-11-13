@@ -7,8 +7,7 @@ from Classes import TokenClass, MyTreeView, reportAccountType, reportAccountStat
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyDateTime import reportSignificantInfoFromDateTime
 from MyRequests import MyResponse, getUserTariff, getAccounts, RequestTryClass
-# from old_TokenModel import TokenModel
-from new_TokenModel import TokenModel
+from TokenModel import TokenModel
 from TreeTokenModel import TreeProxyModel, TreeItem
 
 

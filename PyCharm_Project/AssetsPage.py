@@ -4,10 +4,10 @@ from tinkoff.invest import InstrumentType, Asset
 from AssetsModel import AssetsTreeModel
 from AssetsThread import AssetsThread, AssetClass
 from Classes import TokenClass, MyTreeView
+from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getAssets, RequestTryClass
-# from old_TokenModel import TokenListModel
-from new_TokenModel import TokenListModel
+from TokenModel import TokenListModel
 
 
 class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
@@ -401,6 +401,7 @@ class AssetsPage(QtWidgets.QWidget):
 
         if assets_response.ifDataSuccessfullyReceived():  # Если список активов был получен.
             assets: list[Asset] = assets_response.response_data  # Извлекаем список активов.
+            MainConnection.addAssets(assets)  # Добавляем активы в таблицу активов.
 
             assetclass_list: list[AssetClass] = [AssetClass(asset) for asset in assets]
             self.groupBox_view.setAssets(assetclass_list)  # Передаём в исходную модель данные.

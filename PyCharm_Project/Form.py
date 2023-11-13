@@ -4,8 +4,7 @@ from BondsPage import BondsPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
 from SharesPage import SharesPage
-# from old_TokenModel import TokenModel, TokenListModel
-from new_TokenModel import TokenModel, TokenListModel
+from TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
 
 

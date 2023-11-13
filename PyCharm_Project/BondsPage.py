@@ -14,8 +14,7 @@ from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
-# from old_TokenModel import TokenListModel
-from new_TokenModel import TokenListModel
+from TokenModel import TokenListModel
 
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):

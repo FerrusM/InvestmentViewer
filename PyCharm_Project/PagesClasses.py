@@ -7,8 +7,7 @@ from Classes import TokenClass
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
-# from old_TokenModel import TokenListModel
-from new_TokenModel import TokenListModel
+from TokenModel import TokenListModel
 
 
 class GroupBox_CalculationDate(QtWidgets.QGroupBox):

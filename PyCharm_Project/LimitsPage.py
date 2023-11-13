@@ -2,8 +2,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from Classes import MyTreeView, TokenClass
 from LimitsModel import LimitsTreeModel
 from PagesClasses import GroupBox_Request
-# from old_TokenModel import TokenListModel
-from new_TokenModel import TokenListModel
+from TokenModel import TokenListModel
 
 
 class GroupBox_LimitsTreeView(QtWidgets.QGroupBox):
