@@ -25,16 +25,26 @@ class CouponsThread(QThread):
             assert open_flag and db.isOpen()
             """-----------------------------------------------------"""
 
-        @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
+            '''---------Включаем использование внешних ключей---------'''
+            query = QSqlQuery(db)
+            prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
+            assert prepare_flag, query.lastError().text()
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''-------------------------------------------------------'''
+
+        @classmethod
         def getDatabase(cls) -> QSqlDatabase:
             return QSqlDatabase.database(cls.CONNECTION_NAME)
 
-        @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
+        @classmethod
         def removeConnection(cls):
             """Удаляет соединение с базой данных."""
-            cls.getDatabase().removeDatabase(cls.CONNECTION_NAME)
+            db: QSqlDatabase = cls.getDatabase()
+            db.close()  # Для удаления соединения с базой данных, надо сначала закрыть базу данных.
+            db.removeDatabase(cls.CONNECTION_NAME)
 
-        @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
+        @classmethod
         def setCoupons(cls, figi: str, coupons: list[Coupon]):
             """Обновляет купоны с переданным figi в таблице купонов."""
             db: QSqlDatabase = cls.getDatabase()

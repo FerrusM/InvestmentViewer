@@ -1,6 +1,6 @@
 from datetime import datetime
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
-from tinkoff.invest import Bond, LastPrice, Asset
+from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument
 from Classes import TokenClass, MyDatabase
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
@@ -18,6 +18,14 @@ class MainConnection(MyDatabase):
         open_flag: bool = db.open()
         assert open_flag and db.isOpen()
         """-----------------------------------------------------"""
+
+        '''---------Включаем использование внешних ключей---------'''
+        query = QSqlQuery(db)
+        prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
+        assert prepare_flag, query.lastError().text()
+        exec_flag: bool = query.exec()
+        assert exec_flag, query.lastError().text()
+        '''-------------------------------------------------------'''
 
         self.createDataBase()  # Создаёт базу данных.
 
@@ -99,21 +107,6 @@ class MainConnection(MyDatabase):
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''-----------------------------------------------------------'''
-
-            '''------------Триггер перед удалением токена------------'''
-            # tokens_on_delete_trigger_query = QSqlQuery(db)
-            # tokens_on_delete_trigger_query.prepare('''
-            # CREATE TRIGGER IF NOT EXISTS Tokens_on_delete_trigger BEFORE DELETE
-            # ON Tokens
-            # BEGIN
-            #     DELETE FROM UnaryLimits WHERE token = OLD.token;
-            #     DELETE FROM StreamLimits WHERE token = OLD.token;
-            #     DELETE FROM Accounts WHERE token = OLD.token;
-            # END;
-            # ''')
-            # tokens_on_delete_trigger_exec_flag: bool = tokens_on_delete_trigger_query.exec()
-            # assert tokens_on_delete_trigger_exec_flag, tokens_on_delete_trigger_query.lastError().text()
-            '''------------------------------------------------------'''
 
             '''------------------Создание таблицы облигаций------------------'''
             query = QSqlQuery(db)
@@ -227,24 +220,24 @@ class MainConnection(MyDatabase):
             '''-----Создание представления figi-идентификаторов облигаций-----'''
             query = QSqlQuery(db)
             query.prepare('''
-                CREATE VIEW IF NOT EXISTS BondsFinancialInstrumentGlobalIdentifiers (figi)
-                AS
-                SELECT DISTINCT Bonds.figi FROM Bonds
-                ''')
+            CREATE VIEW IF NOT EXISTS BondsFinancialInstrumentGlobalIdentifiers (figi)
+            AS
+            SELECT DISTINCT Bonds.figi FROM Bonds
+            ''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''---------------------------------------------------------------'''
 
-            '''---------Создание представления figi-идентификаторов---------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE VIEW IF NOT EXISTS FinancialInstrumentGlobalIdentifiers (figi)
-            AS
-            SELECT Bonds.figi FROM Bonds UNION SELECT Shares.figi FROM Shares
-            ''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''-------------------------------------------------------------'''
+            # '''---------Создание представления figi-идентификаторов---------'''
+            # query = QSqlQuery(db)
+            # query.prepare('''
+            # CREATE VIEW IF NOT EXISTS FinancialInstrumentGlobalIdentifiers (figi)
+            # AS
+            # SELECT Bonds.figi FROM Bonds UNION SELECT Shares.figi FROM Shares
+            # ''')
+            # exec_flag: bool = query.exec()
+            # assert exec_flag, query.lastError().text()
+            # '''-------------------------------------------------------------'''
 
             '''----------Создание представления uid-идентификаторов----------'''
             query = QSqlQuery(db)
@@ -260,19 +253,19 @@ class MainConnection(MyDatabase):
             '''-------------------Создание таблицы купонов-------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-                CREATE TABLE IF NOT EXISTS Coupons (
-                figi TEXT NOT NULL,
-                coupon_date TEXT NOT NULL,
-                coupon_number INTEGER NOT NULL,
-                fix_date TEXT NOT NULL,
-                pay_one_bond TEXT NOT NULL,
-                coupon_type INTEGER NOT NULL,
-                coupon_start_date TEXT NOT NULL,
-                coupon_end_date TEXT NOT NULL,
-                coupon_period INTEGER NOT NULL,
-                PRIMARY KEY (figi, coupon_number),
-                FOREIGN KEY (figi) REFERENCES BondsFinancialInstrumentGlobalIdentifiers(figi) ON DELETE CASCADE
-                )''')
+            CREATE TABLE IF NOT EXISTS Coupons (
+            figi TEXT NOT NULL,
+            coupon_date TEXT NOT NULL,
+            coupon_number INTEGER NOT NULL,
+            fix_date TEXT NOT NULL,
+            pay_one_bond TEXT NOT NULL,
+            coupon_type INTEGER NOT NULL,
+            coupon_start_date TEXT NOT NULL,
+            coupon_end_date TEXT NOT NULL,
+            coupon_period INTEGER NOT NULL,
+            PRIMARY KEY (figi, coupon_number),
+            FOREIGN KEY (figi) REFERENCES BondsFinancialInstrumentGlobalIdentifiers(figi) ON DELETE CASCADE
+            )''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
@@ -300,7 +293,25 @@ class MainConnection(MyDatabase):
             instrument_uid TEXT NOT NULL,
             PRIMARY KEY (time, instrument_uid),
             FOREIGN KEY (instrument_uid) REFERENCES InstrumentUniqueIdentifiers(uid) ON DELETE CASCADE
-            )''')
+            );''')
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''--------------------------------------------------------------'''
+
+            '''-------------------Создание таблицы брэндов-------------------'''
+            query = QSqlQuery(db)
+            query.prepare('''
+            CREATE TABLE IF NOT EXISTS Brands (
+            uid TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            info TEXT NOT NULL,
+            company TEXT NOT NULL,
+            sector TEXT NOT NULL,
+            country_of_risk TEXT NOT NULL,
+            country_of_risk_name TEXT NOT NULL,         
+            PRIMARY KEY (uid)
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
@@ -322,11 +333,12 @@ class MainConnection(MyDatabase):
             cfi TEXT,
             code_nsd TEXT,
             status TEXT,
-            brand,
+            brand_uid TEXT,
             updated_at TEXT,
             br_code TEXT,
-            br_code_name TEXT
-            )''')
+            br_code_name TEXT,
+            FOREIGN KEY(brand_uid) REFERENCES Brands(uid)
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
@@ -336,15 +348,16 @@ class MainConnection(MyDatabase):
             query.prepare('''
             CREATE TABLE IF NOT EXISTS AssetInstruments (
             asset_uid TEXT NOT NULL,
-            uid TEXT NOT NULL PRIMARY KEY,
+            uid TEXT NOT NULL,
             figi TEXT NOT NULL,
             instrument_type TEXT NOT NULL,
             ticker TEXT NOT NULL,
             class_code TEXT NOT NULL,
             instrument_kind INTEGER NOT NULL,
             position_uid TEXT NOT NULL,
+            CONSTRAINT assert_instrument_pk PRIMARY KEY(asset_uid, uid),
             FOREIGN KEY (asset_uid) REFERENCES Assets(uid) ON DELETE CASCADE
-            )''')
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''-------------------------------------------------------------'''
@@ -353,14 +366,27 @@ class MainConnection(MyDatabase):
             query = QSqlQuery(db)
             query.prepare('''
             CREATE TABLE IF NOT EXISTS InstrumentLinks (
+            asset_uid TEXT NOT NULL,
             uid TEXT NOT NULL,
             type TEXT NOT NULL,
             instrument_uid TEXT NOT NULL,
-            PRIMARY KEY (uid, instrument_uid),
-            FOREIGN KEY (uid) REFERENCES AssetInstruments(uid) ON DELETE CASCADE
-            )''')
+            UNIQUE (asset_uid, uid, type, instrument_uid),
+            FOREIGN KEY (asset_uid, uid) REFERENCES AssetInstruments(asset_uid, uid) ON DELETE CASCADE
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
+            '''------------------------------------------------------------'''
+
+            '''--------Добавление триггера перед обновлением актива--------'''
+            assets_on_update_trigger_query = QSqlQuery(db)
+            assets_on_update_trigger_query.prepare('''
+            CREATE TRIGGER IF NOT EXISTS Assets_on_update_trigger BEFORE UPDATE ON Assets
+            BEGIN               
+                DELETE FROM AssetInstruments WHERE asset_uid = OLD.uid;
+            END;
+            ''')
+            assets_on_update_trigger_exec_flag: bool = assets_on_update_trigger_query.exec()
+            assert assets_on_update_trigger_exec_flag, assets_on_update_trigger_query.lastError().text()
             '''------------------------------------------------------------'''
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
@@ -380,6 +406,11 @@ class MainConnection(MyDatabase):
         # print('\nconvertTextToDateTime __str__: {0}'.format(dt.__str__()))
         # print('convertTextToDateTime __repr__: {0}'.format(dt.__repr__()))
         return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
+
+    @staticmethod
+    def convertStrListToStr(str_list: list[str]) -> str:
+        """Преобразует список строк в одну строку."""
+        return ', '.join(str_list)
 
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
     def addNewToken(cls, token: TokenClass):
@@ -405,7 +436,8 @@ class MainConnection(MyDatabase):
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
-                query.bindValue(':methods', ', '.join([method.full_method for method in unary_limit.methods]))
+                # query.bindValue(':methods', ', '.join([method.full_method for method in unary_limit.methods]))
+                query.bindValue(':methods', cls.convertStrListToStr([method.full_method for method in unary_limit.methods]))
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
 
@@ -417,7 +449,8 @@ class MainConnection(MyDatabase):
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':limit_count', stream_limit.limit)
-                query.bindValue(':streams', ', '.join([method.full_method for method in stream_limit.methods]))
+                # query.bindValue(':streams', ', '.join([method.full_method for method in stream_limit.methods]))
+                query.bindValue(':streams', cls.convertStrListToStr([method.full_method for method in stream_limit.methods]))
                 query.bindValue(':open', stream_limit.open)
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
@@ -629,81 +662,150 @@ class MainConnection(MyDatabase):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag
 
+    # @classmethod
+    # def addBrand(cls, brand: Brand):
+    #     """Добавляет брэнд в таблицу брэндов."""
+    #     db: QSqlDatabase = cls.getDatabase()
+    #     query = QSqlQuery(db)
+    #     query.prepare('''
+    #     INSERT INTO Brands (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name)
+    #     VALUES (:uid, :name, :description, :info, :company, :sector, :country_of_risk, :country_of_risk_name);
+    #     ''')
+    #     query.bindValue(':uid', brand.uid)
+    #     query.bindValue(':name', brand.name)
+    #     query.bindValue(':description', brand.description)
+    #     query.bindValue(':info', brand.info)
+    #     query.bindValue(':company', brand.company)
+    #     query.bindValue(':sector', brand.sector)
+    #     query.bindValue(':country_of_risk', brand.country_of_risk)
+    #     query.bindValue(':country_of_risk_name', brand.country_of_risk_name)
+    #     exec_flag: bool = query.exec()
+    #     assert exec_flag, query.lastError().text()
+
+    @staticmethod
+    def addAssetInstrument(db: QSqlDatabase, asset_uid: str, instrument: AssetInstrument):
+        """Добавляет идентификаторы инструмента актива в таблицу идентификаторов инструментов активов."""
+        def addInstrumentLinks(instrument_uid: str, links: list[InstrumentLink]):
+            """Добавляет связанные инструменты в таблицу связей инструментов."""
+            if links:  # Если список связанных инструментов не пуст.
+                insert_link_query = QSqlQuery(db)
+                insert_link_sql_command: str = 'INSERT INTO InstrumentLinks (asset_uid, uid, type, instrument_uid) VALUES '
+                links_count: int = len(links)  # Количество связей.
+                for j in range(links_count):
+                    if j > 0: insert_link_sql_command += ', '  # Если добавляемая связь не первая.
+                    insert_link_sql_command += '(:asset_uid{0}, :uid{0}, :type{0}, :instrument_uid{0})'.format(j)
+                insert_link_sql_command += ';'
+
+                insert_link_prepare_flag: bool = insert_link_query.prepare(insert_link_sql_command)
+                assert insert_link_prepare_flag, insert_link_query.lastError().text()
+
+                for j, link in enumerate(links):
+                    insert_link_query.bindValue(':asset_uid{0}'.format(j), asset_uid)
+                    insert_link_query.bindValue(':uid{0}'.format(j), instrument_uid)
+                    insert_link_query.bindValue(':type{0}'.format(j), link.type)
+                    insert_link_query.bindValue(':instrument_uid{0}'.format(j), link.instrument_uid)
+
+                insert_link_exec_flag: bool = insert_link_query.exec()
+                assert insert_link_exec_flag, '\n{0}\n{1}\nasset_uid: {2}, instrument_uid: {3}\n'.format(insert_link_query.lastError().text(), insert_link_query.lastQuery(), asset_uid, instrument_uid)
+
+        insert_ai_query = QSqlQuery(db)
+        insert_ai_prepare_flag: bool = insert_ai_query.prepare('''
+        INSERT INTO AssetInstruments (asset_uid, uid, figi, instrument_type, ticker, class_code, instrument_kind, position_uid) VALUES
+        (:asset_uid, :uid, :figi, :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);
+        ''')
+        assert insert_ai_prepare_flag, insert_ai_query.lastError().text()
+
+        insert_ai_query.bindValue(':asset_uid', asset_uid)
+        insert_ai_query.bindValue(':uid', instrument.uid)
+        insert_ai_query.bindValue(':figi', instrument.figi)
+        insert_ai_query.bindValue(':instrument_type', instrument.instrument_type)
+        insert_ai_query.bindValue(':ticker', instrument.ticker)
+        insert_ai_query.bindValue(':class_code', instrument.class_code)
+        insert_ai_query.bindValue(':instrument_kind', int(instrument.instrument_kind))
+        insert_ai_query.bindValue(':position_uid', instrument.position_uid)
+
+        insert_ai_exec_flag: bool = insert_ai_query.exec()
+        assert insert_ai_exec_flag, insert_ai_query.lastError().text()
+
+        addInstrumentLinks(instrument.uid, instrument.links)  # Добавляем связанные инструменты в таблицу связей инструментов.
+
     @classmethod
     def addAssets(cls, assets: list[Asset]):
         """Добавляет активы в таблицу активов."""
         if assets:  # Если список активов не пуст.
-            VARIABLES_COUNT: int = 3  # Количество variables в каждом insert.
-            assets_in_pack: int = int(cls.VARIABLE_LIMIT / VARIABLES_COUNT)
-            assert assets_in_pack > 0
-
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            assert transaction_flag
+            assert transaction_flag, db.lastError().text()
 
             if transaction_flag:
-                assets_packs: list[list[Asset]] = list(cls._partition(assets, assets_in_pack))
-                for pack in assets_packs:
-                    query = QSqlQuery(db)
-                    sql_command: str = 'INSERT INTO Assets (uid, type, name) VALUES '
-                    assets_count: int = len(pack)  # Количество активов.
-                    for i in range(assets_count):
-                        if i > 0: sql_command += ', '  # Если добавляемый актив не первый.
-                        sql_command += '(:uid{0}, :type{0}, :name{0})'.format(i)
+                # def addInstrumentLinks(asset_uid: str, instrument_uid: str, links: list[InstrumentLink]):
+                #     """Добавляет связанные инструменты в таблицу связей инструментов."""
+                #     if links:  # Если список связанных инструментов не пуст.
+                #         insert_link_query = QSqlQuery(db)
+                #         insert_link_sql_command: str = 'INSERT INTO InstrumentLinks (asset_uid, uid, type, instrument_uid) VALUES '
+                #         links_count: int = len(links)  # Количество связей.
+                #         for j in range(links_count):
+                #             if j > 0: insert_link_sql_command += ', '  # Если добавляемая связь не первая.
+                #             insert_link_sql_command += '(:asset_uid{0}, :uid{0}, :type{0}, :instrument_uid{0})'.format(j)
+                #         insert_link_sql_command += ';'
+                #
+                #         insert_link_prepare_flag: bool = insert_link_query.prepare(insert_link_sql_command)
+                #         assert insert_link_prepare_flag, insert_link_query.lastError().text()
+                #
+                #         for j, link in enumerate(links):
+                #             insert_link_query.bindValue(':asset_uid{0}'.format(j), asset_uid)
+                #             insert_link_query.bindValue(':uid{0}'.format(j), instrument_uid)
+                #             insert_link_query.bindValue(':type{0}'.format(j), link.type)
+                #             insert_link_query.bindValue(':instrument_uid{0}'.format(j), link.instrument_uid)
+                #
+                #         insert_link_exec_flag: bool = insert_link_query.exec()
+                #         assert insert_link_exec_flag, insert_link_query.lastError().text()
+                #
+                # def addAssetInstrument(asset_uid: str, instrument: AssetInstrument):
+                #     """Добавляет идентификаторы инструмента актива в таблицу идентификаторов инструментов активов."""
+                #     insert_ai_query = QSqlQuery(db)
+                #     insert_ai_prepare_flag: bool = insert_ai_query.prepare('''
+                #     INSERT INTO AssetInstruments (asset_uid, uid, figi, instrument_type, ticker, class_code, instrument_kind, position_uid) VALUES
+                #     (:asset_uid, :uid, :figi, :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);
+                #     ''')
+                #     assert insert_ai_prepare_flag, insert_ai_query.lastError().text()
+                #
+                #     insert_ai_query.bindValue(':asset_uid', asset_uid)
+                #     insert_ai_query.bindValue(':uid', instrument.uid)
+                #     insert_ai_query.bindValue(':figi', instrument.figi)
+                #     insert_ai_query.bindValue(':instrument_type', instrument.instrument_type)
+                #     insert_ai_query.bindValue(':ticker', instrument.ticker)
+                #     insert_ai_query.bindValue(':class_code', instrument.class_code)
+                #     insert_ai_query.bindValue(':instrument_kind', int(instrument.instrument_kind))
+                #     insert_ai_query.bindValue(':position_uid', instrument.position_uid)
+                #
+                #     insert_ai_exec_flag: bool = insert_ai_query.exec()
+                #     assert insert_ai_exec_flag, insert_ai_query.lastError().text()
+                #
+                #     addInstrumentLinks(asset_uid, instrument.uid, instrument.links)  # Добавляем связанные инструменты в таблицу связей инструментов.
 
-                    sql_command += ' ON CONFLICT(uid) DO UPDATE SET type = excluded.type, name = excluded.name;'
+                def insertAsset(asset: Asset):
+                    """Добавляет актив в таблицу активов."""
+                    insert_asset_query = QSqlQuery(db)
+                    insert_asset_prepare_flag: bool = insert_asset_query.prepare('''
+                    INSERT INTO Assets(uid, type, name) VALUES (:uid, :type, :name)
+                    ON CONFLICT(uid) DO UPDATE SET type = excluded.type, name = excluded.name;
+                    ''')
+                    assert insert_asset_prepare_flag, insert_asset_query.lastError().text()
 
-                    prepare_flag: bool = query.prepare(sql_command)
-                    assert prepare_flag, query.lastError().text()
+                    insert_asset_query.bindValue(':uid', asset.uid)
+                    insert_asset_query.bindValue(':type', int(asset.type))
+                    insert_asset_query.bindValue(':name', asset.name)
 
-                    for i, asset in enumerate(pack):
-                        query.bindValue(':uid{0}'.format(i), asset.uid)
-                        query.bindValue(':type{0}'.format(i), int(asset.type))
-                        query.bindValue(':name{0}'.format(i), asset.name)
+                    insert_asset_exec_flag: bool = insert_asset_query.exec()
+                    assert insert_asset_exec_flag, insert_asset_query.lastError().text()
 
-                    exec_flag: bool = query.exec()
-                    assert exec_flag, query.lastError().text()
-
-                '''---------------Добавляем инструменты---------------'''
-                for asset in assets:
                     for instrument in asset.instruments:
-                        query = QSqlQuery(db)
-                        prepare_flag: bool = query.prepare('''
-                        INSERT INTO AssetInstruments (asset_uid, uid, figi, instrument_type, ticker, class_code, instrument_kind, position_uid) VALUES
-                        (:asset_uid, :uid, :figi, :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid)
-                        ON CONFLICT(uid) DO UPDATE SET asset_uid = excluded.asset_uid, figi = excluded.figi, instrument_type = excluded.instrument_type, 
-                        ticker = excluded.ticker, class_code = excluded.class_code, instrument_kind = excluded.instrument_kind, position_uid = excluded.position_uid;
-                        ''')
-                        assert prepare_flag, query.lastError().text()
+                        # addAssetInstrument(asset.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
+                        cls.addAssetInstrument(db, asset.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
 
-                        query.bindValue(':asset_uid', asset.uid)
-                        query.bindValue(':uid', instrument.uid)
-                        query.bindValue(':figi', instrument.figi)
-                        query.bindValue(':instrument_type', instrument.instrument_type)
-                        query.bindValue(':ticker', instrument.ticker)
-                        query.bindValue(':class_code', instrument.class_code)
-                        query.bindValue(':instrument_kind', int(instrument.instrument_kind))
-                        query.bindValue(':position_uid', instrument.position_uid)
-
-                        exec_flag: bool = query.exec()
-                        assert exec_flag, query.lastError().text()
-
-                        for link in instrument.links:
-                            query = QSqlQuery(db)
-                            prepare_flag: bool = query.prepare('''
-                            INSERT INTO InstrumentLinks (type, instrument_uid, uid) VALUES
-                            (:type, :instrument_uid, :uid)
-                            ON CONFLICT(uid, instrument_uid) DO UPDATE SET type = excluded.type;
-                            ''')
-                            assert prepare_flag, query.lastError().text()
-
-                            query.bindValue(':type', link.type)
-                            query.bindValue(':instrument_uid', link.instrument_uid)
-                            query.bindValue(':uid', instrument.uid)
-
-                            exec_flag: bool = query.exec()
-                            assert exec_flag, query.lastError().text()
-                '''---------------------------------------------------'''
+                for a in assets:
+                    insertAsset(a)  # Добавляем актив в таблицу активов.
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                assert commit_flag
+                assert commit_flag, db.lastError().text()

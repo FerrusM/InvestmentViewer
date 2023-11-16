@@ -1,8 +1,10 @@
 from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
-from tinkoff.invest import Asset, AssetFull
-from Classes import TokenClass
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from tinkoff.invest import Asset, AssetFull, Brand
+from Classes import TokenClass, MyDatabase
 from LimitClasses import LimitPerMinuteSemaphore
+from MyDatabase import MainConnection
 from MyDateTime import getUtcDateTime
 from MyRequests import MyResponse, getAssetBy, RequestTryClass
 
@@ -24,6 +26,104 @@ class AssetClass(QObject):
 
 class AssetsThread(QThread):
     """Поток получения полной информации об активах."""
+    class DatabaseConnection(MyDatabase):
+        CONNECTION_NAME: str = 'InvestmentViewer_AssetsThread'
+
+        def __init__(self):
+            super().__init__()  # __init__() MyDatabase.
+
+            """---------Открываем соединение с базой данных---------"""
+            db: QSqlDatabase = QSqlDatabase.addDatabase(self.SQLITE_DRIVER, self.CONNECTION_NAME)
+            db.setDatabaseName(self.DATABASE_NAME)
+            open_flag: bool = db.open()
+            assert open_flag and db.isOpen()
+            """-----------------------------------------------------"""
+
+            '''---------Включаем использование внешних ключей---------'''
+            query = QSqlQuery(db)
+            prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
+            assert prepare_flag, query.lastError().text()
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''-------------------------------------------------------'''
+
+        @classmethod
+        def getDatabase(cls) -> QSqlDatabase:
+            return QSqlDatabase.database(cls.CONNECTION_NAME)
+
+        @classmethod
+        def removeConnection(cls):
+            """Удаляет соединение с базой данных."""
+            db: QSqlDatabase = cls.getDatabase()
+            db.close()  # Для удаления соединения с базой данных, надо сначала закрыть базу данных.
+            db.removeDatabase(cls.CONNECTION_NAME)
+
+        @classmethod
+        def insertBrand(cls, brand: Brand):
+            """Добавляет брэнд в таблицу брэндов."""
+            db: QSqlDatabase = cls.getDatabase()
+            query = QSqlQuery(db)
+            query.prepare('''
+            INSERT INTO Brands (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name) 
+            VALUES (:uid, :name, :description, :info, :company, :sector, :country_of_risk, :country_of_risk_name)
+            ON CONFLICT(uid) DO UPDATE SET name = excluded.name, description = excluded.description, 
+            info = excluded.info, company = excluded.company, sector = excluded.sector, 
+            country_of_risk = excluded.country_of_risk, country_of_risk_name = excluded.country_of_risk_name;
+            ''')
+            query.bindValue(':uid', brand.uid)
+            query.bindValue(':name', brand.name)
+            query.bindValue(':description', brand.description)
+            query.bindValue(':info', brand.info)
+            query.bindValue(':company', brand.company)
+            query.bindValue(':sector', brand.sector)
+            query.bindValue(':country_of_risk', brand.country_of_risk)
+            query.bindValue(':country_of_risk_name', brand.country_of_risk_name)
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+
+        @classmethod
+        def insertAssetFull(cls, assetfull: AssetFull):
+            """Добавляет AssetFull в таблицу активов."""
+            db: QSqlDatabase = cls.getDatabase()
+
+            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+            assert transaction_flag, db.lastError().text()
+
+            if transaction_flag:
+                cls.insertBrand(assetfull.brand)  # Добавляем брэнд в таблицу брэндов.
+
+                query = QSqlQuery(db)
+                query.prepare('''
+                INSERT INTO Assets (uid, type, name, name_brief, description, deleted_at, required_tests, gos_reg_code, cfi, code_nsd, status, brand_uid, updated_at, br_code, br_code_name) 
+                VALUES (:uid, :type, :name, :name_brief, :description, :deleted_at, :required_tests, :gos_reg_code, :cfi, :code_nsd, :status, :brand_uid, :updated_at, :br_code, :br_code_name)
+                ON CONFLICT(uid) DO UPDATE SET type = excluded.type, name = excluded.name, name_brief = excluded.name_brief, description = excluded.description, 
+                deleted_at = excluded.deleted_at, required_tests = excluded.required_tests, gos_reg_code = excluded.gos_reg_code, cfi = excluded.cfi, code_nsd = excluded.code_nsd,
+                status = excluded.status, brand_uid = excluded.brand_uid, updated_at = excluded.updated_at, br_code = excluded.br_code, br_code_name = excluded.br_code_name;
+                ''')
+                query.bindValue(':uid', assetfull.uid)
+                query.bindValue(':type', int(assetfull.type))
+                query.bindValue(':name', assetfull.name)
+                query.bindValue(':name_brief', assetfull.name_brief)
+                query.bindValue(':description', assetfull.description)
+                query.bindValue(':deleted_at', MainConnection.convertDateTimeToText(assetfull.deleted_at))
+                query.bindValue(':required_tests', MainConnection.convertStrListToStr(assetfull.required_tests))
+                query.bindValue(':gos_reg_code', assetfull.gos_reg_code)
+                query.bindValue(':cfi', assetfull.cfi)
+                query.bindValue(':code_nsd', assetfull.code_nsd)
+                query.bindValue(':status', assetfull.status)
+                query.bindValue(':brand_uid', assetfull.brand.uid)
+                query.bindValue(':updated_at', MainConnection.convertDateTimeToText(assetfull.updated_at))
+                query.bindValue(':br_code', assetfull.br_code)
+                query.bindValue(':br_code_name', assetfull.br_code_name)
+                exec_flag: bool = query.exec()
+                assert exec_flag, query.lastError().text()
+
+                for instrument in assetfull.instruments:
+                    MainConnection.addAssetInstrument(db, assetfull.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
+
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+
     receive_assetfulls_method_name: str = 'GetAssetBy'
 
     '''------------------------Сигналы------------------------'''
@@ -59,6 +159,8 @@ class AssetsThread(QThread):
         if self.semaphore is None:
             printInConsole('Лимит для метода {0} не найден.'.format(self.receive_assetfulls_method_name))
         else:
+            self.DatabaseConnection()  # Открываем соединение с БД.
+
             assets_count: int = len(self.assets)  # Количество активов.
             self.setProgressBarRange_signal.emit(0, assets_count)  # Задаёт минимум и максимум progressBar'а.
 
@@ -106,3 +208,6 @@ class AssetsThread(QThread):
                 assetfull: AssetFull | None = assetfull_response.response_data.asset if assetfull_response.ifDataSuccessfullyReceived() else None
                 if assetfull is None: continue  # Если поток был прерван или если информация не была получена.
                 asset_class.setAssetFull(assetfull)  # Записываем информацию об активе в AssetClass.
+                self.DatabaseConnection.insertAssetFull(assetfull)  # Добавляем AssetFull в таблицу активов.
+
+            self.DatabaseConnection.removeConnection()  # Удаляет соединение с БД.
