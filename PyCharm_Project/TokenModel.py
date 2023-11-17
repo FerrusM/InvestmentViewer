@@ -2,7 +2,7 @@ import typing
 from PyQt6.QtCore import QObject, QAbstractItemModel, QModelIndex, Qt, QVariant, QIdentityProxyModel
 from PyQt6.QtSql import QSqlQuery, QSqlDatabase
 from tinkoff.invest import Account, UnaryLimit, StreamLimit
-from Classes import TokenClass
+from Classes import TokenClass, MyConnection
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyDatabase import MainConnection
 
@@ -41,8 +41,8 @@ class TokenModel(QAbstractItemModel):
                     type=accounts_query.value(1),
                     name=accounts_query.value(2),
                     status=accounts_query.value(3),
-                    opened_date=MainConnection.convertTextToDateTime(accounts_query.value(4)),
-                    closed_date=MainConnection.convertTextToDateTime(accounts_query.value(5)),
+                    opened_date=MyConnection.convertTextToDateTime(accounts_query.value(4)),
+                    closed_date=MyConnection.convertTextToDateTime(accounts_query.value(5)),
                     access_level=accounts_query.value(6)
                 )
                 accounts.append(account)

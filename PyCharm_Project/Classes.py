@@ -1,8 +1,8 @@
-from sqlite3 import connect, Connection, SQLITE_LIMIT_VARIABLE_NUMBER
+from abc import ABC
 from datetime import datetime
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
-from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyDateTime import getUtcDateTime
@@ -150,21 +150,73 @@ def reportTradingStatus(trading_status: int) -> str:
             raise ValueError("Некорректный режим торгов инструмента ({0})!".format(trading_status))
 
 
-class MyDatabase:
-    """Класс для хранения общих параметров соединений с БД."""
-    DATABASE_NAME: str = 'tinkoff_invest.db'
+class MyConnection(ABC):
+    """Абстрактный класс, хранящий общий функционал соединений с БД."""
     SQLITE_DRIVER: str = 'QSQLITE'
+    assert QSqlDatabase.isDriverAvailable(SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(SQLITE_DRIVER)
+
+    DATABASE_NAME: str = 'tinkoff_invest.db'
+    CONNECTION_NAME: str  # "Абстрактная" переменная класса, должна быть определена в наследуемом классе.
 
     @staticmethod
     def _getSQLiteLimitVariableNumber(database_name: str):
         """Получает и возвращает лимит на количество переменных в одном запросе."""
-        # Создаем подключение к базе данных (файл DATABASE_NAME будет создан)
-        connection = connect(database_name)
+        from sqlite3 import connect, Connection, SQLITE_LIMIT_VARIABLE_NUMBER
+        connection = connect(database_name)  # Создаем подключение к базе данных (файл DATABASE_NAME будет создан).
         limit: int = connection.getlimit(SQLITE_LIMIT_VARIABLE_NUMBER)
         connection.close()
         return limit
 
     VARIABLE_LIMIT: int = _getSQLiteLimitVariableNumber(DATABASE_NAME)  # Лимит на количество переменных в одном запросе.
 
-    def __init__(self):
-        assert QSqlDatabase.isDriverAvailable(self.SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(self.SQLITE_DRIVER)
+    @staticmethod
+    def __setForeignKeysOn(db: QSqlDatabase):
+        """
+        Использование внешних ключей по умолчанию отключено.
+        Эта функция включает использование внешних ключей для конкретного соединения.
+        """
+        query = QSqlQuery(db)
+        prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
+        assert prepare_flag, query.lastError().text()
+        exec_flag: bool = query.exec()
+        assert exec_flag, query.lastError().text()
+
+    @classmethod
+    def open(cls):
+        """Открывает соединение с базой данных."""
+        db: QSqlDatabase = QSqlDatabase.addDatabase(cls.SQLITE_DRIVER, cls.CONNECTION_NAME)
+        db.setDatabaseName(cls.DATABASE_NAME)
+        open_flag: bool = db.open()
+        assert open_flag and db.isOpen()
+        cls.__setForeignKeysOn(db)  # Включаем использование внешних ключей.
+
+    @classmethod
+    def removeConnection(cls):
+        """Удаляет соединение с базой данных."""
+        db: QSqlDatabase = cls.getDatabase()
+        db.close()  # Для удаления соединения с базой данных, надо сначала закрыть базу данных.
+        db.removeDatabase(cls.CONNECTION_NAME)
+
+    @classmethod
+    def getDatabase(cls) -> QSqlDatabase:
+        return QSqlDatabase.database(cls.CONNECTION_NAME)
+
+    @staticmethod
+    def convertDateTimeToText(dt: datetime) -> str:
+        """Конвертирует datetime в TEXT для хранения в БД."""
+        # print('\nconvertDateTimeToText __str__: {0}'.format(dt.__str__()))
+        # print('convertDateTimeToText __repr__: {0}'.format(dt.__repr__()))
+        return str(dt)
+
+    @staticmethod
+    def convertTextToDateTime(text: str) -> datetime:
+        """Конвертирует TEXT в datetime при извлечении из БД."""
+        # dt: datetime = datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
+        # print('\nconvertTextToDateTime __str__: {0}'.format(dt.__str__()))
+        # print('convertTextToDateTime __repr__: {0}'.format(dt.__repr__()))
+        return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
+
+    @staticmethod
+    def convertStrListToStr(str_list: list[str]) -> str:
+        """Преобразует список строк в одну строку."""
+        return ', '.join(str_list)

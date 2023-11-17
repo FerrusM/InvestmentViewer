@@ -1,32 +1,15 @@
-from datetime import datetime
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument
-from Classes import TokenClass, MyDatabase
+from Classes import TokenClass, MyConnection
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
 
 
-class MainConnection(MyDatabase):
+class MainConnection(MyConnection):
     CONNECTION_NAME: str = 'InvestmentViewer'
 
     def __init__(self):
-        super().__init__()  # __init__() MyDatabase.
-
-        """---------Открываем соединение с базой данных---------"""
-        db: QSqlDatabase = QSqlDatabase.addDatabase(self.SQLITE_DRIVER, self.CONNECTION_NAME)
-        db.setDatabaseName(self.DATABASE_NAME)
-        open_flag: bool = db.open()
-        assert open_flag and db.isOpen()
-        """-----------------------------------------------------"""
-
-        '''---------Включаем использование внешних ключей---------'''
-        query = QSqlQuery(db)
-        prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
-        assert prepare_flag, query.lastError().text()
-        exec_flag: bool = query.exec()
-        assert exec_flag, query.lastError().text()
-        '''-------------------------------------------------------'''
-
+        self.open()  # Открываем соединение с базой данных.
         self.createDataBase()  # Создаёт базу данных.
 
         def notificationSlot(name: str, source: QSqlDriver.NotificationSource, payload):
@@ -37,13 +20,10 @@ class MainConnection(MyDatabase):
                     print('notificationSlot: name = {0}, source = {1}, payload = {2}'.format(name, source, payload))
                     assert False, 'Неверный параметр name ({0}).'.format(name)
 
+        db: QSqlDatabase = self.getDatabase()
         driver = db.driver()
         driver.subscribeToNotification('Bonds')
         driver.notification.connect(notificationSlot)
-
-    @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
-    def getDatabase(cls) -> QSqlDatabase:
-        return QSqlDatabase.database(cls.CONNECTION_NAME)
 
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
     def createDataBase(cls):
@@ -228,17 +208,6 @@ class MainConnection(MyDatabase):
             assert exec_flag, query.lastError().text()
             '''---------------------------------------------------------------'''
 
-            # '''---------Создание представления figi-идентификаторов---------'''
-            # query = QSqlQuery(db)
-            # query.prepare('''
-            # CREATE VIEW IF NOT EXISTS FinancialInstrumentGlobalIdentifiers (figi)
-            # AS
-            # SELECT Bonds.figi FROM Bonds UNION SELECT Shares.figi FROM Shares
-            # ''')
-            # exec_flag: bool = query.exec()
-            # assert exec_flag, query.lastError().text()
-            # '''-------------------------------------------------------------'''
-
             '''----------Создание представления uid-идентификаторов----------'''
             query = QSqlQuery(db)
             query.prepare('''
@@ -392,26 +361,6 @@ class MainConnection(MyDatabase):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def convertDateTimeToText(dt: datetime) -> str:
-        """Конвертирует datetime в TEXT для хранения в БД."""
-        # print('\nconvertDateTimeToText __str__: {0}'.format(dt.__str__()))
-        # print('convertDateTimeToText __repr__: {0}'.format(dt.__repr__()))
-        return str(dt)
-
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
-    def convertTextToDateTime(text: str) -> datetime:
-        """Конвертирует TEXT в datetime при извлечении из БД."""
-        # dt: datetime = datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
-        # print('\nconvertTextToDateTime __str__: {0}'.format(dt.__str__()))
-        # print('convertTextToDateTime __repr__: {0}'.format(dt.__repr__()))
-        return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
-
-    @staticmethod
-    def convertStrListToStr(str_list: list[str]) -> str:
-        """Преобразует список строк в одну строку."""
-        return ', '.join(str_list)
-
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
     def addNewToken(cls, token: TokenClass):
         """Добавляет новый токен в таблицу токенов."""
@@ -436,7 +385,6 @@ class MainConnection(MyDatabase):
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
-                # query.bindValue(':methods', ', '.join([method.full_method for method in unary_limit.methods]))
                 query.bindValue(':methods', cls.convertStrListToStr([method.full_method for method in unary_limit.methods]))
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
@@ -449,7 +397,6 @@ class MainConnection(MyDatabase):
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':limit_count', stream_limit.limit)
-                # query.bindValue(':streams', ', '.join([method.full_method for method in stream_limit.methods]))
                 query.bindValue(':streams', cls.convertStrListToStr([method.full_method for method in stream_limit.methods]))
                 query.bindValue(':open', stream_limit.open)
                 exec_flag: bool = query.exec()
@@ -466,8 +413,8 @@ class MainConnection(MyDatabase):
                 query.bindValue(':type', int(account.type))
                 query.bindValue(':name', account.name)
                 query.bindValue(':status', int(account.status))
-                query.bindValue(':opened_date', MainConnection.convertDateTimeToText(account.opened_date))
-                query.bindValue(':closed_date', MainConnection.convertDateTimeToText(account.closed_date))
+                query.bindValue(':opened_date', MyConnection.convertDateTimeToText(account.opened_date))
+                query.bindValue(':closed_date', MyConnection.convertDateTimeToText(account.closed_date))
                 query.bindValue(':access_level', int(account.access_level))
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
@@ -485,10 +432,10 @@ class MainConnection(MyDatabase):
         exec_flag: bool = query.exec()
         assert exec_flag, query.lastError().text()
 
-    @staticmethod
-    def _partition(array: list, length: int):
-        for i in range(0, len(array), length):
-            yield array[i:(i + length)]
+    # @staticmethod
+    # def _partition(array: list, length: int):
+    #     for i in range(0, len(array), length):
+    #         yield array[i:(i + length)]
 
     @classmethod
     def addBonds(cls, bonds: list[Bond]):
@@ -507,6 +454,9 @@ class MainConnection(MyDatabase):
             assert transaction_flag
 
             if transaction_flag:
+
+                bonds_packs: list[list[Bond]] = list(partition(bonds))
+
                 bonds_packs: list[list[Bond]] = list(partition(bonds))
                 for pack in bonds_packs:
                     query = QSqlQuery(db)
@@ -587,11 +537,11 @@ class MainConnection(MyDatabase):
                         query.bindValue(':name{0}'.format(i), bond.name)
                         query.bindValue(':exchange{0}'.format(i), bond.exchange)
                         query.bindValue(':coupon_quantity_per_year{0}'.format(i), bond.coupon_quantity_per_year)
-                        query.bindValue(':maturity_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.maturity_date))
+                        query.bindValue(':maturity_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.maturity_date))
                         query.bindValue(':nominal{0}'.format(i), MyMoneyValue.__repr__(bond.nominal))
                         query.bindValue(':initial_nominal{0}'.format(i), MyMoneyValue.__repr__(bond.initial_nominal))
-                        query.bindValue(':state_reg_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.state_reg_date))
-                        query.bindValue(':placement_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.placement_date))
+                        query.bindValue(':state_reg_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.state_reg_date))
+                        query.bindValue(':placement_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.placement_date))
                         query.bindValue(':placement_price{0}'.format(i), MyMoneyValue.__repr__(bond.placement_price))
                         query.bindValue(':aci_value{0}'.format(i), MyMoneyValue.__repr__(bond.aci_value))
                         query.bindValue(':country_of_risk{0}'.format(i), bond.country_of_risk)
@@ -618,8 +568,8 @@ class MainConnection(MyDatabase):
                         query.bindValue(':blocked_tca_flag{0}'.format(i), bond.blocked_tca_flag)
                         query.bindValue(':subordinated_flag{0}'.format(i), bond.subordinated_flag)
                         query.bindValue(':liquidity_flag{0}'.format(i), bond.liquidity_flag)
-                        query.bindValue(':first_1min_candle_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.first_1min_candle_date))
-                        query.bindValue(':first_1day_candle_date{0}'.format(i), MainConnection.convertDateTimeToText(bond.first_1day_candle_date))
+                        query.bindValue(':first_1min_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1min_candle_date))
+                        query.bindValue(':first_1day_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1day_candle_date))
                         query.bindValue(':risk_level{0}'.format(i), int(bond.risk_level))
 
                     exec_flag: bool = query.exec()
@@ -653,7 +603,7 @@ class MainConnection(MyDatabase):
                 for i, lp in enumerate(last_prices):
                     query.bindValue(':figi{0}'.format(i), lp.figi)
                     query.bindValue(':price{0}'.format(i), MyQuotation.__repr__(lp.price))
-                    query.bindValue(':time{0}'.format(i), MainConnection.convertDateTimeToText(lp.time))
+                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(lp.time))
                     query.bindValue(':instrument_uid{0}'.format(i), lp.instrument_uid)
 
                 exec_flag: bool = query.exec()
@@ -661,26 +611,6 @@ class MainConnection(MyDatabase):
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag
-
-    # @classmethod
-    # def addBrand(cls, brand: Brand):
-    #     """Добавляет брэнд в таблицу брэндов."""
-    #     db: QSqlDatabase = cls.getDatabase()
-    #     query = QSqlQuery(db)
-    #     query.prepare('''
-    #     INSERT INTO Brands (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name)
-    #     VALUES (:uid, :name, :description, :info, :company, :sector, :country_of_risk, :country_of_risk_name);
-    #     ''')
-    #     query.bindValue(':uid', brand.uid)
-    #     query.bindValue(':name', brand.name)
-    #     query.bindValue(':description', brand.description)
-    #     query.bindValue(':info', brand.info)
-    #     query.bindValue(':company', brand.company)
-    #     query.bindValue(':sector', brand.sector)
-    #     query.bindValue(':country_of_risk', brand.country_of_risk)
-    #     query.bindValue(':country_of_risk_name', brand.country_of_risk_name)
-    #     exec_flag: bool = query.exec()
-    #     assert exec_flag, query.lastError().text()
 
     @staticmethod
     def addAssetInstrument(db: QSqlDatabase, asset_uid: str, instrument: AssetInstrument):
@@ -738,52 +668,6 @@ class MainConnection(MyDatabase):
             assert transaction_flag, db.lastError().text()
 
             if transaction_flag:
-                # def addInstrumentLinks(asset_uid: str, instrument_uid: str, links: list[InstrumentLink]):
-                #     """Добавляет связанные инструменты в таблицу связей инструментов."""
-                #     if links:  # Если список связанных инструментов не пуст.
-                #         insert_link_query = QSqlQuery(db)
-                #         insert_link_sql_command: str = 'INSERT INTO InstrumentLinks (asset_uid, uid, type, instrument_uid) VALUES '
-                #         links_count: int = len(links)  # Количество связей.
-                #         for j in range(links_count):
-                #             if j > 0: insert_link_sql_command += ', '  # Если добавляемая связь не первая.
-                #             insert_link_sql_command += '(:asset_uid{0}, :uid{0}, :type{0}, :instrument_uid{0})'.format(j)
-                #         insert_link_sql_command += ';'
-                #
-                #         insert_link_prepare_flag: bool = insert_link_query.prepare(insert_link_sql_command)
-                #         assert insert_link_prepare_flag, insert_link_query.lastError().text()
-                #
-                #         for j, link in enumerate(links):
-                #             insert_link_query.bindValue(':asset_uid{0}'.format(j), asset_uid)
-                #             insert_link_query.bindValue(':uid{0}'.format(j), instrument_uid)
-                #             insert_link_query.bindValue(':type{0}'.format(j), link.type)
-                #             insert_link_query.bindValue(':instrument_uid{0}'.format(j), link.instrument_uid)
-                #
-                #         insert_link_exec_flag: bool = insert_link_query.exec()
-                #         assert insert_link_exec_flag, insert_link_query.lastError().text()
-                #
-                # def addAssetInstrument(asset_uid: str, instrument: AssetInstrument):
-                #     """Добавляет идентификаторы инструмента актива в таблицу идентификаторов инструментов активов."""
-                #     insert_ai_query = QSqlQuery(db)
-                #     insert_ai_prepare_flag: bool = insert_ai_query.prepare('''
-                #     INSERT INTO AssetInstruments (asset_uid, uid, figi, instrument_type, ticker, class_code, instrument_kind, position_uid) VALUES
-                #     (:asset_uid, :uid, :figi, :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);
-                #     ''')
-                #     assert insert_ai_prepare_flag, insert_ai_query.lastError().text()
-                #
-                #     insert_ai_query.bindValue(':asset_uid', asset_uid)
-                #     insert_ai_query.bindValue(':uid', instrument.uid)
-                #     insert_ai_query.bindValue(':figi', instrument.figi)
-                #     insert_ai_query.bindValue(':instrument_type', instrument.instrument_type)
-                #     insert_ai_query.bindValue(':ticker', instrument.ticker)
-                #     insert_ai_query.bindValue(':class_code', instrument.class_code)
-                #     insert_ai_query.bindValue(':instrument_kind', int(instrument.instrument_kind))
-                #     insert_ai_query.bindValue(':position_uid', instrument.position_uid)
-                #
-                #     insert_ai_exec_flag: bool = insert_ai_query.exec()
-                #     assert insert_ai_exec_flag, insert_ai_query.lastError().text()
-                #
-                #     addInstrumentLinks(asset_uid, instrument.uid, instrument.links)  # Добавляем связанные инструменты в таблицу связей инструментов.
-
                 def insertAsset(asset: Asset):
                     """Добавляет актив в таблицу активов."""
                     insert_asset_query = QSqlQuery(db)
@@ -801,7 +685,6 @@ class MainConnection(MyDatabase):
                     assert insert_asset_exec_flag, insert_asset_query.lastError().text()
 
                     for instrument in asset.instruments:
-                        # addAssetInstrument(asset.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
                         cls.addAssetInstrument(db, asset.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
 
                 for a in assets:

@@ -2,9 +2,8 @@ from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Client, Coupon, RequestError
-from Classes import TokenClass, MyDatabase
+from Classes import TokenClass, MyConnection
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDatabase import MainConnection
 from MyDateTime import ifDateTimeIsEmpty, getUtcDateTime
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -12,37 +11,8 @@ from MyMoneyValue import MyMoneyValue
 
 class CouponsThread(QThread):
     """Поток получения купонов."""
-    class DatabaseConnection(MyDatabase):
+    class DatabaseConnection(MyConnection):
         CONNECTION_NAME: str = 'InvestmentViewer_CouponsThread'
-
-        def __init__(self):
-            super().__init__()  # __init__() MyDatabase.
-
-            """---------Открываем соединение с базой данных---------"""
-            db: QSqlDatabase = QSqlDatabase.addDatabase(self.SQLITE_DRIVER, self.CONNECTION_NAME)
-            db.setDatabaseName(self.DATABASE_NAME)
-            open_flag: bool = db.open()
-            assert open_flag and db.isOpen()
-            """-----------------------------------------------------"""
-
-            '''---------Включаем использование внешних ключей---------'''
-            query = QSqlQuery(db)
-            prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
-            assert prepare_flag, query.lastError().text()
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''-------------------------------------------------------'''
-
-        @classmethod
-        def getDatabase(cls) -> QSqlDatabase:
-            return QSqlDatabase.database(cls.CONNECTION_NAME)
-
-        @classmethod
-        def removeConnection(cls):
-            """Удаляет соединение с базой данных."""
-            db: QSqlDatabase = cls.getDatabase()
-            db.close()  # Для удаления соединения с базой данных, надо сначала закрыть базу данных.
-            db.removeDatabase(cls.CONNECTION_NAME)
 
         @classmethod
         def setCoupons(cls, figi: str, coupons: list[Coupon]):
@@ -83,13 +53,13 @@ class CouponsThread(QThread):
 
                     for i, coupon in enumerate(coupons):
                         add_coupons_query.bindValue(':figi{0}'.format(i), coupon.figi)
-                        add_coupons_query.bindValue(':coupon_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.coupon_date))
+                        add_coupons_query.bindValue(':coupon_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_date))
                         add_coupons_query.bindValue(':coupon_number{0}'.format(i), coupon.coupon_number)
-                        add_coupons_query.bindValue(':fix_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.fix_date))
+                        add_coupons_query.bindValue(':fix_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.fix_date))
                         add_coupons_query.bindValue(':pay_one_bond{0}'.format(i), MyMoneyValue.__repr__(coupon.pay_one_bond))
                         add_coupons_query.bindValue(':coupon_type{0}'.format(i), int(coupon.coupon_type))
-                        add_coupons_query.bindValue(':coupon_start_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.coupon_start_date))
-                        add_coupons_query.bindValue(':coupon_end_date{0}'.format(i), MainConnection.convertDateTimeToText(coupon.coupon_end_date))
+                        add_coupons_query.bindValue(':coupon_start_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_start_date))
+                        add_coupons_query.bindValue(':coupon_end_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_end_date))
                         add_coupons_query.bindValue(':coupon_period{0}'.format(i), coupon.coupon_period)
 
                     add_coupons_exec_flag: bool = add_coupons_query.exec()
@@ -164,7 +134,7 @@ class CouponsThread(QThread):
         if self.semaphore is None:
             printInConsole('Лимит для метода {0} не найден.'.format(self.receive_coupons_method_name))
         else:
-            self.DatabaseConnection()  # Открываем соединение с БД.
+            self.DatabaseConnection.open()  # Открываем соединение с БД.
 
             # bonds_count: int = len(self.bonds)  # Количество облигаций.
             # self.setProgressBarRange_signal.emit(0, bonds_count)  # Задаёт минимум и максимум progressBar'а заполнения купонов.
@@ -220,4 +190,4 @@ class CouponsThread(QThread):
                 bond_class.setCoupons(coupons)  # Записываем список купонов в облигацию.
                 self.DatabaseConnection.setCoupons(bond_class.bond.figi, coupons)  # Добавляем купоны в таблицу купонов.
 
-            self.DatabaseConnection.removeConnection()  # Удаляет соединение с БД.
+            self.DatabaseConnection.removeConnection()  # Удаляем соединение с БД.

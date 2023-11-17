@@ -2,7 +2,7 @@ from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Asset, AssetFull, Brand
-from Classes import TokenClass, MyDatabase
+from Classes import TokenClass, MyConnection
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
 from MyDateTime import getUtcDateTime
@@ -26,37 +26,8 @@ class AssetClass(QObject):
 
 class AssetsThread(QThread):
     """Поток получения полной информации об активах."""
-    class DatabaseConnection(MyDatabase):
+    class DatabaseConnection(MyConnection):
         CONNECTION_NAME: str = 'InvestmentViewer_AssetsThread'
-
-        def __init__(self):
-            super().__init__()  # __init__() MyDatabase.
-
-            """---------Открываем соединение с базой данных---------"""
-            db: QSqlDatabase = QSqlDatabase.addDatabase(self.SQLITE_DRIVER, self.CONNECTION_NAME)
-            db.setDatabaseName(self.DATABASE_NAME)
-            open_flag: bool = db.open()
-            assert open_flag and db.isOpen()
-            """-----------------------------------------------------"""
-
-            '''---------Включаем использование внешних ключей---------'''
-            query = QSqlQuery(db)
-            prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
-            assert prepare_flag, query.lastError().text()
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''-------------------------------------------------------'''
-
-        @classmethod
-        def getDatabase(cls) -> QSqlDatabase:
-            return QSqlDatabase.database(cls.CONNECTION_NAME)
-
-        @classmethod
-        def removeConnection(cls):
-            """Удаляет соединение с базой данных."""
-            db: QSqlDatabase = cls.getDatabase()
-            db.close()  # Для удаления соединения с базой данных, надо сначала закрыть базу данных.
-            db.removeDatabase(cls.CONNECTION_NAME)
 
         @classmethod
         def insertBrand(cls, brand: Brand):
@@ -105,14 +76,14 @@ class AssetsThread(QThread):
                 query.bindValue(':name', assetfull.name)
                 query.bindValue(':name_brief', assetfull.name_brief)
                 query.bindValue(':description', assetfull.description)
-                query.bindValue(':deleted_at', MainConnection.convertDateTimeToText(assetfull.deleted_at))
-                query.bindValue(':required_tests', MainConnection.convertStrListToStr(assetfull.required_tests))
+                query.bindValue(':deleted_at', MyConnection.convertDateTimeToText(assetfull.deleted_at))
+                query.bindValue(':required_tests', MyConnection.convertStrListToStr(assetfull.required_tests))
                 query.bindValue(':gos_reg_code', assetfull.gos_reg_code)
                 query.bindValue(':cfi', assetfull.cfi)
                 query.bindValue(':code_nsd', assetfull.code_nsd)
                 query.bindValue(':status', assetfull.status)
                 query.bindValue(':brand_uid', assetfull.brand.uid)
-                query.bindValue(':updated_at', MainConnection.convertDateTimeToText(assetfull.updated_at))
+                query.bindValue(':updated_at', MyConnection.convertDateTimeToText(assetfull.updated_at))
                 query.bindValue(':br_code', assetfull.br_code)
                 query.bindValue(':br_code_name', assetfull.br_code_name)
                 exec_flag: bool = query.exec()
@@ -159,7 +130,7 @@ class AssetsThread(QThread):
         if self.semaphore is None:
             printInConsole('Лимит для метода {0} не найден.'.format(self.receive_assetfulls_method_name))
         else:
-            self.DatabaseConnection()  # Открываем соединение с БД.
+            self.DatabaseConnection.open()  # Открываем соединение с БД.
 
             assets_count: int = len(self.assets)  # Количество активов.
             self.setProgressBarRange_signal.emit(0, assets_count)  # Задаёт минимум и максимум progressBar'а.
@@ -210,4 +181,4 @@ class AssetsThread(QThread):
                 asset_class.setAssetFull(assetfull)  # Записываем информацию об активе в AssetClass.
                 self.DatabaseConnection.insertAssetFull(assetfull)  # Добавляем AssetFull в таблицу активов.
 
-            self.DatabaseConnection.removeConnection()  # Удаляет соединение с БД.
+            self.DatabaseConnection.removeConnection()  # Удаляем соединение с БД.
