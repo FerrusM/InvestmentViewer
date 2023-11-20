@@ -83,10 +83,22 @@ class MainConnection(MyConnection):
             access_level INTEGER NOT NULL,
             PRIMARY KEY (token, id),
             FOREIGN KEY (token) REFERENCES Tokens(token) ON DELETE CASCADE
-            )''')
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''-----------------------------------------------------------'''
+
+            '''--------Создание таблицы figi-идентификаторов облигаций--------'''
+            query = QSqlQuery(db)
+            query.prepare('''
+            CREATE TABLE IF NOT EXISTS "BondsFinancialInstrumentGlobalIdentifiers"(
+            figi TEXT NOT NULL,
+            coupons TEXT,
+            PRIMARY KEY (figi)
+            );''')
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+            '''---------------------------------------------------------------'''
 
             '''------------------Создание таблицы облигаций------------------'''
             query = QSqlQuery(db)
@@ -130,7 +142,7 @@ class MainConnection(MyConnection):
             amortization_flag BOOL NOT NULL,
             min_price_increment TEXT NOT NULL,
             api_trade_available_flag BOOL NOT NULL,
-            uid TEXT NOT NULL PRIMARY KEY,
+            uid TEXT NOT NULL,
             real_exchange INTEGER NOT NULL,
             position_uid TEXT NOT NULL,
             for_iis_flag BOOL NOT NULL,
@@ -142,8 +154,10 @@ class MainConnection(MyConnection):
             first_1min_candle_date TEXT NOT NULL,
             first_1day_candle_date TEXT NOT NULL,
             risk_level INTEGER NOT NULL,
-            coupons TEXT NULL CHECK(coupons IS NULL OR coupons == 'Yes' OR coupons == 'No')
-            )''')
+            coupons TEXT,
+            PRIMARY KEY (uid),
+            FOREIGN KEY (figi) REFERENCES "BondsFinancialInstrumentGlobalIdentifiers"("figi")
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
@@ -198,22 +212,22 @@ class MainConnection(MyConnection):
             '''--------------------------------------------------------------'''
 
             '''-----Создание представления figi-идентификаторов облигаций-----'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE VIEW IF NOT EXISTS BondsFinancialInstrumentGlobalIdentifiers (figi)
-            AS
-            SELECT DISTINCT Bonds.figi FROM Bonds
-            ''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            # query = QSqlQuery(db)
+            # query.prepare('''
+            # CREATE VIEW IF NOT EXISTS "BondsFinancialInstrumentGlobalIdentifiers"("figi", "coupons")
+            # AS
+            # SELECT DISTINCT "Bonds"."figi" AS "figi", NULL AS "coupons" FROM "Bonds";
+            # ''')
+            # exec_flag: bool = query.exec()
+            # assert exec_flag, query.lastError().text()
             '''---------------------------------------------------------------'''
 
             '''----------Создание представления uid-идентификаторов----------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE VIEW IF NOT EXISTS InstrumentUniqueIdentifiers (uid)
+            CREATE VIEW IF NOT EXISTS InstrumentUniqueIdentifiers(uid)
             AS
-            SELECT Bonds.uid FROM Bonds UNION SELECT Shares.uid FROM Shares
+            SELECT Bonds.uid FROM Bonds UNION SELECT Shares.uid FROM Shares;
             ''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
@@ -232,36 +246,56 @@ class MainConnection(MyConnection):
             coupon_start_date TEXT NOT NULL,
             coupon_end_date TEXT NOT NULL,
             coupon_period INTEGER NOT NULL,
-            PRIMARY KEY (figi, coupon_number),
-            FOREIGN KEY (figi) REFERENCES BondsFinancialInstrumentGlobalIdentifiers(figi) ON DELETE CASCADE
-            )''')
+            UNIQUE (figi, coupon_number),
+            FOREIGN KEY (figi) REFERENCES "BondsFinancialInstrumentGlobalIdentifiers"("figi") ON DELETE CASCADE
+            );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
 
-            '''---------------Триггер перед удалением облигации---------------'''
-            # bonds_on_delete_trigger_query = QSqlQuery(db)
-            # bonds_on_delete_trigger_query.prepare('''
-            # CREATE TRIGGER IF NOT EXISTS Bonds_on_delete_trigger BEFORE DELETE
-            # ON Bonds
-            # BEGIN
-            #     DELETE FROM Coupons WHERE figi = OLD.figi;
-            # END;
-            # ''')
-            # bonds_on_delete_trigger_exec_flag: bool = bonds_on_delete_trigger_query.exec()
-            # assert bonds_on_delete_trigger_exec_flag, bonds_on_delete_trigger_query.lastError().text()
-            '''---------------------------------------------------------------'''
+            '''---------------Триггер перед добавлением облигации---------------'''
+            bonds_before_insert_trigger_query = QSqlQuery(db)
+            bonds_before_insert_trigger_query.prepare('''
+            CREATE TRIGGER IF NOT EXISTS "Bonds_before_insert_trigger" BEFORE INSERT ON "Bonds"
+            BEGIN             
+                INSERT OR IGNORE INTO "BondsFinancialInstrumentGlobalIdentifiers"("figi") VALUES (NEW."figi");
+            END;
+            ''')
+            bonds_before_insert_trigger_exec_flag: bool = bonds_before_insert_trigger_query.exec()
+            assert bonds_before_insert_trigger_exec_flag, bonds_before_insert_trigger_query.lastError().text()
+            '''-----------------------------------------------------------------'''
+
+            '''---------------Триггер перед обновлением облигации---------------'''
+            bonds_before_update_trigger_query = QSqlQuery(db)
+            bonds_before_update_trigger_query.prepare('''
+            CREATE TRIGGER IF NOT EXISTS Bonds_before_update_trigger BEFORE UPDATE ON Bonds
+            BEGIN
+                DELETE FROM Coupons WHERE figi = OLD.figi AND NEW.figi != OLD.figi;
+                UPDATE "BondsFinancialInstrumentGlobalIdentifiers" SET "coupons" = NULL WHERE figi = OLD.figi;
+            END;
+            ''')
+            bonds_before_update_trigger_exec_flag: bool = bonds_before_update_trigger_query.exec()
+            assert bonds_before_update_trigger_exec_flag, bonds_before_update_trigger_query.lastError().text()
+            '''-----------------------------------------------------------------'''
 
             '''----------------Создание таблицы последних цен----------------'''
             query = QSqlQuery(db)
+            # query.prepare('''
+            # CREATE TABLE IF NOT EXISTS LastPrices (
+            # figi TEXT NOT NULL,
+            # price TEXT NOT NULL,
+            # time TEXT NOT NULL,
+            # instrument_uid TEXT NOT NULL,
+            # PRIMARY KEY (time, instrument_uid),
+            # FOREIGN KEY (instrument_uid) REFERENCES InstrumentUniqueIdentifiers(uid) ON DELETE CASCADE
+            # );''')
             query.prepare('''
             CREATE TABLE IF NOT EXISTS LastPrices (
             figi TEXT NOT NULL,
             price TEXT NOT NULL,
             time TEXT NOT NULL,
             instrument_uid TEXT NOT NULL,
-            PRIMARY KEY (time, instrument_uid),
-            FOREIGN KEY (instrument_uid) REFERENCES InstrumentUniqueIdentifiers(uid) ON DELETE CASCADE
+            PRIMARY KEY (time, instrument_uid)
             );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
@@ -361,7 +395,7 @@ class MainConnection(MyConnection):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag
 
-    @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
+    @classmethod
     def addNewToken(cls, token: TokenClass):
         """Добавляет новый токен в таблицу токенов."""
         db: QSqlDatabase = cls.getDatabase()
@@ -371,7 +405,7 @@ class MainConnection(MyConnection):
 
         if transaction_flag:
             query = QSqlQuery(db)
-            query.prepare('INSERT INTO Tokens (token, name) VALUES (:token, :name)')
+            query.prepare('INSERT INTO Tokens (token, name) VALUES (:token, :name);')
             query.bindValue(':token', token.token)
             query.bindValue(':name', token.name)
             exec_flag: bool = query.exec()
@@ -381,7 +415,7 @@ class MainConnection(MyConnection):
                 query = QSqlQuery(db)
                 query.prepare('''
                 INSERT INTO UnaryLimits (token, limit_per_minute, methods) 
-                VALUES (:token, :limit_per_minute, :methods)
+                VALUES (:token, :limit_per_minute, :methods);
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
@@ -393,7 +427,7 @@ class MainConnection(MyConnection):
                 query = QSqlQuery(db)
                 query.prepare('''
                 INSERT INTO StreamLimits (token, limit_count, streams, open) 
-                VALUES (:token, :limit_count, :streams, :open)
+                VALUES (:token, :limit_count, :streams, :open);
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':limit_count', stream_limit.limit)
@@ -406,7 +440,7 @@ class MainConnection(MyConnection):
                 query = QSqlQuery(db)
                 query.prepare('''
                 INSERT INTO Accounts (token, id, type, name, status, opened_date, closed_date, access_level)
-                VALUES (:token, :id, :type, :name, :status, :opened_date, :closed_date, :access_level)
+                VALUES (:token, :id, :type, :name, :status, :opened_date, :closed_date, :access_level);
                 ''')
                 query.bindValue(':token', token.token)
                 query.bindValue(':id', account.id)
@@ -427,7 +461,7 @@ class MainConnection(MyConnection):
         """Удаляет токен и все связанные с ним данные."""
         db: QSqlDatabase = cls.getDatabase()
         query = QSqlQuery(db)
-        query.prepare('DELETE FROM Tokens WHERE token = :token')
+        query.prepare('DELETE FROM Tokens WHERE token = :token;')
         query.bindValue(':token', token)
         exec_flag: bool = query.exec()
         assert exec_flag, query.lastError().text()
@@ -454,13 +488,10 @@ class MainConnection(MyConnection):
             assert transaction_flag
 
             if transaction_flag:
-
-                bonds_packs: list[list[Bond]] = list(partition(bonds))
-
                 bonds_packs: list[list[Bond]] = list(partition(bonds))
                 for pack in bonds_packs:
                     query = QSqlQuery(db)
-                    sql_command: str = 'INSERT INTO Bonds (' \
+                    sql_command: str = 'INSERT INTO "Bonds"(' \
                                        'figi, ticker, class_code, isin, lot, currency, klong, kshort, dlong, dshort, ' \
                                        'dlong_min, dshort_min, short_enabled_flag, name, exchange, ' \
                                        'coupon_quantity_per_year, maturity_date, nominal, initial_nominal, ' \
@@ -588,7 +619,7 @@ class MainConnection(MyConnection):
 
             if transaction_flag:
                 query = QSqlQuery(db)
-                sql_command: str = 'INSERT INTO LastPrices (figi, price, time, instrument_uid) VALUES '
+                sql_command: str = 'INSERT INTO "LastPrices"(figi, price, time, instrument_uid) VALUES '
                 lp_count: int = len(last_prices)  # Количество последних цен.
                 for i in range(lp_count):
                     if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.

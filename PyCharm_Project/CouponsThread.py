@@ -18,6 +18,18 @@ class CouponsThread(QThread):
         def setCoupons(cls, figi: str, coupons: list[Coupon]):
             """Обновляет купоны с переданным figi в таблице купонов."""
             db: QSqlDatabase = cls.getDatabase()
+
+            def setCouponsColumnValue(value: str):
+                """Заполняет столбец coupons значением."""
+                coupons_query = QSqlQuery(db)
+                coupons_query.prepare('''
+                UPDATE "BondsFinancialInstrumentGlobalIdentifiers" SET "coupons" = :coupons WHERE "figi" = :coupon_figi;
+                ''')
+                coupons_query.bindValue(':coupons', value)
+                coupons_query.bindValue(':coupon_figi', figi)
+                coupons_exec_flag: bool = coupons_query.exec()
+                assert coupons_exec_flag, coupons_query.lastError().text()
+
             if coupons:  # Если список купонов не пуст.
                 coupons_count: int = len(coupons)  # Количество купонов.
                 assert [coupon.figi for coupon in coupons].count(figi) == coupons_count, 'Список купонов должен содержать один и тот же figi ({0})!'.format(figi)
@@ -26,17 +38,17 @@ class CouponsThread(QThread):
                 assert transaction_flag, db.lastError().text()
 
                 if transaction_flag:
-                    '''---Удаляет из таблицы купонов все купоны, имеющие переданный figi---'''
+                    '''----Удаляет из таблицы купонов все купоны, имеющие переданный figi----'''
                     delete_coupons_query = QSqlQuery(db)
-                    delete_coupons_query.prepare('DELETE FROM Coupons WHERE figi = :figi;')
+                    delete_coupons_query.prepare('''DELETE FROM "Coupons" WHERE "figi" = :figi;''')
                     delete_coupons_query.bindValue(':figi', figi)
                     delete_coupons_exec_flag: bool = delete_coupons_query.exec()
                     assert delete_coupons_exec_flag, delete_coupons_query.lastError().text()
-                    '''--------------------------------------------------------------------'''
+                    '''----------------------------------------------------------------------'''
 
                     '''---------------------------Добавляет купоны в таблицу купонов---------------------------'''
                     add_coupons_query = QSqlQuery(db)
-                    sql_command: str = 'INSERT INTO Coupons (' \
+                    sql_command: str = 'INSERT INTO "Coupons"(' \
                                        'figi, coupon_date, coupon_number, fix_date, pay_one_bond, coupon_type, ' \
                                        'coupon_start_date, coupon_end_date, coupon_period' \
                                        ') VALUES '
@@ -47,6 +59,7 @@ class CouponsThread(QThread):
                                        ':pay_one_bond{0}, :coupon_type{0}, :coupon_start_date{0}, ' \
                                        ':coupon_end_date{0}, :coupon_period{0}' \
                                        ')'.format(i)
+                    sql_command += ';'
 
                     prepare_flag: bool = add_coupons_query.prepare(sql_command)
                     assert prepare_flag, add_coupons_query.lastError().text()
@@ -66,26 +79,12 @@ class CouponsThread(QThread):
                     assert add_coupons_exec_flag, add_coupons_query.lastError().text()
                     '''----------------------------------------------------------------------------------------'''
 
-                    '''---------------Добавляем информацию к облигации---------------'''
-                    query = QSqlQuery(db)
-                    query.prepare('UPDATE Bonds SET coupons = :coupons WHERE figi = :coupon_figi;')
-                    query.bindValue(':coupons', 'Yes')
-                    query.bindValue(':coupon_figi', figi)
-                    exec_flag: bool = query.exec()
-                    assert exec_flag, query.lastError().text()
-                    '''--------------------------------------------------------------'''
+                    setCouponsColumnValue('Yes')  # Заполняем столбец coupons значением.
 
                     commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                     assert commit_flag
             else:
-                '''---------------Добавляем информацию к облигации---------------'''
-                query = QSqlQuery(db)
-                query.prepare('UPDATE Bonds SET coupons = :coupons WHERE figi = :coupon_figi;')
-                query.bindValue(':coupons', 'No')
-                query.bindValue(':coupon_figi', figi)
-                exec_flag: bool = query.exec()
-                assert exec_flag, query.lastError().text()
-                '''--------------------------------------------------------------'''
+                setCouponsColumnValue('No')  # Заполняем столбец coupons значением.
 
     receive_coupons_method_name: str = 'GetBondCoupons'
 
