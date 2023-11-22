@@ -1,16 +1,91 @@
 from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 # from grpc import StatusCode
 from tinkoff.invest import Client, Dividend, RequestError
-from Classes import TokenClass
+from Classes import TokenClass, MyConnection
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDateTime import getUtcDateTime
+from MyMoneyValue import MyMoneyValue
+from MyQuotation import MyQuotation
 from MyRequests import MyResponse, getDividends
 from MyShareClass import MyShareClass
 
 
 class DividendsThread(QThread):
     """Поток получения дивидендов."""
+    class DatabaseConnection(MyConnection):
+        CONNECTION_NAME: str = 'InvestmentViewer_DividendsThread'
+
+        @classmethod
+        def setDividends(cls, figi: str, dividends: list[Dividend]):
+            """Обновляет купоны с переданным figi в таблице купонов."""
+            db: QSqlDatabase = cls.getDatabase()
+
+            def setDividendsColumnValue(value: str):
+                """Заполняет столбец dividends значением."""
+                dividends_query = QSqlQuery(db)
+                dividends_query.prepare('''
+                UPDATE "SharesFinancialInstrumentGlobalIdentifiers" SET "dividends" = :dividends WHERE "figi" = :dividend_figi;
+                ''')
+                dividends_query.bindValue(':dividends', value)
+                dividends_query.bindValue(':dividend_figi', figi)
+                dividends_exec_flag: bool = dividends_query.exec()
+                assert dividends_exec_flag, dividends_query.lastError().text()
+
+            if dividends:  # Если список дивидендов не пуст.
+                transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+                assert transaction_flag, db.lastError().text()
+
+                if transaction_flag:
+                    '''----Удаляет из таблицы дивидендов все дивиденды, имеющие переданный figi----'''
+                    delete_dividends_query = QSqlQuery(db)
+                    delete_dividends_query.prepare('''DELETE FROM "Dividends" WHERE "figi" = :figi;''')
+                    delete_dividends_query.bindValue(':figi', figi)
+                    delete_dividends_exec_flag: bool = delete_dividends_query.exec()
+                    assert delete_dividends_exec_flag, delete_dividends_query.lastError().text()
+                    '''----------------------------------------------------------------------------'''
+
+                    '''-------------------------Добавляет дивиденды в таблицу дивидендов-------------------------'''
+                    for dividend in dividends:
+                        add_dividends_query = QSqlQuery(db)
+                        sql_command: str = 'INSERT INTO "Dividends"(' \
+                                           'figi, dividend_net, payment_date, declared_date, last_buy_date, ' \
+                                           'dividend_type, record_date, regularity, close_price, yield_value, ' \
+                                           'created_at' \
+                                           ') VALUES (' \
+                                           ':figi, :dividend_net, :payment_date, :declared_date, :last_buy_date, ' \
+                                           ':dividend_type, :record_date, :regularity, :close_price, :yield_value, ' \
+                                           ':created_at' \
+                                           ');'
+
+                        prepare_flag: bool = add_dividends_query.prepare(sql_command)
+                        assert prepare_flag, add_dividends_query.lastError().text()
+
+                        add_dividends_query.bindValue(':figi', figi)
+                        add_dividends_query.bindValue(':dividend_net', MyMoneyValue.__repr__(dividend.dividend_net))
+                        add_dividends_query.bindValue(':payment_date', MyConnection.convertDateTimeToText(dividend.payment_date))
+                        add_dividends_query.bindValue(':declared_date', MyConnection.convertDateTimeToText(dividend.declared_date))
+                        add_dividends_query.bindValue(':last_buy_date', MyConnection.convertDateTimeToText(dividend.last_buy_date))
+                        add_dividends_query.bindValue(':dividend_type', dividend.dividend_type)
+                        add_dividends_query.bindValue(':record_date', MyConnection.convertDateTimeToText(dividend.record_date))
+                        add_dividends_query.bindValue(':regularity', dividend.regularity)
+                        add_dividends_query.bindValue(':close_price', MyMoneyValue.__repr__(dividend.close_price))
+                        add_dividends_query.bindValue(':yield_value', MyQuotation.__repr__(dividend.yield_value))
+                        add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dividend.created_at))
+
+                        add_dividends_exec_flag: bool = add_dividends_query.exec()
+                        assert add_dividends_exec_flag, add_dividends_query.lastError().text()
+                    '''------------------------------------------------------------------------------------------'''
+
+                    setDividendsColumnValue('Yes')  # Заполняем столбец dividends значением.
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag
+            else:
+                setDividendsColumnValue('No')  # Заполняем столбец dividends значением.
+
+
     receive_dividends_method_name: str = 'GetDividends'
 
     """------------------------Сигналы------------------------"""
@@ -58,6 +133,8 @@ class DividendsThread(QThread):
         if self.semaphore is None:
             printInConsole('Лимит для метода {0} не найден.'.format(self.receive_dividends_method_name))
         else:
+            self.DatabaseConnection.open()  # Открываем соединение с БД.
+
             for i, share_class in enumerate(self.shares):
                 if self.isInterruptionRequested():
                     printInConsole('Поток прерван.')
@@ -115,3 +192,6 @@ class DividendsThread(QThread):
                     """------------------------------------------------------------------------"""
                 if exception_flag: break  # Если поток был прерван.
                 share_class.setDividends(dividends)  # Записываем список дивидендов.
+                self.DatabaseConnection.setDividends(share_class.share.figi, dividends)  # Добавляем дивиденды в таблицу дивидендов.
+
+            self.DatabaseConnection.removeConnection()  # Удаляем соединение с БД.
