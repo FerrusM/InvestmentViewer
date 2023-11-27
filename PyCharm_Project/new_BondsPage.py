@@ -1,20 +1,49 @@
 import enum
 import typing
-from datetime import datetime
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import pyqtSlot
-from tinkoff.invest import InstrumentStatus, Bond
-from tinkoff.invest.schemas import RiskLevel
-from BondsModel import BondsModel, BondsProxyModel
+from tinkoff.invest import Bond
+from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
 from Classes import TokenClass
-from CouponsModel import CouponsModel, CouponsProxyModel
-from CouponsThread import CouponsThread
-from MyBondClass import MyBondClass, MyBond
-from MyDatabase import MainConnection
-from MyDateTime import getMoscowDateTime
-from MyRequests import MyResponse, getBonds, RequestTryClass
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
+from MyBondClass import MyBond, MyBondClass
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, GroupBox_InstrumentsFilters, appFilter_Flag
 from TokenModel import TokenListModel
+from new_BondsModel import BondsModel
+from new_CouponsModel import CouponsModel
+
+
+class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
+    """ProgressBar для получения данных."""
+    def __init__(self, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QProgressBar __init__().
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setMinimumSize(QtCore.QSize(0, 0))
+        self.setStyleSheet('text-align: center;')
+        self.setMaximum(0)
+        self.setProperty('value', 0)
+        self.setTextVisible(True)
+        self.setObjectName('progressBar_coupons')
+        _translate = QtCore.QCoreApplication.translate
+        self.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
+
+    def setRange(self, minimum: int, maximum: int):
+        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
+        if maximum == 0:
+            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
+            super().setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
+        else:
+            super().setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
+        self.setValue(0)
+        super().reset()  # Сбрасывает progressBar.
+
+    def reset(self):
+        """Сбрасывает progressBar."""
+        super().setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
+        super().reset()  # Сбрасывает progressBar.
 
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
@@ -53,20 +82,25 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.label_title)
         '''-----------------------------------------------------------------------------'''
 
-        self.progressBar_coupons = QtWidgets.QProgressBar(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.progressBar_coupons.sizePolicy().hasHeightForWidth())
-        self.progressBar_coupons.setSizePolicy(sizePolicy)
-        self.progressBar_coupons.setMinimumSize(QtCore.QSize(0, 0))
-        self.progressBar_coupons.setStyleSheet('text-align: center;')
-        self.progressBar_coupons.setMaximum(0)
-        self.progressBar_coupons.setProperty('value', 0)
-        self.progressBar_coupons.setTextVisible(True)
-        self.progressBar_coupons.setObjectName('progressBar_coupons')
-        self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
+        '''---------------------------------ProgressBar---------------------------------'''
+        # self.progressBar_coupons = QtWidgets.QProgressBar(self)
+        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(self.progressBar_coupons.sizePolicy().hasHeightForWidth())
+        # self.progressBar_coupons.setSizePolicy(sizePolicy)
+        # self.progressBar_coupons.setMinimumSize(QtCore.QSize(0, 0))
+        # self.progressBar_coupons.setStyleSheet('text-align: center;')
+        # self.progressBar_coupons.setMaximum(0)
+        # self.progressBar_coupons.setProperty('value', 0)
+        # self.progressBar_coupons.setTextVisible(True)
+        # self.progressBar_coupons.setObjectName('progressBar_coupons')
+        # self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
+        # self.verticalLayout_main.addWidget(self.progressBar_coupons)
+
+        self.progressBar_coupons = ProgressBar_DataReceiving(self)
         self.verticalLayout_main.addWidget(self.progressBar_coupons)
+        '''-----------------------------------------------------------------------------'''
 
         '''---------------------------Строка с выбором типа купонов---------------------------'''
         self.horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
@@ -118,14 +152,8 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
-        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
-        if maximum == 0:
-            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
-            self.progressBar_coupons.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
-        else:
-            self.progressBar_coupons.setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
-        self.progressBar_coupons.setValue(0)
-        self.progressBar_coupons.reset()  # Сбрасывает progressBar.
+        """Устанавливает минимум и максимум для progressBar'а."""
+        self.progressBar_coupons.setRange(minimum, maximum)
 
     def setValue(self, value: int):
         """Изменяет прогресс в progressBar'е"""
@@ -133,7 +161,6 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
 
     def reset(self):
         """Сбрасывает progressBar."""
-        self.progressBar_coupons.setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
         self.progressBar_coupons.reset()
 
 
@@ -168,8 +195,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         """----------------------------Погашенность----------------------------"""
         self.label_maturity = QtWidgets.QLabel(self)
         self.label_maturity.setObjectName('label_maturity')
-        self.label_maturity.setToolTip(_translate("MainWindow", "Флаг, отображающий погашенность облигации к текущей дате."))
-        self.label_maturity.setText(_translate("MainWindow", "Погашенность:"))
+        self.label_maturity.setToolTip(_translate('MainWindow', 'Флаг, отображающий погашенность облигации к текущей дате.'))
+        self.label_maturity.setText(_translate('MainWindow', 'Погашенность:'))
         self.gridLayout_main.addWidget(self.label_maturity, 0, 0, 1, 1)
 
         self.comboBox_maturity = QtWidgets.QComboBox(self)
@@ -179,13 +206,13 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_maturity.sizePolicy().hasHeightForWidth())
         self.comboBox_maturity.setSizePolicy(sizePolicy)
         self.comboBox_maturity.setObjectName('comboBox_maturity')
-        self.comboBox_maturity.addItem(_translate("MainWindow", "Все"))
-        self.comboBox_maturity.addItem(_translate("MainWindow", "Непогашенные"))
-        self.comboBox_maturity.addItem(_translate("MainWindow", "Погашенные"))
+        self.comboBox_maturity.addItem(_translate('MainWindow', 'Все'))
+        self.comboBox_maturity.addItem(_translate('MainWindow', 'Непогашенные'))
+        self.comboBox_maturity.addItem(_translate('MainWindow', 'Погашенные'))
         self.gridLayout_main.addWidget(self.comboBox_maturity, 0, 1, 1, 1)
         """--------------------------------------------------------------------"""
 
-        """---------------------------Плавающий купон---------------------------"""
+        """----------------------------Плавающий купон---------------------------"""
         self.label_floating_coupon_flag = QtWidgets.QLabel(self)
         self.label_floating_coupon_flag.setObjectName('label_floating_coupon_flag')
         self.label_floating_coupon_flag.setToolTip(_translate("MainWindow", "Признак облигации с плавающим купоном."))
@@ -203,7 +230,7 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "True"))
         self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "False"))
         self.gridLayout_main.addWidget(self.comboBox_floating_coupon_flag, 0, 3, 1, 1)
-        """---------------------------------------------------------------------"""
+        """----------------------------------------------------------------------"""
 
         """----------------------------Уровень риска----------------------------"""
         self.label_risk_level = QtWidgets.QLabel(self)
@@ -518,20 +545,26 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         """----------------------------------------------------------"""
 
         '''-----------------------Модель купонов-----------------------'''
-        coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
-        coupons_proxy_model: CouponsProxyModel = CouponsProxyModel()  # Создаём прокси-модель.
-        coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
-        self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
-        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        # coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
+        # coupons_proxy_model: CouponsProxyModel = CouponsProxyModel()  # Создаём прокси-модель.
+        # coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
+        # self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
+        # self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+
+        # coupons_source_model: CouponsModel = CouponsModel(None)  # Создаём модель.
+        # self.tableView.setModel(coupons_source_model)  # Подключаем модель к таблице.
+        # self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         '''------------------------------------------------------------'''
 
     def sourceModel(self) -> CouponsModel:
         """Возвращает исходную модель купонов."""
-        return self.tableView.model().sourceModel()
+        # return self.tableView.model().sourceModel()
+        return self.tableView.model()
 
-    def setData(self, bond_class: MyBondClass | None):
-        """Обновляет данные модели купонов в соответствии с выбранной облигацией."""
-        self.sourceModel().updateData(bond_class)
+    def setData(self, figi: str | None):
+        """Обновляет данные модели купонов в соответствии с выбранным figi."""
+        self.sourceModel().setModelData(figi)
         self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество купонов.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
@@ -625,34 +658,37 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         '''---------------------------------------------------------'''
 
-    def proxyModel(self) -> BondsProxyModel:
-        """Возвращает прокси-модель облигаций."""
-        proxy_model = self.tableView.model()
-        assert type(proxy_model) == BondsProxyModel
-        return typing.cast(BondsProxyModel, proxy_model)
-
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель облигаций."""
-        return self.proxyModel().sourceModel()
+        # return self.proxyModel().sourceModel()
+
+        source_model = self.tableView.model()
+        assert type(source_model) == BondsModel
+        return typing.cast(BondsModel, source_model)
 
     def setBonds(self, bond_class_list: list[MyBondClass]):
         """Устанавливает данные модели облигаций."""
-        self.sourceModel().setBonds(bond_class_list)  # Передаём данные в исходную модель.
+        # self.sourceModel().setBonds(bond_class_list)  # Передаём данные в исходную модель.
+        # self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        # self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
+
+        self.sourceModel().setModelData([bond_class.bond.uid for bond_class in bond_class_list])  # Передаём данные в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
+        # self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
 
-    def setCalculationDateTime(self, calculation_datetime: datetime):
-        """Устанавливает дату расчёта."""
-        self.sourceModel().setDateTime(calculation_datetime)  # Передаём дату расчёта в исходную модель.
+    def setQueryParameters(self, token: str, instrument_status: InstrumentStatus):
+        """Устанавливает параметры запроса к БД."""
+        self.sourceModel().setQueryParameters(token, instrument_status)  # Передаём данные в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
 
-class BondsPage(QtWidgets.QWidget):
+class new_BondsPage(QtWidgets.QWidget):
     """Страница облигаций."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)  # QWidget __init__().
         self.setObjectName(object_name)
 
+        """=======================================Создание UI======================================="""
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         self.verticalLayout_main.setSpacing(2)
@@ -734,19 +770,23 @@ class BondsPage(QtWidgets.QWidget):
         '''--------------------------------------------------------------'''
 
         self.verticalLayout_main.addWidget(self.splitter)
+        """========================================================================================="""
 
         '''--------------------Модель облигаций--------------------'''
-        source_model: BondsModel = BondsModel(self.groupBox_calendar.getDateTime())  # Создаём модель.
-        proxy_model: BondsProxyModel = BondsProxyModel()  # Создаём прокси-модель.
-        proxy_model.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
-        self.groupBox_view.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
+        # source_model: BondsModel = BondsModel(self.groupBox_calendar.getDateTime())  # Создаём модель.
+        # proxy_model: BondsProxyModel = BondsProxyModel()  # Создаём прокси-модель.
+        # proxy_model.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
+        # self.groupBox_view.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
+        # self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+        source_model: BondsModel = BondsModel()  # Создаём модель.
+        self.groupBox_view.tableView.setModel(source_model)  # Подключаем модель к TableView.
         self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         '''--------------------------------------------------------'''
 
         """-----------------------------------------------------------------------"""
         self.__token: TokenClass | None = None
         self.bonds: list[Bond] = []
-        # self.coupons_thread: DividendsThread | None = None  # Поток получения дивидендов.
         """-----------------------------------------------------------------------"""
 
         self.groupBox_request.currentTokenChanged.connect(self.onTokenChanged)
@@ -754,57 +794,59 @@ class BondsPage(QtWidgets.QWidget):
         self.groupBox_request.currentStatusChanged.connect(self.onStatusChanged)
 
         '''---------------------------------Фильтры---------------------------------'''
-        def onFilterChanged():
-            """Функция, выполняемая при изменении фильтра."""
-            self._stopCouponsThread()  # Останавливаем поток получения купонов.
-            token: TokenClass | None = self.token
-            if token is None:
-                self.bonds = []
-                self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-                '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-                self.groupBox_request.setCount(0)  # Количество полученных облигаций.
-                self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
-                '''---------------------------------------------------------------------------------'''
-                self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
-            else:
-                bonds: list[Bond] = self.bonds
-                filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
-                '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-                self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
-                self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
-                '''---------------------------------------------------------------------------------'''
-                bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
-                self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
-                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-                if bond_class_list:  # Если список не пуст.
-                    self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-
-        # Фильтры инструментов.
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_api_trade_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_for_iis_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_for_qual_investor_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_liquidity_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_short_enabled_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_buy_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_sell_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_weekend_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_otc_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_blocked_tca_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_instruments_filters.comboBox_currency.currentTextChanged.connect(lambda text: onFilterChanged())
-
-        # Фильтры акций.
-        self.groupBox_filters.groupBox_bonds_filters.comboBox_maturity.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_bonds_filters.comboBox_risk_level.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_bonds_filters.comboBox_amortization_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_bonds_filters.comboBox_floating_coupon_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_bonds_filters.comboBox_perpetual_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
-        self.groupBox_filters.groupBox_bonds_filters.comboBox_subordinated_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # def onFilterChanged():
+        #     """Функция, выполняемая при изменении фильтра."""
+        #     self._stopCouponsThread()  # Останавливаем поток получения купонов.
+        #     token: TokenClass | None = self.token
+        #     if token is None:
+        #         self.bonds = []
+        #         self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
+        #         self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
+        #         '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
+        #         self.groupBox_request.setCount(0)  # Количество полученных облигаций.
+        #         self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
+        #         '''---------------------------------------------------------------------------------'''
+        #         self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+        #     else:
+        #         bonds: list[Bond] = self.bonds
+        #         filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
+        #         '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
+        #         self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
+        #         self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
+        #         '''---------------------------------------------------------------------------------'''
+        #         bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
+        #         self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
+        #         self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
+        #         if bond_class_list:  # Если список не пуст.
+        #             self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
+        #
+        # # Фильтры инструментов.
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_api_trade_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_for_iis_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_for_qual_investor_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_liquidity_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_short_enabled_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_buy_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_sell_available_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_weekend_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_otc_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_blocked_tca_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_instruments_filters.comboBox_currency.currentTextChanged.connect(lambda text: onFilterChanged())
+        #
+        # # Фильтры акций.
+        # self.groupBox_filters.groupBox_bonds_filters.comboBox_maturity.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_bonds_filters.comboBox_risk_level.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_bonds_filters.comboBox_amortization_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_bonds_filters.comboBox_floating_coupon_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_bonds_filters.comboBox_perpetual_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
+        # self.groupBox_filters.groupBox_bonds_filters.comboBox_subordinated_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
         '''-------------------------------------------------------------------------'''
 
-        self.groupBox_calendar.calendarWidget.selectionChanged.connect(lambda: self.groupBox_view.setCalculationDateTime(self.groupBox_calendar.getDateTime()))
+        # self.groupBox_calendar.calendarWidget.selectionChanged.connect(lambda: self.groupBox_view.setCalculationDateTime(self.groupBox_calendar.getDateTime()))
+        #
+        # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены выбранной облигации.
 
-        self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены выбранной облигации.
+        # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.sourceModel().getBond(current)))  # Событие смены выбранной облигации.
 
     @property
     def token(self) -> TokenClass | None:
@@ -820,106 +862,19 @@ class BondsPage(QtWidgets.QWidget):
 
     def __reset(self):
         """Сбрасывает облигации."""
-        self.bonds = []
-        self.groupBox_view.setBonds([])  # Передаём в исходную модель данные.
-        self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-        '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-        self.groupBox_request.setCount(0)  # Количество полученных облигаций.
-        self.groupBox_filters.setCount(0)  # Количество отобранных облигаций.
-        '''---------------------------------------------------------------------------------'''
-        self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
+        pass
 
     @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onStatusChanged(self, instrument_status: InstrumentStatus):
         """Функция, выполняемая при изменении выбранного статуса инструмента."""
-        self._stopCouponsThread()  # Останавливаем поток получения купонов.
-        token: TokenClass | None = self.token
-        if token is None:
-            '''
-            Если token is None, то все параметры и так уже должны иметь пустые значения,
-            поэтому, возможно, этот код лишний.
-            '''
-            self.__reset()  # Сбрасывает облигации.
-        else:
-            bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
-            assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
-            if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
-                bonds: list[Bond] = bonds_response.response_data  # Получаем список облигаций.
-                MainConnection.addBonds(token.token, instrument_status, bonds)  # Добавляем облигации в таблицу облигаций.
-                self.bonds = bonds
-                filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
-                '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-                self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
-                self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
-                '''---------------------------------------------------------------------------------'''
-                bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
-                self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
-                self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-                if bond_class_list:  # Если список не пуст.
-                    self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-            else:
-                self.__reset()  # Сбрасывает облигации.
+        pass
 
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
         """Функция, выполняемая при выборе пустого значения вместо токена."""
-        self._stopCouponsThread()  # Останавливаем поток получения купонов.
-        self.token = None
-        self.__reset()  # Сбрасывает облигации.
+        pass
 
     @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
         """Функция, выполняемая при изменении выбранного токена."""
-        self._stopCouponsThread()  # Останавливаем поток получения купонов.
-        self.token = token
-
-        bonds_try_count: RequestTryClass = RequestTryClass(2)
-        bonds_response: MyResponse = MyResponse()
-        while bonds_try_count and not bonds_response.ifDataSuccessfullyReceived():
-            bonds_response: MyResponse = getBonds(token.token, instrument_status)  # Получение облигаций.
-            assert bonds_response.request_occurred, 'Запрос облигаций не был произведён.'
-            bonds_try_count += 1
-
-        if bonds_response.ifDataSuccessfullyReceived():  # Если список облигаций был получен.
-            bonds: list[Bond] = bonds_response.response_data  # Извлекаем список облигаций.
-            MainConnection.addBonds(token.token, instrument_status, bonds)  # Добавляем облигации в таблицу облигаций.
-            self.bonds = bonds
-            filtered_bonds: list[Bond] = self.groupBox_filters.getFilteredBondsList(bonds)  # Отфильтрованный список облигаций.
-            '''---------------Обновляет отображение количеств облигаций в моделях---------------'''
-            self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
-            self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
-            '''---------------------------------------------------------------------------------'''
-            bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
-            self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
-            self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
-            if bond_class_list:  # Если список не пуст.
-                self._startCouponsThread(bond_class_list)  # Запускает поток получения купонов.
-        else:
-            self.__reset()  # Сбрасывает облигации.
-
-    def _startCouponsThread(self, bonds: list[MyBondClass]):
-        """Запускает поток получения купонов."""
-        assert self.groupBox_view.sourceModel().coupons_receiving_thread is None, 'Поток получения купонов должен быть завершён!'
-
-        self.groupBox_view.sourceModel().coupons_receiving_thread = CouponsThread(token_class=self.token, bond_class_list=bonds)
-        """---------------------Подключаем сигналы потока к слотам---------------------"""
-        # self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print, type=Qt.ConnectionType.BlockingQueuedConnection)  # Сигнал для отображения сообщений в консоли.
-        self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
-
-        self.groupBox_view.sourceModel().coupons_receiving_thread.setProgressBarRange_signal.connect(self.groupBox_coupons_receiving.setRange)
-        self.groupBox_view.sourceModel().coupons_receiving_thread.setProgressBarValue_signal.connect(self.groupBox_coupons_receiving.setValue)
-
-        # self.groupBox_view.sourceModel().coupons_receiving_thread.showRequestError_signal.connect(self.showRequestError)
-        # self.groupBox_view.sourceModel().coupons_receiving_thread.showException_signal.connect(self.showException)
-        # self.groupBox_view.sourceModel().coupons_receiving_thread.clearStatusBar_signal.connect(self.statusbar.clearMessage)
-
-        self.groupBox_view.sourceModel().coupons_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
-
-        self.groupBox_view.sourceModel().coupons_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(CouponsThread.__name__, getMoscowDateTime())))
-        self.groupBox_view.sourceModel().coupons_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(CouponsThread.__name__, getMoscowDateTime())))
-        """----------------------------------------------------------------------------"""
-        self.groupBox_view.sourceModel().coupons_receiving_thread.start()  # Запускаем поток.
-
-    def _stopCouponsThread(self):
-        """Останавливаем поток получения купонов."""
-        self.groupBox_view.sourceModel().stopCouponsThread()
+        self.groupBox_view.setQueryParameters(token.token, instrument_status)  # Задаём параметры запроса к БД.

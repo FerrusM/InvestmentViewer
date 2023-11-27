@@ -6,6 +6,7 @@ from MyDatabase import MainConnection
 from SharesPage import SharesPage
 from TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
+from new_BondsPage import new_BondsPage
 
 
 class Ui_MainWindow(object):
@@ -51,6 +52,11 @@ class Ui_MainWindow(object):
         self.tabWidget.addTab(self.tab_bonds, _translate('MainWindow', 'Облигации'))
         """------------------------------------------------------------------------------"""
 
+        """-----------------------------Страница "Облигации"-----------------------------"""
+        self.new_tab_bonds: new_BondsPage = new_BondsPage('new_tab_bonds')
+        self.tabWidget.addTab(self.new_tab_bonds, _translate('MainWindow', 'new_Облигации'))
+        """------------------------------------------------------------------------------"""
+
         """------------------------------Страница "Активы"------------------------------"""
         self.tab_assets: AssetsPage = AssetsPage('tab_assets')
         self.tabWidget.addTab(self.tab_assets, _translate('MainWindow', 'Активы'))
@@ -92,5 +98,6 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tab_limits.setTokensModel(token_list_model)
         self.tab_shares.setTokensModel(token_list_model)
         self.tab_bonds.setTokensModel(token_list_model)
+        self.new_tab_bonds.setTokensModel(token_list_model)
         self.tab_assets.setTokensModel(token_list_model)
         """------------------------------------------------------------"""
