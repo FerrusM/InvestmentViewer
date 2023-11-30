@@ -7,6 +7,7 @@ from Classes import TokenClass, MyTreeView
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getAssets, RequestTryClass
+from PagesClasses import ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 
 
@@ -195,40 +196,24 @@ class GroupBox_AssetFullsReceiving(QtWidgets.QGroupBox):
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ИНФОРМАЦИИ ОБ АКТИВАХ'))
         self.verticalLayout_main.addWidget(self.label_title)
 
-        self.progressBar = QtWidgets.QProgressBar(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.progressBar.sizePolicy().hasHeightForWidth())
-        self.progressBar.setSizePolicy(sizePolicy)
-        self.progressBar.setMinimumSize(QSize(0, 26))
-        self.progressBar.setStyleSheet('text-align: center;')
-        self.progressBar.setMaximum(0)
-        self.progressBar.setProperty('value', 0)
-        self.progressBar.setObjectName('progressBar')
-        self.progressBar.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
-        self.verticalLayout_main.addWidget(self.progressBar)
+        '''-------------------------ProgressBar-------------------------'''
+        self.progressBar_assets = ProgressBar_DataReceiving('progressBar_assets', self)
+        self.verticalLayout_main.addWidget(self.progressBar_assets)
+        '''-------------------------------------------------------------'''
 
         self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
-        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
-        if maximum == 0:
-            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
-            self.progressBar.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
-        else:
-            self.progressBar.setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
-        self.progressBar.setValue(0)
-        self.progressBar.reset()  # Сбрасывает progressBar.
+        """Устанавливает минимум и максимум для progressBar'а."""
+        self.progressBar_assets.setRange(minimum, maximum)
 
     def setValue(self, value: int):
         """Изменяет прогресс в progressBar'е"""
-        self.progressBar.setValue(value)
+        self.progressBar_assets.setValue(value)
 
     def reset(self):
         """Сбрасывает progressBar."""
-        self.progressBar.setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
-        self.progressBar.reset()
+        self.progressBar_assets.reset()
 
 
 class GroupBox_AssetsTreeView(QtWidgets.QGroupBox):

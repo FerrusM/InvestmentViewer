@@ -10,7 +10,7 @@ from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getShares, RequestTryClass
 from MyShareClass import MyShareClass
-from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
+from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices, ProgressBar_DataReceiving
 from SharesModel import SharesProxyModel, SharesModel
 from TokenModel import TokenListModel
 
@@ -462,34 +462,20 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         self.label_title.setObjectName('label_title')
         self.verticalLayout_main.addWidget(self.label_title)
 
-        self.progressBar_dividends = QtWidgets.QProgressBar(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.progressBar_dividends.sizePolicy().hasHeightForWidth())
-        self.progressBar_dividends.setSizePolicy(sizePolicy)
-        self.progressBar_dividends.setMinimumSize(QtCore.QSize(0, 26))
-        self.progressBar_dividends.setStyleSheet('text-align: center;')
-        self.progressBar_dividends.setMaximum(0)
-        self.progressBar_dividends.setProperty('value', 0)
-        self.progressBar_dividends.setObjectName('progressBar_dividends')
-        self.verticalLayout_main.addWidget(self.progressBar_dividends)
-
         _translate = QtCore.QCoreApplication.translate
+
+        '''-------------------------ProgressBar-------------------------'''
+        self.progressBar_dividends = ProgressBar_DataReceiving('progressBar_dividends', self)
+        self.verticalLayout_main.addWidget(self.progressBar_dividends)
+        '''-------------------------------------------------------------'''
+
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ДИВИДЕНДОВ'))
-        self.progressBar_dividends.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
 
         self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
-        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
-        if maximum == 0:
-            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
-            self.progressBar_dividends.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
-        else:
-            self.progressBar_dividends.setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
-        self.progressBar_dividends.setValue(0)
-        self.progressBar_dividends.reset()  # Сбрасывает progressBar.
+        """Устанавливает минимум и максимум для progressBar'а."""
+        self.progressBar_dividends.setRange(minimum, maximum)
 
     def setValue(self, value: int):
         """Изменяет прогресс в progressBar'е"""
@@ -497,7 +483,6 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
 
     def reset(self):
         """Сбрасывает progressBar."""
-        self.progressBar_dividends.setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
         self.progressBar_dividends.reset()
 
 

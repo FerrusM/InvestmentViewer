@@ -13,7 +13,7 @@ from MyBondClass import MyBondClass, MyBond
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 
 
@@ -53,20 +53,10 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.label_title)
         '''-----------------------------------------------------------------------------'''
 
-        self.progressBar_coupons = QtWidgets.QProgressBar(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.progressBar_coupons.sizePolicy().hasHeightForWidth())
-        self.progressBar_coupons.setSizePolicy(sizePolicy)
-        self.progressBar_coupons.setMinimumSize(QtCore.QSize(0, 0))
-        self.progressBar_coupons.setStyleSheet('text-align: center;')
-        self.progressBar_coupons.setMaximum(0)
-        self.progressBar_coupons.setProperty('value', 0)
-        self.progressBar_coupons.setTextVisible(True)
-        self.progressBar_coupons.setObjectName('progressBar_coupons')
-        self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
+        '''-------------------------ProgressBar-------------------------'''
+        self.progressBar_coupons = ProgressBar_DataReceiving('progressBar_coupons', self)
         self.verticalLayout_main.addWidget(self.progressBar_coupons)
+        '''-------------------------------------------------------------'''
 
         '''---------------------------Строка с выбором типа купонов---------------------------'''
         self.horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
@@ -118,14 +108,8 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
-        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
-        if maximum == 0:
-            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
-            self.progressBar_coupons.setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
-        else:
-            self.progressBar_coupons.setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
-        self.progressBar_coupons.setValue(0)
-        self.progressBar_coupons.reset()  # Сбрасывает progressBar.
+        """Устанавливает минимум и максимум для progressBar'а."""
+        self.progressBar_coupons.setRange(minimum, maximum)
 
     def setValue(self, value: int):
         """Изменяет прогресс в progressBar'е"""
@@ -133,7 +117,6 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
 
     def reset(self):
         """Сбрасывает progressBar."""
-        self.progressBar_coupons.setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
         self.progressBar_coupons.reset()
 
 

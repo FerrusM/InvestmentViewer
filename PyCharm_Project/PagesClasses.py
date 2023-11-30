@@ -29,17 +29,6 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(2)
         self.verticalLayout_main.setObjectName('verticalLayout_main')
 
-        """-----------------Заголовок "Дата расчёта"-----------------"""
-        # self.label_title = QtWidgets.QLabel(self)
-        # font = QtGui.QFont()
-        # font.setBold(True)
-        # self.label_title.setFont(font)
-        # self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        # self.label_title.setObjectName('label_title')
-        # self.label_title.setText(QtCore.QCoreApplication.translate('MainWindow', 'ДАТА РАСЧЁТА'))
-        # self.verticalLayout_main.addWidget(self.label_title)
-        """----------------------------------------------------------"""
-
         _translate = QtCore.QCoreApplication.translate
 
         '''--------------------------Заголовок "Дата расчёта"--------------------------'''
@@ -730,7 +719,7 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
 class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
     """ProgressBar для получения данных."""
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QProgressBar __init__().
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -742,7 +731,7 @@ class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
         self.setMaximum(0)
         self.setProperty('value', 0)
         self.setTextVisible(True)
-        self.setObjectName('progressBar_coupons')
+        self.setObjectName(object_name)
         _translate = QtCore.QCoreApplication.translate
         self.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
 

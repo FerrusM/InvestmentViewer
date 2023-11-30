@@ -6,44 +6,10 @@ from tinkoff.invest import Bond
 from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
 from Classes import TokenClass
 from MyBondClass import MyBond
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, GroupBox_InstrumentsFilters, appFilter_Flag
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, GroupBox_InstrumentsFilters, appFilter_Flag, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
 from new_CouponsModel import CouponsModel
-
-
-class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
-    """ProgressBar для получения данных."""
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QProgressBar __init__().
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
-        self.setMinimumSize(QtCore.QSize(0, 0))
-        self.setStyleSheet('text-align: center;')
-        self.setMaximum(0)
-        self.setProperty('value', 0)
-        self.setTextVisible(True)
-        self.setObjectName('progressBar_coupons')
-        _translate = QtCore.QCoreApplication.translate
-        self.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
-
-    def setRange(self, minimum: int, maximum: int):
-        """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""
-        if maximum == 0:
-            '''setRange(0, 0) устанавливает неопределённое состояние progressBar'а, чего хотелось бы избежать.'''
-            super().setRange(minimum, 100)  # Устанавливает минимум и максимум для progressBar'а.
-        else:
-            super().setRange(minimum, maximum)  # Устанавливает минимум и максимум для progressBar'а.
-        self.setValue(0)
-        super().reset()  # Сбрасывает progressBar.
-
-    def reset(self):
-        """Сбрасывает progressBar."""
-        super().setRange(0, 100)  # Убирает неопределённое состояние progressBar'а.
-        super().reset()  # Сбрасывает progressBar.
 
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
@@ -82,25 +48,10 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.label_title)
         '''-----------------------------------------------------------------------------'''
 
-        '''---------------------------------ProgressBar---------------------------------'''
-        # self.progressBar_coupons = QtWidgets.QProgressBar(self)
-        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        # sizePolicy.setHorizontalStretch(0)
-        # sizePolicy.setVerticalStretch(0)
-        # sizePolicy.setHeightForWidth(self.progressBar_coupons.sizePolicy().hasHeightForWidth())
-        # self.progressBar_coupons.setSizePolicy(sizePolicy)
-        # self.progressBar_coupons.setMinimumSize(QtCore.QSize(0, 0))
-        # self.progressBar_coupons.setStyleSheet('text-align: center;')
-        # self.progressBar_coupons.setMaximum(0)
-        # self.progressBar_coupons.setProperty('value', 0)
-        # self.progressBar_coupons.setTextVisible(True)
-        # self.progressBar_coupons.setObjectName('progressBar_coupons')
-        # self.progressBar_coupons.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
-        # self.verticalLayout_main.addWidget(self.progressBar_coupons)
-
-        self.progressBar_coupons = ProgressBar_DataReceiving(self)
+        '''-------------------------ProgressBar-------------------------'''
+        self.progressBar_coupons = ProgressBar_DataReceiving('progressBar_coupons', self)
         self.verticalLayout_main.addWidget(self.progressBar_coupons)
-        '''-----------------------------------------------------------------------------'''
+        '''-------------------------------------------------------------'''
 
         '''---------------------------Строка с выбором типа купонов---------------------------'''
         self.horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
