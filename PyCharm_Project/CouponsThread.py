@@ -82,7 +82,7 @@ class CouponsThread(QThread):
                     setCouponsColumnValue('Yes')  # Заполняем столбец coupons значением.
 
                     commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                    assert commit_flag
+                    assert commit_flag, db.lastError().text()
             else:
                 setCouponsColumnValue('No')  # Заполняем столбец coupons значением.
 

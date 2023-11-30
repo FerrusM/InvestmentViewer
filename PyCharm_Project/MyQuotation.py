@@ -32,30 +32,6 @@ class MyQuotation(Quotation):
         """Конвертирует Quotation в Decimal."""
         return quotation_to_decimal(self)
 
-    # def report(self: Quotation, ndigits: int = -1, delete_decimal_zeros: bool = False) -> str:
-    #     """
-    #     Конвертирует Quotation в Decimal.
-    #     ndigits задаёт максимальное количество знаков после запятой.
-    #     Если ndigits < 0, то отображает Decimal "как есть".
-    #     Если ndigits == 0, то округляет до целых.
-    #     Если ndigits > 0, то округляет до ndigits знаков после запятой.
-    #     Если delete_decimal_zeros == True, то Decimal округляется до первой справа значащей цифры,
-    #     но не до большего количества цифр, чем до ndigits.
-    #     """
-    #
-    #     if delete_decimal_zeros:
-    #         """---Определяем количество ненулевых цифр---"""
-    #         fractional_part: int = abs(self.nano)
-    #         number_of_digits: int = 0
-    #         max_count: int = 9 + 1
-    #         for i in range(1, max_count):
-    #             if fractional_part % (10 ** i) > 0:
-    #                 number_of_digits = max_count - i
-    #                 break
-    #         """------------------------------------------"""
-    #         if number_of_digits < ndigits: ndigits = number_of_digits
-    #     return MyDecimal.report(MyQuotation.getDecimal(self), ndigits)
-
     def IsEmpty(self: Quotation) -> bool:
         """Проверяет значение Quotation на равенство нулю."""
         return self.units == 0 and self.nano == 0
@@ -69,7 +45,6 @@ class MyQuotation(Quotation):
         return MyQuotation(decimal_to_quotation(value))
 
     def __str__(self: Quotation, ndigits: int = -1, delete_decimal_zeros: bool = False) -> str:
-        # return self.report(2)
         """
         ndigits задаёт максимальное количество знаков после запятой.
         Если ndigits < 0, то отображает Decimal "как есть".

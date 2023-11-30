@@ -327,6 +327,7 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
 
         self.comboBox_token.setCurrentIndex(0)
+        self.comboBox_status.setCurrentIndex(0)
 
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
         def onTokenChangedSlot():

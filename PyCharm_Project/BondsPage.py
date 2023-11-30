@@ -5,7 +5,7 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import InstrumentStatus, Bond
 from tinkoff.invest.schemas import RiskLevel
-from BondsModel import BondsModel, BondsProxyModel
+from old_BondsModel import BondsModel, BondsProxyModel
 from Classes import TokenClass
 from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread

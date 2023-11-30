@@ -8,8 +8,7 @@ from PyQt6.QtGui import QBrush
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon
 from Classes import reportTradingStatus, Column, update_class
 from CouponsThread import CouponsThread
-from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime, \
-    getCountOfDaysBetweenTwoDateTimes
+from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime, getCountOfDaysBetweenTwoDateTimes
 from MyQuotation import MyQuotation, MyDecimal
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyBondClass import MyBondClass, MyLastPrice, TINKOFF_COMMISSION, NDFL, MyCoupon, MyBond, DAYS_IN_YEAR

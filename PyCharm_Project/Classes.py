@@ -3,9 +3,10 @@ from datetime import datetime
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus
+from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyDateTime import getUtcDateTime
+from MyMoneyValue import MyMoneyValue
 
 
 class MyTreeView(QtWidgets.QTreeView):
@@ -215,6 +216,21 @@ class MyConnection(ABC):
         # print('\nconvertTextToDateTime __str__: {0}'.format(dt.__str__()))
         # print('convertTextToDateTime __repr__: {0}'.format(dt.__repr__()))
         return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
+
+    @staticmethod
+    def convertTextToQuotation(text: str) -> Quotation:
+        """Конвертирует TEXT в Quotation при извлечении из БД."""
+        units_str, nano_str = text.split('.', 1)
+        units: int = int(units_str)
+        nano: int = int(nano_str)
+        return Quotation(units, nano)
+
+    @staticmethod
+    def convertTextToMyMoneyValue(text: str) -> MyMoneyValue:
+        """Конвертирует TEXT в MyMoneyValue при извлечении из БД."""
+        quotation_str, currency = text.split(' ', 1)
+        quotation: Quotation = MyConnection.convertTextToQuotation(quotation_str)
+        return MyMoneyValue(currency, quotation)
 
     @staticmethod
     def convertStrListToStr(str_list: list[str]) -> str:

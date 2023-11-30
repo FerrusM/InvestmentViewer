@@ -5,10 +5,10 @@ from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import Bond
 from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
 from Classes import TokenClass
-from MyBondClass import MyBond, MyBondClass
+from MyBondClass import MyBond
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, GroupBox_InstrumentsFilters, appFilter_Flag
 from TokenModel import TokenListModel
-from new_BondsModel import BondsModel
+from new_BondsModel import BondsModel, BondsProxyModel
 from new_CouponsModel import CouponsModel
 
 
@@ -544,19 +544,6 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         """----------------------------------------------------------"""
 
-        '''-----------------------Модель купонов-----------------------'''
-        # coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
-        # coupons_proxy_model: CouponsProxyModel = CouponsProxyModel()  # Создаём прокси-модель.
-        # coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
-        # self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
-        # self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-
-
-        # coupons_source_model: CouponsModel = CouponsModel(None)  # Создаём модель.
-        # self.tableView.setModel(coupons_source_model)  # Подключаем модель к таблице.
-        # self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        '''------------------------------------------------------------'''
-
     def sourceModel(self) -> CouponsModel:
         """Возвращает исходную модель купонов."""
         # return self.tableView.model().sourceModel()
@@ -571,7 +558,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
 
 class GroupBox_BondsView(QtWidgets.QGroupBox):
     """Панель отображения облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, token: TokenClass | None, instrument_status: InstrumentStatus, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -658,28 +645,28 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         '''---------------------------------------------------------'''
 
+        '''--------------------------Модель облигаций--------------------------'''
+        source_model: BondsModel = BondsModel(token, instrument_status)  # Создаём модель.
+        proxy_model: BondsProxyModel = BondsProxyModel(source_model)  # Создаём прокси-модель.
+        self.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        '''--------------------------------------------------------------------'''
+
+    def proxyModel(self) -> BondsProxyModel:
+        """Возвращает прокси-модель облигаций."""
+        proxy_model = self.tableView.model()
+        assert type(proxy_model) == BondsProxyModel
+        return typing.cast(BondsProxyModel, proxy_model)
+
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель облигаций."""
-        # return self.proxyModel().sourceModel()
+        return self.proxyModel().sourceModel()
 
-        source_model = self.tableView.model()
-        assert type(source_model) == BondsModel
-        return typing.cast(BondsModel, source_model)
-
-    def setBonds(self, bond_class_list: list[MyBondClass]):
-        """Устанавливает данные модели облигаций."""
-        # self.sourceModel().setBonds(bond_class_list)  # Передаём данные в исходную модель.
-        # self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        # self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
-
-        self.sourceModel().setModelData([bond_class.bond.uid for bond_class in bond_class_list])  # Передаём данные в исходную модель.
+    def updateModel(self, token: TokenClass | None, instrument_status: InstrumentStatus):
+        """Обновляет модель облигаций в соответствии с переданными параметрами."""
+        self.sourceModel().update(token, instrument_status)  # Передаём параметры в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        # self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
-
-    def setQueryParameters(self, token: str, instrument_status: InstrumentStatus):
-        """Устанавливает параметры запроса к БД."""
-        self.sourceModel().setQueryParameters(token, instrument_status)  # Передаём данные в исходную модель.
-        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
 
 
 class new_BondsPage(QtWidgets.QWidget):
@@ -687,6 +674,11 @@ class new_BondsPage(QtWidgets.QWidget):
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)  # QWidget __init__().
         self.setObjectName(object_name)
+
+        '''------------------------Аттрибуты экземпляра класса------------------------'''
+        self.__token: TokenClass | None = None
+        self.__instrument_status: InstrumentStatus = InstrumentStatus.INSTRUMENT_STATUS_ALL
+        '''---------------------------------------------------------------------------'''
 
         """=======================================Создание UI======================================="""
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -766,28 +758,11 @@ class new_BondsPage(QtWidgets.QWidget):
         self.verticalLayout_top.setStretch(1, 1)
 
         '''-----------------Панель отображения облигаций-----------------'''
-        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.splitter)
+        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.token, self.instrument_status, self.splitter)
         '''--------------------------------------------------------------'''
 
         self.verticalLayout_main.addWidget(self.splitter)
         """========================================================================================="""
-
-        '''--------------------Модель облигаций--------------------'''
-        # source_model: BondsModel = BondsModel(self.groupBox_calendar.getDateTime())  # Создаём модель.
-        # proxy_model: BondsProxyModel = BondsProxyModel()  # Создаём прокси-модель.
-        # proxy_model.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
-        # self.groupBox_view.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
-        # self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-
-        source_model: BondsModel = BondsModel()  # Создаём модель.
-        self.groupBox_view.tableView.setModel(source_model)  # Подключаем модель к TableView.
-        self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        '''--------------------------------------------------------'''
-
-        """-----------------------------------------------------------------------"""
-        self.__token: TokenClass | None = None
-        self.bonds: list[Bond] = []
-        """-----------------------------------------------------------------------"""
 
         self.groupBox_request.currentTokenChanged.connect(self.onTokenChanged)
         self.groupBox_request.currentTokenReset.connect(self.onTokenReset)
@@ -855,26 +830,32 @@ class new_BondsPage(QtWidgets.QWidget):
     @token.setter
     def token(self, token: TokenClass | None):
         self.__token = token
+        self.groupBox_view.updateModel(self.token, self.instrument_status)  # Задаём параметры запроса к БД.
+
+    @property
+    def instrument_status(self) -> InstrumentStatus:
+        return self.__instrument_status
+
+    @instrument_status.setter
+    def instrument_status(self, instrument_status: InstrumentStatus):
+        self.__instrument_status = instrument_status
+        self.groupBox_view.updateModel(self.token, self.instrument_status)  # Задаём параметры запроса к БД.
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
 
-    def __reset(self):
-        """Сбрасывает облигации."""
-        pass
-
-    @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def onStatusChanged(self, instrument_status: InstrumentStatus):
-        """Функция, выполняемая при изменении выбранного статуса инструмента."""
-        pass
+    @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
+        """Функция, выполняемая при изменении выбранного токена."""
+        self.token = token
 
     @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
         """Функция, выполняемая при выборе пустого значения вместо токена."""
-        pass
+        self.token = None
 
-    @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
-        """Функция, выполняемая при изменении выбранного токена."""
-        self.groupBox_view.setQueryParameters(token.token, instrument_status)  # Задаём параметры запроса к БД.
+    @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def onStatusChanged(self, instrument_status: InstrumentStatus):
+        """Функция, выполняемая при изменении выбранного статуса инструмента."""
+        self.instrument_status = instrument_status

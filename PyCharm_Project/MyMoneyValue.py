@@ -28,10 +28,6 @@ class MyMoneyValue(MoneyValue):
         """Конвертирует MyMoneyValue в Decimal."""
         return quotation_to_decimal(MyMoneyValue.getQuotation(self))
 
-    # def report(self: MoneyValue, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
-    #     """Конвертирует MoneyValue в str."""
-    #     return MyQuotation.__str__(MyMoneyValue.getQuotation(self), ndigits, delete_decimal_zeros) + ' ' + self.currency
-
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
     def __checkOtherType(other):
         # Проверяем тип.
