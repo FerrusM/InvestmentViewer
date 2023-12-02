@@ -153,6 +153,11 @@ def reportTradingStatus(trading_status: int) -> str:
 
 class MyConnection(ABC):
     """Абстрактный класс, хранящий общий функционал соединений с БД."""
+
+    '''---------Названия таблиц БД---------'''
+    BONDS_TABLE: str = 'Bonds'
+    '''------------------------------------'''
+
     SQLITE_DRIVER: str = 'QSQLITE'
     assert QSqlDatabase.isDriverAvailable(SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(SQLITE_DRIVER)
 
@@ -236,3 +241,14 @@ class MyConnection(ABC):
     def convertStrListToStr(str_list: list[str]) -> str:
         """Преобразует список строк в одну строку."""
         return ', '.join(str_list)
+
+    @staticmethod
+    def convertBoolToBlob(value: bool) -> int:
+        """Преобразует значение типа bool в 1 или 0 (тип BLOB в SQLite)."""
+        return 1 if value else 0
+
+    @staticmethod
+    def convertBlobToBool(value: int) -> bool:
+        """Преобразует значение типа BLOB (1 или 0) в значение типа bool."""
+        assert value == 0 or value == 1, 'Значение переменной типа BLOB (в SQLite) должно быть 0 или 1. Вместо этого передано {0}.'.format(value)
+        return bool(value)

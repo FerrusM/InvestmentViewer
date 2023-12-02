@@ -10,7 +10,7 @@ from MyDatabase import MainConnection
 class TokenModel(QAbstractItemModel):
     """Модель токенов."""
     def __init__(self, parent: QObject | None = ...):
-        super().__init__(parent)  # __init__() QSqlQueryModel.
+        super().__init__(parent)  # __init__() QAbstractItemModel.
         self._tokens: list[TokenClass] = []  # Список класса TokenClass.
 
         """===========================Заполняем список токенов==========================="""

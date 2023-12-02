@@ -1,12 +1,12 @@
 import enum
 import typing
 from PyQt6 import QtWidgets, QtCore, QtGui
-from PyQt6.QtCore import pyqtSlot
+from PyQt6.QtCore import pyqtSlot, QAbstractListModel, QModelIndex, Qt, QVariant, QObject, pyqtSignal
 from tinkoff.invest import Bond
 from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
-from Classes import TokenClass
+from Classes import TokenClass, MyConnection
 from MyBondClass import MyBond
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, GroupBox_InstrumentsFilters, appFilter_Flag, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
 from new_CouponsModel import CouponsModel
@@ -113,6 +113,399 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
     def reset(self):
         """Сбрасывает progressBar."""
         self.progressBar_coupons.reset()
+
+
+class InstrumentFilters:
+    class Filter:
+        def __init__(self, name: str, value: typing.Any):
+            self.name: str = name
+            self.value: typing.Any = value
+
+    def __init__(self, api_trade_available_flag: bool | None, for_iis_flag: bool | None,
+                 for_qual_investor_flag: bool | None, liquidity_flag: bool | None, short_enabled_flag: bool | None,
+                 buy_available_flag: bool | None, sell_available_flag: bool | None, weekend_flag: bool | None,
+                 otc_flag: bool | None, blocked_tca_flag: bool | None, currency: str | None):
+        Filter = self.Filter  # Даём псевдоним классу.
+        # self.filters: list[Filter] = []
+        # if api_trade_available_flag is not None:
+        #     self.filters.append(Filter('api_trade_available_flag', api_trade_available_flag))
+        # if for_iis_flag is not None:
+        #     self.filters.append(Filter('for_iis_flag', for_iis_flag))
+        # if for_qual_investor_flag is not None:
+        #     self.filters.append(Filter('for_qual_investor_flag', for_qual_investor_flag))
+
+        self.filters: tuple[Filter, ...] = (
+            Filter('api_trade_available_flag', api_trade_available_flag),
+            Filter('for_iis_flag', for_iis_flag),
+            Filter('for_qual_investor_flag', for_qual_investor_flag),
+            Filter('liquidity_flag', liquidity_flag),
+            Filter('short_enabled_flag', short_enabled_flag),
+            Filter('buy_available_flag', buy_available_flag),
+            Filter('sell_available_flag', sell_available_flag),
+            Filter('weekend_flag', weekend_flag),
+            Filter('otc_flag', otc_flag),
+            Filter('blocked_tca_flag', blocked_tca_flag),
+            Filter('currency', currency)
+        )
+
+    def indexOf(self, name: str) -> int:
+        """Находит и возвращает номер фильтра с переданным именем."""
+        index: int = -1
+        for i, filter in enumerate(self.filters):
+            if name == filter.name:
+                if index != -1:
+                    raise Exception('Несколько фильтров содержат одно и то же название ({0})!'.format(name))
+                index = i
+        if index == -1:
+            raise ValueError('Нет фильтра с таким названием ({0})!'.format(name))
+        return index
+
+    def value(self, name: str):
+        """Возвращает значение фильтра с переданным именем."""
+        index: int = self.indexOf(name)
+        return self.filters[index].name
+
+
+class BoolFilterComboBox(QtWidgets.QComboBox):
+    class BoolFilterModel(QAbstractListModel):
+        SQL_CONDITION_ROLE: int = (Qt.ItemDataRole.UserRole + 1)
+
+        class Item:
+            def __init__(self, name: str, value: bool | None):
+                self.name: str = name
+                self.value: bool | None = value
+
+        def __init__(self, parameter_name: str, parent: QObject | None = ...):
+            super().__init__(parent)  # __init__() QAbstractListModel.
+            self.parameter_name: str = parameter_name
+
+            Item = self.Item  # Даём псевдоним классу.
+            self._items: tuple[Item, Item, Item] = (
+                Item('Все', None),
+                Item('True', True),
+                Item('False', False)
+            )
+
+        def rowCount(self, parent: QModelIndex = ...) -> int:
+            return len(self._items)
+
+        def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
+            if role == Qt.ItemDataRole.DisplayRole:
+                return QVariant(self._items[index.row()].name)
+            elif role == Qt.ItemDataRole.UserRole:
+                return QVariant(self._items[index.row()].value)
+            elif role == self.SQL_CONDITION_ROLE:
+                def sql_condition(row: int) -> str | None:
+                    value: bool | None = self._items[row].value
+                    if value is None:
+                        return None
+                    else:
+                        return '\"{0}\".\"{1}\" = {2}'.format(
+                            MyConnection.BONDS_TABLE, self.parameter_name, MyConnection.convertBoolToBlob(value)
+                        )
+
+                return QVariant(sql_condition(index.row()))
+            else:
+                return QVariant()
+
+    def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QComboBox __init__().
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setToolTip('')
+        self.setObjectName('comboBox_{0}'.format(parameter_name))
+
+        self.parameter_name: str = parameter_name
+
+        BoolFilterModel = self.BoolFilterModel  # Даём псевдоним классу.
+        model: BoolFilterModel = BoolFilterModel(self.parameter_name, self)
+        self.setModel(model)
+
+    def currentCondition(self) -> str | None:
+        # variant: QVariant = self.currentData(self.BoolFilterModel.SQL_CONDITION_ROLE)
+        # condition: str | None = variant.value()
+        # return condition
+
+        return self.currentData(self.BoolFilterModel.SQL_CONDITION_ROLE)
+
+
+class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
+    """GroupBox с фильтрами инструментов."""
+    filtersChanged: pyqtSignal = pyqtSignal()  # Сигнал испускается при изменении фильтров.
+
+    @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
+    class Filters(enum.IntEnum):
+        """Перечисление фильтров инструментов."""
+        # TRADING_STATUS = 1  # Текущий режим торгов инструмента.
+        API_ACCESS = 0  # Доступ API.
+        IIS_ACCESS = 1  # Доступ ИИС.
+        QUAL_INVESTOR = 2  # Торговля инструментом только для квалифицированных инвесторов.
+        LIQUIDITY_FLAG = 3  # Флаг достаточной ликвидности.
+        SHORT_ENABLE = 4  # Признак доступности для операций в шорт.
+        BUY_AVAILABLE = 5  # Признак доступности для покупки.
+        SELL_AVAILABLE = 6  # Признак доступности для продажи.
+        WEEKEND_FLAG = 7  # Доступность торговли инструментом по выходным.
+        OTC_FLAG = 8  # Признак внебиржевой ценной бумаги.
+        BLOCKED_TCA = 9  # Флаг заблокированного ТКС.
+        CURRENCY = 10  # Валюта расчётов.
+
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QGroupBox __init__().
+        self.setObjectName(object_name)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.verticalLayout_main.setSpacing(2)
+        self.verticalLayout_main.setObjectName('verticalLayout_main')
+
+        self.gridLayout_main = QtWidgets.QGridLayout()
+        self.gridLayout_main.setHorizontalSpacing(7)
+        self.gridLayout_main.setVerticalSpacing(2)
+        self.gridLayout_main.setObjectName('gridLayout_main')
+
+        """---------------Возможность торговать инструментом через API---------------"""
+        self.label_api_trade_available_flag = QtWidgets.QLabel(self)
+        self.label_api_trade_available_flag.setObjectName('label_api_trade_available_flag')
+        self.gridLayout_main.addWidget(self.label_api_trade_available_flag, 0, 0, 1, 1)
+
+        self.comboBox_api_trade_available_flag = BoolFilterComboBox('api_trade_available_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_api_trade_available_flag, 0, 1, 1, 1)
+        """--------------------------------------------------------------------------"""
+
+        """---------------------Признак доступности для ИИС---------------------"""
+        self.label_for_iis_flag = QtWidgets.QLabel(self)
+        self.label_for_iis_flag.setObjectName('label_for_iis_flag')
+        self.gridLayout_main.addWidget(self.label_for_iis_flag, 1, 0, 1, 1)
+
+        # self.comboBox_for_iis_flag = QtWidgets.QComboBox(self)
+        # sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(self.comboBox_for_iis_flag.sizePolicy().hasHeightForWidth())
+        # self.comboBox_for_iis_flag.setSizePolicy(sizePolicy)
+        # self.comboBox_for_iis_flag.setObjectName('comboBox_for_iis_flag')
+        # self.comboBox_for_iis_flag.addItem('')
+        # self.comboBox_for_iis_flag.addItem('')
+        # self.comboBox_for_iis_flag.addItem('')
+
+        self.comboBox_for_iis_flag = BoolFilterComboBox('for_iis_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_for_iis_flag, 1, 1, 1, 1)
+        """---------------------------------------------------------------------"""
+
+        """------Доступность торговли инструментом только для квалифицированных инвесторов------"""
+        self.label_for_qual_investor_flag = QtWidgets.QLabel(self)
+        self.label_for_qual_investor_flag.setObjectName('label_for_qual_investor_flag')
+        self.gridLayout_main.addWidget(self.label_for_qual_investor_flag, 2, 0, 1, 1)
+
+        self.comboBox_for_qual_investor_flag = BoolFilterComboBox('for_qual_investor_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_for_qual_investor_flag, 2, 1, 1, 1)
+        """-------------------------------------------------------------------------------------"""
+
+        """---------------------Флаг достаточной ликвидности---------------------"""
+        self.label_liquidity_flag = QtWidgets.QLabel(self)
+        self.label_liquidity_flag.setObjectName('label_liquidity_flag')
+        self.gridLayout_main.addWidget(self.label_liquidity_flag, 3, 0, 1, 1)
+
+        self.comboBox_liquidity_flag = BoolFilterComboBox('liquidity_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_liquidity_flag, 3, 1, 1, 1)
+        """----------------------------------------------------------------------"""
+
+        """---------------Признак доступности для операций в шорт---------------"""
+        self.label_short_enabled_flag = QtWidgets.QLabel(self)
+        self.label_short_enabled_flag.setObjectName('label_short_enabled_flag')
+        self.gridLayout_main.addWidget(self.label_short_enabled_flag, 4, 0, 1, 1)
+
+        self.comboBox_short_enabled_flag = BoolFilterComboBox('short_enabled_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_short_enabled_flag, 4, 1, 1, 1)
+        """---------------------------------------------------------------------"""
+
+        """------------------------Признак доступности для покупки------------------------"""
+        self.label_buy_available_flag = QtWidgets.QLabel(self)
+        self.label_buy_available_flag.setObjectName('label_buy_available_flag')
+        self.gridLayout_main.addWidget(self.label_buy_available_flag, 0, 2, 1, 1)
+
+        self.comboBox_buy_available_flag = BoolFilterComboBox('buy_available_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_buy_available_flag, 0, 3, 1, 1)
+        """-------------------------------------------------------------------------------"""
+
+        """------------------------Признак доступности для продажи------------------------"""
+        self.label_sell_available_flag = QtWidgets.QLabel(self)
+        self.label_sell_available_flag.setObjectName('label_sell_available_flag')
+        self.gridLayout_main.addWidget(self.label_sell_available_flag, 1, 2, 1, 1)
+
+        self.comboBox_sell_available_flag = BoolFilterComboBox('sell_available_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_sell_available_flag, 1, 3, 1, 1)
+        """-------------------------------------------------------------------------------"""
+
+        """------------Доступность торговли инструментом по выходным------------"""
+        self.label_weekend_flag = QtWidgets.QLabel(self)
+        self.label_weekend_flag.setObjectName('label_weekend_flag')
+        self.gridLayout_main.addWidget(self.label_weekend_flag, 2, 2, 1, 1)
+
+        self.comboBox_weekend_flag = BoolFilterComboBox('weekend_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_weekend_flag, 2, 3, 1, 1)
+        """---------------------------------------------------------------------"""
+
+        """------------------Признак внебиржевой ценной бумаги------------------"""
+        self.label_otc_flag = QtWidgets.QLabel(self)
+        self.label_otc_flag.setObjectName("label_otc_flag")
+        self.gridLayout_main.addWidget(self.label_otc_flag, 3, 2, 1, 1)
+
+        self.comboBox_otc_flag = BoolFilterComboBox('otc_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_otc_flag, 3, 3, 1, 1)
+        """---------------------------------------------------------------------"""
+
+        """---------------------Флаг заблокированного ТКС---------------------"""
+        self.label_blocked_tca_flag = QtWidgets.QLabel(self)
+        self.label_blocked_tca_flag.setObjectName('label_blocked_tca_flag')
+        self.gridLayout_main.addWidget(self.label_blocked_tca_flag, 4, 2, 1, 1)
+
+        self.comboBox_blocked_tca_flag = BoolFilterComboBox('blocked_tca_flag', self)
+
+        self.gridLayout_main.addWidget(self.comboBox_blocked_tca_flag, 4, 3, 1, 1)
+        """-------------------------------------------------------------------"""
+
+        """----------------------------Валюта----------------------------"""
+        self.label_currency = QtWidgets.QLabel(self)
+        self.label_currency.setObjectName('label_currency')
+        self.gridLayout_main.addWidget(self.label_currency, 5, 0, 1, 1)
+
+        self.comboBox_currency = QtWidgets.QComboBox(self)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.comboBox_currency.sizePolicy().hasHeightForWidth())
+        self.comboBox_currency.setSizePolicy(sizePolicy)
+        self.comboBox_currency.setEditable(True)
+        self.comboBox_currency.setObjectName('comboBox_currency')
+        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItem('')
+        self.gridLayout_main.addWidget(self.comboBox_currency, 5, 1, 1, 3)
+        """--------------------------------------------------------------"""
+
+        self.verticalLayout_main.addLayout(self.gridLayout_main)
+
+        """------------------------------------retranslateUi------------------------------------"""
+        _translate = QtCore.QCoreApplication.translate
+        self.setTitle(_translate('MainWindow', 'Общие фильтры'))
+        self.label_sell_available_flag.setToolTip(_translate('MainWindow', 'Признак доступности для продажи.'))
+        self.label_sell_available_flag.setText(_translate('MainWindow', 'Доступность продажи:'))
+        self.label_otc_flag.setToolTip(_translate('MainWindow', 'Признак внебиржевой ценной бумаги.'))
+        self.label_otc_flag.setText(_translate('MainWindow', 'Внебиржевая бумага:'))
+        self.label_weekend_flag.setToolTip(_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом по выходным.'))
+        self.label_weekend_flag.setText(_translate('MainWindow', 'Торговля по выходным:'))
+        self.label_for_iis_flag.setToolTip(_translate('MainWindow', 'Признак доступности для ИИС.'))
+        self.label_for_iis_flag.setText(_translate('MainWindow', 'Доступ ИИС:'))
+        self.label_for_qual_investor_flag.setToolTip(_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.'))
+        self.label_for_qual_investor_flag.setText(_translate('MainWindow', 'Только \"квалы\":'))
+        self.label_blocked_tca_flag.setToolTip(_translate('MainWindow', 'Флаг заблокированного ТКС.'))
+        self.label_blocked_tca_flag.setText(_translate('MainWindow', 'Заблокированный ТКС:'))
+        self.label_buy_available_flag.setToolTip(_translate('MainWindow', 'Признак доступности для покупки.'))
+        self.label_buy_available_flag.setText(_translate('MainWindow', 'Доступность покупки:'))
+        self.label_short_enabled_flag.setToolTip(_translate('MainWindow', 'Признак доступности для операций в шорт.'))
+        self.label_short_enabled_flag.setText(_translate('MainWindow', 'Операции в шорт:'))
+        self.label_liquidity_flag.setToolTip(_translate('MainWindow', 'Флаг достаточной ликвидности.'))
+        self.label_liquidity_flag.setText(_translate('MainWindow', 'Ликвидность:'))
+        self.label_api_trade_available_flag.setToolTip(_translate('MainWindow', 'Параметр указывает на возможность торговать инструментом через API.'))
+        self.label_api_trade_available_flag.setText(_translate('MainWindow', 'Доступ API:'))
+        self.label_currency.setToolTip(_translate('MainWindow', 'Валюта расчётов.'))
+        self.label_currency.setText(_translate('MainWindow', 'Валюта:'))
+        self.comboBox_currency.setItemText(0, _translate('MainWindow', 'Любая'))
+        self.comboBox_currency.setItemText(1, _translate('MainWindow', 'rub'))
+        self.comboBox_currency.setItemText(2, _translate('MainWindow', 'Иностранная'))
+        self.comboBox_currency.setItemText(3, _translate('MainWindow', 'usd'))
+        self.comboBox_currency.setItemText(4, _translate('MainWindow', 'eur'))
+        self.comboBox_currency.setItemText(5, _translate('MainWindow', 'Другая'))
+        self.comboBox_currency.setItemText(6, _translate('MainWindow', 'Мультивалютная'))
+        """-------------------------------------------------------------------------------------"""
+
+        self.comboBox_currency.setCurrentIndex(1)
+
+        '''---------------------------------Фильтры инструментов---------------------------------'''
+        def appFilter_Currency(currency: str, filter: str) -> bool:
+            """Проверяет, удовлетворяет ли акция фильтру на валюту."""
+            match filter:
+                case 'Любая': return True
+                case 'Иностранная': return False if currency == 'rub' else True
+                case 'Другая': return False if any(currency == current_currency for current_currency in ('rub', 'usd', 'eur')) else True
+                case _: return True if currency == filter else False
+
+        self.filters: dict = {
+            self.Filters.API_ACCESS:
+                lambda instrument: appFilter_Flag(instrument.api_trade_available_flag, self.comboBox_api_trade_available_flag.currentText()),
+            self.Filters.IIS_ACCESS:
+                lambda instrument: appFilter_Flag(instrument.for_iis_flag, self.comboBox_for_iis_flag.currentText()),
+            self.Filters.QUAL_INVESTOR:
+                lambda instrument: appFilter_Flag(instrument.for_qual_investor_flag, self.comboBox_for_qual_investor_flag.currentText()),
+            self.Filters.LIQUIDITY_FLAG:
+                lambda instrument: appFilter_Flag(instrument.liquidity_flag, self.comboBox_liquidity_flag.currentText()),
+            self.Filters.SHORT_ENABLE:
+                lambda instrument: appFilter_Flag(instrument.short_enabled_flag, self.comboBox_short_enabled_flag.currentText()),
+            self.Filters.BUY_AVAILABLE:
+                lambda instrument: appFilter_Flag(instrument.buy_available_flag, self.comboBox_buy_available_flag.currentText()),
+            self.Filters.SELL_AVAILABLE:
+                lambda instrument: appFilter_Flag(instrument.sell_available_flag, self.comboBox_sell_available_flag.currentText()),
+            self.Filters.WEEKEND_FLAG:
+                lambda instrument: appFilter_Flag(instrument.weekend_flag, self.comboBox_weekend_flag.currentText()),
+            self.Filters.OTC_FLAG:
+                lambda instrument: appFilter_Flag(instrument.otc_flag, self.comboBox_otc_flag.currentText()),
+            self.Filters.BLOCKED_TCA:
+                lambda instrument: appFilter_Flag(instrument.blocked_tca_flag, self.comboBox_blocked_tca_flag.currentText()),
+            self.Filters.CURRENCY:
+                lambda instrument: appFilter_Currency(instrument.currency, self.comboBox_currency.currentText())
+        }
+        '''--------------------------------------------------------------------------------------'''
+
+        self.new_filters: dict[str, BoolFilterComboBox] = {
+            'api_trade_available_flag': self.comboBox_api_trade_available_flag,
+            'for_iis_flag': self.comboBox_for_iis_flag,
+            'for_qual_investor_flag': self.comboBox_for_qual_investor_flag,
+            'liquidity_flag': self.comboBox_liquidity_flag,
+            'short_enabled_flag': self.comboBox_short_enabled_flag,
+            'buy_available_flag': self.comboBox_buy_available_flag,
+            'sell_available_flag': self.comboBox_sell_available_flag,
+            'weekend_flag': self.comboBox_weekend_flag,
+            'otc_flag': self.comboBox_otc_flag,
+            'blocked_tca_flag': self.comboBox_blocked_tca_flag
+        }
+
+        for filter in self.new_filters.values():
+            filter.currentIndexChanged.connect(lambda index: self.filtersChanged.emit())
+
+    def checkFilters(self, instrument: Bond) -> bool:
+        """Проверяет инструмент на соответствие фильтрам."""
+        for filter in self.filters.values():
+            if not filter(instrument): return False
+        return True
+
+    def getSqlCondition(self) -> str | None:
+        condition: str = ''
+        for comboBox in self.new_filters.values():
+            current_condition: str | None = comboBox.currentCondition()
+            if current_condition is not None:
+                if condition:
+                    condition += ' AND '
+                else:
+                    condition += '('
+                condition += '{0}'.format(current_condition)
+        return '{0})'.format(condition) if condition else None
 
 
 class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
@@ -317,6 +710,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
 class GroupBox_BondsFilters(QtWidgets.QGroupBox):
     """GroupBox со всеми фильтрами облигаций."""
+    filtersChanged: pyqtSignal = pyqtSignal()  # Сигнал испускается при изменении фильтров.
+
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         self.setTitle('')
@@ -369,6 +764,7 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
 
         """---------------------Панель фильтров инструментов---------------------"""
         self.groupBox_instruments_filters = GroupBox_InstrumentsFilters('groupBox_instruments_filters', self)
+        self.groupBox_instruments_filters.filtersChanged.connect(self.filtersChanged.emit)
         self.horizontalLayout_instruments_filters.addWidget(self.groupBox_instruments_filters)
         """----------------------------------------------------------------------"""
 
@@ -411,6 +807,9 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
     def setCount(self, count: int):
         """Устанавливает количество отобранных облигаций."""
         self.label_count.setText(str(count))
+
+    def getSqlCondition(self) -> str | None:
+        return self.groupBox_instruments_filters.getSqlCondition()
 
 
 class GroupBox_CouponsView(QtWidgets.QGroupBox):
@@ -509,7 +908,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
 
 class GroupBox_BondsView(QtWidgets.QGroupBox):
     """Панель отображения облигаций."""
-    def __init__(self, object_name: str, token: TokenClass | None, instrument_status: InstrumentStatus, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -597,7 +996,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         '''---------------------------------------------------------'''
 
         '''--------------------------Модель облигаций--------------------------'''
-        source_model: BondsModel = BondsModel(token, instrument_status)  # Создаём модель.
+        source_model: BondsModel = BondsModel(token, instrument_status, sql_condition)  # Создаём модель.
         proxy_model: BondsProxyModel = BondsProxyModel(source_model)  # Создаём прокси-модель.
         self.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
@@ -613,9 +1012,9 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         """Возвращает исходную модель облигаций."""
         return self.proxyModel().sourceModel()
 
-    def updateModel(self, token: TokenClass | None, instrument_status: InstrumentStatus):
+    def updateModel(self, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None):
         """Обновляет модель облигаций в соответствии с переданными параметрами."""
-        self.sourceModel().update(token, instrument_status)  # Передаём параметры в исходную модель.
+        self.sourceModel().update(token, instrument_status, sql_condition)  # Передаём параметры в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
 
@@ -694,6 +1093,10 @@ class new_BondsPage(QtWidgets.QWidget):
         self.verticalLayout_filters.addWidget(self.groupBox_filters)
         """-------------------------------------------------------------"""
 
+        """Аттрибут self.__sql_condition не относится к UI, но он должен быть инициализирован после
+        панели фильтров и перед панелью отображения облигаций."""
+        self.__sql_condition: str | None = self.groupBox_filters.getSqlCondition()
+
         spacerItem43 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
         self.verticalLayout_filters.addItem(spacerItem43)
 
@@ -709,15 +1112,19 @@ class new_BondsPage(QtWidgets.QWidget):
         self.verticalLayout_top.setStretch(1, 1)
 
         '''-----------------Панель отображения облигаций-----------------'''
-        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.token, self.instrument_status, self.splitter)
+        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.token, self.instrument_status, self.sql_condition, self.splitter)
         '''--------------------------------------------------------------'''
 
         self.verticalLayout_main.addWidget(self.splitter)
         """========================================================================================="""
 
-        self.groupBox_request.currentTokenChanged.connect(self.onTokenChanged)
-        self.groupBox_request.currentTokenReset.connect(self.onTokenReset)
-        self.groupBox_request.currentStatusChanged.connect(self.onStatusChanged)
+        # self.groupBox_request.currentTokenChanged.connect(self.onTokenChanged)
+        self.groupBox_request.currentTokenChanged.connect(lambda token, instrument_status: self.__setToken(token))
+        # self.groupBox_request.currentTokenReset.connect(self.onTokenReset)
+        self.groupBox_request.currentTokenReset.connect(lambda: self.__setToken(None))
+        self.groupBox_request.currentStatusChanged.connect(self.__setInstrumentStatus)
+
+        self.groupBox_filters.filtersChanged.connect(lambda: self.__setSqlCondition(self.groupBox_filters.getSqlCondition()))
 
         '''---------------------------------Фильтры---------------------------------'''
         # def onFilterChanged():
@@ -774,39 +1181,56 @@ class new_BondsPage(QtWidgets.QWidget):
 
         # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.sourceModel().getBond(current)))  # Событие смены выбранной облигации.
 
-    @property
-    def token(self) -> TokenClass | None:
+    def __getToken(self) -> TokenClass | None:
         return self.__token
 
-    @token.setter
-    def token(self, token: TokenClass | None):
+    def __setToken(self, token: TokenClass | None):
         self.__token = token
-        self.groupBox_view.updateModel(self.token, self.instrument_status)  # Задаём параметры запроса к БД.
+        sql_condition: str | None = self.groupBox_filters.getSqlCondition()
+        self.groupBox_view.updateModel(self.token, self.instrument_status, sql_condition)  # Задаём параметры запроса к БД.
 
-    @property
-    def instrument_status(self) -> InstrumentStatus:
+    token = property(__getToken, __setToken)
+
+    # @property
+    # def token(self) -> TokenClass | None:
+    #     return self.__token
+    #
+    # @token.setter
+    # def token(self, token: TokenClass | None):
+    #     self.__token = token
+    #     self.groupBox_view.updateModel(self.token, self.instrument_status)  # Задаём параметры запроса к БД.
+
+    def __getInstrumentStatus(self) -> InstrumentStatus:
         return self.__instrument_status
 
-    @instrument_status.setter
-    def instrument_status(self, instrument_status: InstrumentStatus):
+    def __setInstrumentStatus(self, instrument_status: InstrumentStatus):
         self.__instrument_status = instrument_status
-        self.groupBox_view.updateModel(self.token, self.instrument_status)  # Задаём параметры запроса к БД.
+        sql_condition: str | None = self.groupBox_filters.getSqlCondition()
+        self.groupBox_view.updateModel(self.token, self.instrument_status, sql_condition)  # Задаём параметры запроса к БД.
+
+    instrument_status = property(__getInstrumentStatus, __setInstrumentStatus)
+
+    '''---------------------------Свойство условий фильтров---------------------------'''
+    def __getSqlCondition(self) -> str | None:
+        return self.__sql_condition
+
+    def __setSqlCondition(self, sql_condition: str | None):
+        self.__sql_condition = sql_condition
+        self.groupBox_view.updateModel(self.token, self.instrument_status, self.sql_condition)  # Задаём параметры запроса к БД.
+
+    sql_condition = property(__getSqlCondition, __setSqlCondition)
+    '''-------------------------------------------------------------------------------'''
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.groupBox_request.comboBox_token.setModel(token_list_model)
 
-    @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
-        """Функция, выполняемая при изменении выбранного токена."""
-        self.token = token
-
-    @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def onTokenReset(self):
-        """Функция, выполняемая при выборе пустого значения вместо токена."""
-        self.token = None
-
-    @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def onStatusChanged(self, instrument_status: InstrumentStatus):
-        """Функция, выполняемая при изменении выбранного статуса инструмента."""
-        self.instrument_status = instrument_status
+    # @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    # def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
+    #     """Функция, выполняемая при изменении выбранного токена."""
+    #     self.token = token
+    #
+    # @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    # def onTokenReset(self):
+    #     """Функция, выполняемая при выборе пустого значения вместо токена."""
+    #     self.token = None

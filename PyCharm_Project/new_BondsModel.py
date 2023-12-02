@@ -1,6 +1,7 @@
 import typing
 from datetime import datetime
-from PyQt6.QtCore import QAbstractTableModel, QObject, QModelIndex, QSortFilterProxyModel, Qt
+from PyQt6.QtCore import QAbstractTableModel, QObject, QModelIndex, QSortFilterProxyModel, Qt, QVariant
+from PyQt6.QtGui import QBrush
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import InstrumentStatus, Bond, Quotation, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel
@@ -12,9 +13,19 @@ from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
 
 
+class BondColumn(Column):
+    """Класс столбца таблицы облигаций."""
+    # MATURITY_COLOR: QBrush = QBrush(Qt.GlobalColor.magenta)  # Цвет фона строк погашенных облигаций.
+    def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
+                 background_function=lambda bond_class, *args: QBrush(Qt.GlobalColor.magenta) if bond_class.bond.perpetual_flag and ifDateTimeIsEmpty(bond_class.bond.maturity_date) else QBrush(Qt.GlobalColor.lightGray) if MyBond.ifBondIsMaturity(bond_class.bond) else QVariant(),
+                 foreground_function=None, lessThan=None, sort_role: Qt.ItemDataRole = Qt.ItemDataRole.UserRole):
+        super().__init__(header, header_tooltip, data_function, display_function, tooltip_function,
+                         background_function, foreground_function, lessThan, sort_role)
+
+
 class BondsModel(QAbstractTableModel):
     """Модель облигаций."""
-    def __init__(self, token: TokenClass | None, instrument_status: InstrumentStatus, parent: QObject | None = None):
+    def __init__(self, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None, parent: QObject | None = None):
         super().__init__(parent)  # __init__() QAbstractTableModel.
 
         '''---------------------Функции, используемые в столбцах модели---------------------'''
@@ -30,108 +41,144 @@ class BondsModel(QAbstractTableModel):
                     return ''
         '''---------------------------------------------------------------------------------'''
 
-        self.columns: tuple[Column, ...] = (
-            Column(header='figi',
-                   header_tooltip='Figi-идентификатор инструмента.',
-                   data_function=lambda bond_class: bond_class.bond.figi),
-            Column(header='isin',
-                   header_tooltip='Isin-идентификатор инструмента.',
-                   data_function=lambda bond_class: bond_class.bond.isin),
-            Column(header='Название',
-                   header_tooltip='Название инструмента.',
-                   data_function=lambda bond_class: bond_class.bond.name),
-            Column(header='Лотность',
-                   header_tooltip='Лотность инструмента.',
-                   data_function=lambda bond_class: bond_class.bond.lot,
-                   display_function=lambda bond_class: str(bond_class.bond.lot)),
-            Column(header='Цена лота',
-                   header_tooltip='Цена последней сделки по лоту облигации.',
-                   data_function=lambda bond_class: bond_class.getLotLastPrice(),
-                   display_function=lambda bond_class: bond_class.reportLotLastPrice()),
-            Column(header='НКД',
-                   header_tooltip='Значение НКД (накопленного купонного дохода) на дату.',
-                   data_function=lambda bond_class: bond_class.bond.aci_value,
-                   display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.aci_value)),
-            Column(header='Номинал',
-                   header_tooltip='Номинал облигации.',
-                   data_function=lambda bond_class: bond_class.bond.nominal,
-                   display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.nominal, 2)),
-            Column(header='Шаг цены',
-                   header_tooltip='Минимальное изменение цены определённого инструмента.',
-                   data_function=lambda bond_class: bond_class.bond.min_price_increment,
-                   display_function=lambda bond_class: MyQuotation.__str__(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True)),
-            Column(header='Амортизация',
-                   header_tooltip='Признак облигации с амортизацией долга.',
-                   data_function=lambda bond_class: bond_class.bond.amortization_flag,
-                   display_function=lambda bond_class: "Да" if bond_class.bond.amortization_flag else "Нет"),
-            Column(header='Дней до погашения',
-                   header_tooltip='Количество дней до погашения облигации.',
-                   data_function=lambda bond_class: MyBond.getDaysToMaturityCount(bond_class.bond),
-                   display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else MyBond.getDaysToMaturityCount(bond_class.bond)),
-            Column(header='Дата погашения',
-                   header_tooltip='Дата погашения облигации в часовом поясе UTC.',
-                   data_function=lambda bond_class: bond_class.bond.maturity_date,
-                   display_function=lambda bond_class: reportSignificantInfoFromDateTime(bond_class.bond.maturity_date)),
-            Column(header='Валюта',
-                   header_tooltip='Валюта расчётов.',
-                   data_function=lambda bond_class: bond_class.bond.currency),
-            Column(header='Страна риска',
-                   header_tooltip='Наименование страны риска, т.е. страны, в которой компания ведёт основной бизнес.',
-                   data_function=lambda bond_class: bond_class.bond.country_of_risk_name),
-            Column(header='Риск',
-                   header_tooltip='Уровень риска.',
-                   data_function=lambda bond_class: bond_class.bond.risk_level,
-                   display_function=lambda bond_class: reportRiskLevel(bond_class.bond.risk_level)),
-            Column(header='Режим торгов',
-                   header_tooltip='Текущий режим торгов инструмента.',
-                   data_function=lambda bond_class: bond_class.bond.trading_status,
-                   display_function=lambda bond_class: reportTradingStatus(bond_class.bond.trading_status))
+        self.columns: tuple[BondColumn, ...] = (
+            BondColumn(header='figi',
+                       header_tooltip='Figi-идентификатор инструмента.',
+                       data_function=lambda bond_class: bond_class.bond.figi),
+            BondColumn(header='isin',
+                       header_tooltip='Isin-идентификатор инструмента.',
+                       data_function=lambda bond_class: bond_class.bond.isin),
+            BondColumn(header='Название',
+                       header_tooltip='Название инструмента.',
+                       data_function=lambda bond_class: bond_class.bond.name),
+            BondColumn(header='Лотность',
+                       header_tooltip='Лотность инструмента.',
+                       data_function=lambda bond_class: bond_class.bond.lot,
+                       display_function=lambda bond_class: str(bond_class.bond.lot)),
+            BondColumn(header='Цена лота',
+                       header_tooltip='Цена последней сделки по лоту облигации.',
+                       data_function=lambda bond_class: bond_class.getLotLastPrice(),
+                       display_function=lambda bond_class: bond_class.reportLotLastPrice(),
+                       tooltip_function=lambda bond_class: 'Нет данных.' if bond_class.last_price is None else 'last_price:\nfigi = {0},\nprice = {1},\ntime = {2},\ninstrument_uid = {3}.\n\nlot = {4}'.format(bond_class.last_price.figi, MyQuotation.__str__(bond_class.last_price.price, 2), bond_class.last_price.time, bond_class.last_price.instrument_uid, bond_class.bond.lot)),
+            BondColumn(header='НКД',
+                       header_tooltip='Значение НКД (накопленного купонного дохода) на дату.',
+                       data_function=lambda bond_class: bond_class.bond.aci_value,
+                       display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.aci_value)),
+            BondColumn(header='Номинал',
+                       header_tooltip='Номинал облигации.',
+                       data_function=lambda bond_class: bond_class.bond.nominal,
+                       display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.nominal, 2)),
+            BondColumn(header='Шаг цены',
+                       header_tooltip='Минимальное изменение цены определённого инструмента.',
+                       data_function=lambda bond_class: bond_class.bond.min_price_increment,
+                       display_function=lambda bond_class: MyQuotation.__str__(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True)),
+            BondColumn(header='Амортизация',
+                       header_tooltip='Признак облигации с амортизацией долга.',
+                       data_function=lambda bond_class: bond_class.bond.amortization_flag,
+                       display_function=lambda bond_class: "Да" if bond_class.bond.amortization_flag else "Нет"),
+            BondColumn(header='Дней до погашения',
+                       header_tooltip='Количество дней до погашения облигации.',
+                       data_function=lambda bond_class: MyBond.getDaysToMaturityCount(bond_class.bond),
+                       display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else MyBond.getDaysToMaturityCount(bond_class.bond)),
+            BondColumn(header='Дата погашения',
+                       header_tooltip='Дата погашения облигации в часовом поясе UTC.',
+                       data_function=lambda bond_class: bond_class.bond.maturity_date,
+                       display_function=lambda bond_class: reportSignificantInfoFromDateTime(bond_class.bond.maturity_date),
+                       tooltip_function=lambda bond_class: str(bond_class.bond.maturity_date)),
+            BondColumn(header='Валюта',
+                       header_tooltip='Валюта расчётов.',
+                       data_function=lambda bond_class: bond_class.bond.currency),
+            BondColumn(header='Страна риска',
+                       header_tooltip='Наименование страны риска, т.е. страны, в которой компания ведёт основной бизнес.',
+                       data_function=lambda bond_class: bond_class.bond.country_of_risk_name),
+            BondColumn(header='Риск',
+                       header_tooltip='Уровень риска.',
+                       data_function=lambda bond_class: bond_class.bond.risk_level,
+                       display_function=lambda bond_class: reportRiskLevel(bond_class.bond.risk_level)),
+            BondColumn(header='Режим торгов',
+                       header_tooltip='Текущий режим торгов инструмента.',
+                       data_function=lambda bond_class: bond_class.bond.trading_status,
+                       display_function=lambda bond_class: reportTradingStatus(bond_class.bond.trading_status))
         )
         self._bonds: list[MyBondClass] = []
 
         '''------------------Параметры запроса к БД------------------'''
+        self.__token: TokenClass | None = None
         self.__instrument_status: InstrumentStatus = instrument_status
-        self.__token: TokenClass | None
-        self.token = token
+        self.__sql_condition: str | None = sql_condition
         '''----------------------------------------------------------'''
 
-    @property
-    def token(self) -> TokenClass | None:
-        return self.__token
+        self.update(token, instrument_status, sql_condition)  # Обновляем данные модели.
 
-    @token.setter
-    def token(self, token: TokenClass | None):
-        self.__token = token
-        self.update(self.__token, self.instrument_status)
+    # @property
+    # def token(self) -> TokenClass | None:
+    #     return self.__token
+    #
+    # @token.setter
+    # def token(self, token: TokenClass | None):
+    #     self.__token = token
+    #     self.update()  # Обновляем данные модели.
+    #
+    # @property
+    # def instrument_status(self) -> InstrumentStatus:
+    #     return self.__instrument_status
+    #
+    # @instrument_status.setter
+    # def instrument_status(self, instrument_status: InstrumentStatus):
+    #     self.__instrument_status = instrument_status
+    #     self.update()  # Обновляем данные модели.
+    #
+    # @property
+    # def sql_condition(self) -> str | None:
+    #     return self.__sql_condition
+    #
+    # @sql_condition.setter
+    # def sql_condition(self, sql_condition: str | None):
+    #     self.__sql_condition = sql_condition
+    #     self.update()  # Обновляем данные модели.
 
-    @property
-    def instrument_status(self) -> InstrumentStatus:
-        return self.__instrument_status
-
-    @instrument_status.setter
-    def instrument_status(self, instrument_status: InstrumentStatus):
-        self.__instrument_status = instrument_status
-        self.update(self.token, self.__instrument_status)
-
-    def update(self, token: TokenClass | None, instrument_status: InstrumentStatus):
+    def update(self, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None):
         """Обновляет данные модели в соответствии с переданными параметрами запроса к БД."""
         self.beginResetModel()  # Начинает операцию сброса модели.
+
+        '''------------------Параметры запроса к БД------------------'''
+        self.__token = token
+        self.__instrument_status = instrument_status
+        self.__sql_condition = sql_condition
+        '''----------------------------------------------------------'''
+
         if token is None:
             self._bonds = []
         else:
             '''---------------------------Создание запроса к БД---------------------------'''
+            # sql_command: str = '''
+            # SELECT "figi", "ticker", "class_code", "isin", "lot", "currency", "klong", "kshort", "dlong", "dshort",
+            # "dlong_min", "dshort_min", "short_enabled_flag", "name", "exchange", "coupon_quantity_per_year",
+            # "maturity_date", "nominal", "initial_nominal", "state_reg_date", "placement_date", "placement_price",
+            # "aci_value", "country_of_risk", "country_of_risk_name", "sector", "issue_kind", "issue_size", "issue_size_plan",
+            # "trading_status", "otc_flag", "buy_available_flag", "sell_available_flag", "floating_coupon_flag",
+            # "perpetual_flag", "amortization_flag", "min_price_increment", "api_trade_available_flag", "Bonds"."uid",
+            # "real_exchange", "position_uid", "for_iis_flag", "for_qual_investor_flag", "weekend_flag", "blocked_tca_flag",
+            # "subordinated_flag", "liquidity_flag", "first_1min_candle_date", "first_1day_candle_date", "risk_level"
+            # FROM "BondsStatus", "Bonds"
+            # WHERE "BondsStatus"."token" = :token AND "BondsStatus"."status" = :status AND
+            # "BondsStatus"."uid" = "Bonds"."uid";'''
+
             sql_command: str = '''
             SELECT "figi", "ticker", "class_code", "isin", "lot", "currency", "klong", "kshort", "dlong", "dshort",
             "dlong_min", "dshort_min", "short_enabled_flag", "name", "exchange", "coupon_quantity_per_year",
             "maturity_date", "nominal", "initial_nominal", "state_reg_date", "placement_date", "placement_price",
             "aci_value", "country_of_risk", "country_of_risk_name", "sector", "issue_kind", "issue_size", "issue_size_plan", 
             "trading_status", "otc_flag", "buy_available_flag", "sell_available_flag", "floating_coupon_flag", 
-            "perpetual_flag", "amortization_flag", "min_price_increment", "api_trade_available_flag", "Bonds"."uid", 
+            "perpetual_flag", "amortization_flag", "min_price_increment", "api_trade_available_flag", {0}."uid", 
             "real_exchange", "position_uid", "for_iis_flag", "for_qual_investor_flag", "weekend_flag", "blocked_tca_flag", 
             "subordinated_flag", "liquidity_flag", "first_1min_candle_date", "first_1day_candle_date", "risk_level"
-            FROM "BondsStatus", "Bonds"
+            FROM "BondsStatus", {0}
             WHERE "BondsStatus"."token" = :token AND "BondsStatus"."status" = :status AND
-            "BondsStatus"."uid" = "Bonds"."uid";'''
+            "BondsStatus"."uid" = {0}."uid"{1};'''.format(
+                '\"{0}\"'.format(MyConnection.BONDS_TABLE),
+                '' if sql_condition is None else ' AND {0}'.format(sql_condition)
+            )
 
             db: QSqlDatabase = MainConnection.getDatabase()
             query = QSqlQuery(db)
