@@ -35,7 +35,7 @@ class AssetsThread(QThread):
             db: QSqlDatabase = cls.getDatabase()
             query = QSqlQuery(db)
             query.prepare('''
-            INSERT INTO Brands (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name) 
+            INSERT INTO "Brands" (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name) 
             VALUES (:uid, :name, :description, :info, :company, :sector, :country_of_risk, :country_of_risk_name)
             ON CONFLICT(uid) DO UPDATE SET name = excluded.name, description = excluded.description, 
             info = excluded.info, company = excluded.company, sector = excluded.sector, 
@@ -65,11 +65,11 @@ class AssetsThread(QThread):
 
                 query = QSqlQuery(db)
                 query.prepare('''
-                INSERT INTO Assets (uid, type, name, name_brief, description, deleted_at, required_tests, gos_reg_code, cfi, code_nsd, status, brand_uid, updated_at, br_code, br_code_name) 
+                INSERT INTO "Assets" ("uid", "type", "name", "name_brief", "description", "deleted_at", "required_tests", "gos_reg_code", "cfi", "code_nsd", "status", "brand_uid", "updated_at", "br_code", "br_code_name") 
                 VALUES (:uid, :type, :name, :name_brief, :description, :deleted_at, :required_tests, :gos_reg_code, :cfi, :code_nsd, :status, :brand_uid, :updated_at, :br_code, :br_code_name)
-                ON CONFLICT(uid) DO UPDATE SET type = excluded.type, name = excluded.name, name_brief = excluded.name_brief, description = excluded.description, 
-                deleted_at = excluded.deleted_at, required_tests = excluded.required_tests, gos_reg_code = excluded.gos_reg_code, cfi = excluded.cfi, code_nsd = excluded.code_nsd,
-                status = excluded.status, brand_uid = excluded.brand_uid, updated_at = excluded.updated_at, br_code = excluded.br_code, br_code_name = excluded.br_code_name;
+                ON CONFLICT("uid") DO UPDATE SET "type" = "excluded"."type", "name" = "excluded"."name", "name_brief" = "excluded"."name_brief", "description" = "excluded"."description", 
+                "deleted_at" = "excluded"."deleted_at", "required_tests" = "excluded"."required_tests", "gos_reg_code" = "excluded"."gos_reg_code", "cfi" = "excluded"."cfi", "code_nsd" = "excluded"."code_nsd",
+                "status" = "excluded"."status", "brand_uid" = "excluded"."brand_uid", "updated_at" = "excluded"."updated_at", "br_code" = "excluded"."br_code", "br_code_name" = "excluded"."br_code_name";
                 ''')
                 query.bindValue(':uid', assetfull.uid)
                 query.bindValue(':type', int(assetfull.type))
@@ -83,7 +83,7 @@ class AssetsThread(QThread):
                 query.bindValue(':code_nsd', assetfull.code_nsd)
                 query.bindValue(':status', assetfull.status)
                 query.bindValue(':brand_uid', assetfull.brand.uid)
-                query.bindValue(':updated_at', MyConnection.convertDateTimeToText(assetfull.updated_at))
+                query.bindValue(':updated_at', MyConnection.convertDateTimeToText(dt=assetfull.updated_at, timespec='microseconds'))
                 query.bindValue(':br_code', assetfull.br_code)
                 query.bindValue(':br_code_name', assetfull.br_code_name)
                 exec_flag: bool = query.exec()

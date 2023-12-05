@@ -208,19 +208,16 @@ class MyConnection(ABC):
         return QSqlDatabase.database(cls.CONNECTION_NAME)
 
     @staticmethod
-    def convertDateTimeToText(dt: datetime) -> str:
+    def convertDateTimeToText(dt: datetime, sep: str = ' ', timespec: str = 'auto') -> str:
         """Конвертирует datetime в TEXT для хранения в БД."""
-        # print('\nconvertDateTimeToText __str__: {0}'.format(dt.__str__()))
-        # print('convertDateTimeToText __repr__: {0}'.format(dt.__repr__()))
-        return str(dt)
+        # return str(dt)
+        return dt.isoformat(sep=sep, timespec=timespec)
 
     @staticmethod
     def convertTextToDateTime(text: str) -> datetime:
         """Конвертирует TEXT в datetime при извлечении из БД."""
-        # dt: datetime = datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
-        # print('\nconvertTextToDateTime __str__: {0}'.format(dt.__str__()))
-        # print('convertTextToDateTime __repr__: {0}'.format(dt.__repr__()))
-        return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
+        # return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
+        return datetime.fromisoformat(text)
 
     @staticmethod
     def convertTextToQuotation(text: str) -> Quotation:

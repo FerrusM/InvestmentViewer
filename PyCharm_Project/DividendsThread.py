@@ -49,15 +49,15 @@ class DividendsThread(QThread):
                     '''-------------------------Добавляет дивиденды в таблицу дивидендов-------------------------'''
                     for dividend in dividends:
                         add_dividends_query = QSqlQuery(db)
-                        sql_command: str = 'INSERT INTO "Dividends"(' \
-                                           'figi, dividend_net, payment_date, declared_date, last_buy_date, ' \
-                                           'dividend_type, record_date, regularity, close_price, yield_value, ' \
-                                           'created_at' \
-                                           ') VALUES (' \
-                                           ':figi, :dividend_net, :payment_date, :declared_date, :last_buy_date, ' \
-                                           ':dividend_type, :record_date, :regularity, :close_price, :yield_value, ' \
-                                           ':created_at' \
-                                           ');'
+                        sql_command: str = '''
+                        INSERT INTO "Dividends" (
+                        "figi", "dividend_net", "payment_date", "declared_date", "last_buy_date", "dividend_type", 
+                        "record_date", "regularity", "close_price", "yield_value", "created_at"
+                        ) VALUES (
+                        :figi, :dividend_net, :payment_date, :declared_date, :last_buy_date, :dividend_type, 
+                        :record_date, :regularity, :close_price, :yield_value, :created_at
+                        );
+                        '''
 
                         prepare_flag: bool = add_dividends_query.prepare(sql_command)
                         assert prepare_flag, add_dividends_query.lastError().text()
@@ -72,7 +72,7 @@ class DividendsThread(QThread):
                         add_dividends_query.bindValue(':regularity', dividend.regularity)
                         add_dividends_query.bindValue(':close_price', MyMoneyValue.__repr__(dividend.close_price))
                         add_dividends_query.bindValue(':yield_value', MyQuotation.__repr__(dividend.yield_value))
-                        add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dividend.created_at))
+                        add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dt=dividend.created_at, timespec='microseconds'))
 
                         add_dividends_exec_flag: bool = add_dividends_query.exec()
                         assert add_dividends_exec_flag, add_dividends_query.lastError().text()

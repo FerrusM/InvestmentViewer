@@ -838,14 +838,14 @@ class MainConnection(MyConnection):
 
             if transaction_flag:
                 query = QSqlQuery(db)
-                sql_command: str = 'INSERT INTO "LastPrices"("figi", "price", "time", "instrument_uid") VALUES '
+                sql_command: str = '''INSERT INTO "LastPrices"("figi", "price", "time", "instrument_uid") VALUES '''
                 lp_count: int = len(last_prices)  # Количество последних цен.
                 for i in range(lp_count):
                     if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
-                    sql_command += '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'.format(i)
+                    sql_command += '''(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'''.format(i)
 
-                sql_command += ' ON CONFLICT("time", "instrument_uid") DO ' \
-                               'UPDATE SET "figi" = "excluded"."figi", "price" = "excluded"."price";'
+                sql_command += ''' ON CONFLICT("time", "instrument_uid") DO 
+                               UPDATE SET "figi" = "excluded"."figi", "price" = "excluded"."price";'''
 
                 prepare_flag: bool = query.prepare(sql_command)
                 assert prepare_flag, query.lastError().text()
@@ -853,7 +853,7 @@ class MainConnection(MyConnection):
                 for i, lp in enumerate(last_prices):
                     query.bindValue(':figi{0}'.format(i), lp.figi)
                     query.bindValue(':price{0}'.format(i), MyQuotation.__repr__(lp.price))
-                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(lp.time))
+                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(dt=lp.time, timespec='microseconds'))
                     query.bindValue(':instrument_uid{0}'.format(i), lp.instrument_uid)
 
                 exec_flag: bool = query.exec()
@@ -869,11 +869,11 @@ class MainConnection(MyConnection):
             """Добавляет связанные инструменты в таблицу связей инструментов."""
             if links:  # Если список связанных инструментов не пуст.
                 insert_link_query = QSqlQuery(db)
-                insert_link_sql_command: str = 'INSERT INTO "InstrumentLinks" ("asset_uid", "uid", "type", "instrument_uid") VALUES '
+                insert_link_sql_command: str = '''INSERT INTO "InstrumentLinks" ("asset_uid", "uid", "type", "instrument_uid") VALUES '''
                 links_count: int = len(links)  # Количество связей.
                 for j in range(links_count):
                     if j > 0: insert_link_sql_command += ', '  # Если добавляемая связь не первая.
-                    insert_link_sql_command += '(:asset_uid{0}, :uid{0}, :type{0}, :instrument_uid{0})'.format(j)
+                    insert_link_sql_command += '''(:asset_uid{0}, :uid{0}, :type{0}, :instrument_uid{0})'''.format(j)
                 insert_link_sql_command += ';'
 
                 insert_link_prepare_flag: bool = insert_link_query.prepare(insert_link_sql_command)

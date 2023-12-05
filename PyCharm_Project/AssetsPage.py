@@ -1,5 +1,5 @@
 from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, pyqtSlot, QSize
+from PyQt6.QtCore import Qt, pyqtSignal, QCoreApplication, pyqtSlot
 from tinkoff.invest import InstrumentType, Asset
 from AssetsModel import AssetsTreeModel
 from AssetsThread import AssetsThread, AssetClass
