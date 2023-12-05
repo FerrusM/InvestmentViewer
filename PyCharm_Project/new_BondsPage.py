@@ -1,12 +1,11 @@
-import enum
 import typing
+from datetime import datetime
 from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import QAbstractListModel, QModelIndex, Qt, QVariant, QObject, pyqtSignal
-from tinkoff.invest import Bond
 from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
 from Classes import TokenClass, MyConnection
-from MyBondClass import MyBond
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, ProgressBar_DataReceiving
+from MyDateTime import getUtcDateTime
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
 from new_CouponsModel import CouponsModel
@@ -115,57 +114,6 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.progressBar_coupons.reset()
 
 
-class InstrumentFilters:
-    class Filter:
-        def __init__(self, name: str, value: typing.Any):
-            self.name: str = name
-            self.value: typing.Any = value
-
-    def __init__(self, api_trade_available_flag: bool | None, for_iis_flag: bool | None,
-                 for_qual_investor_flag: bool | None, liquidity_flag: bool | None, short_enabled_flag: bool | None,
-                 buy_available_flag: bool | None, sell_available_flag: bool | None, weekend_flag: bool | None,
-                 otc_flag: bool | None, blocked_tca_flag: bool | None, currency: str | None):
-        Filter = self.Filter  # Даём псевдоним классу.
-        # self.filters: list[Filter] = []
-        # if api_trade_available_flag is not None:
-        #     self.filters.append(Filter('api_trade_available_flag', api_trade_available_flag))
-        # if for_iis_flag is not None:
-        #     self.filters.append(Filter('for_iis_flag', for_iis_flag))
-        # if for_qual_investor_flag is not None:
-        #     self.filters.append(Filter('for_qual_investor_flag', for_qual_investor_flag))
-
-        self.filters: tuple[Filter, ...] = (
-            Filter('api_trade_available_flag', api_trade_available_flag),
-            Filter('for_iis_flag', for_iis_flag),
-            Filter('for_qual_investor_flag', for_qual_investor_flag),
-            Filter('liquidity_flag', liquidity_flag),
-            Filter('short_enabled_flag', short_enabled_flag),
-            Filter('buy_available_flag', buy_available_flag),
-            Filter('sell_available_flag', sell_available_flag),
-            Filter('weekend_flag', weekend_flag),
-            Filter('otc_flag', otc_flag),
-            Filter('blocked_tca_flag', blocked_tca_flag),
-            Filter('currency', currency)
-        )
-
-    def indexOf(self, name: str) -> int:
-        """Находит и возвращает номер фильтра с переданным именем."""
-        index: int = -1
-        for i, filter in enumerate(self.filters):
-            if name == filter.name:
-                if index != -1:
-                    raise Exception('Несколько фильтров содержат одно и то же название ({0})!'.format(name))
-                index = i
-        if index == -1:
-            raise ValueError('Нет фильтра с таким названием ({0})!'.format(name))
-        return index
-
-    def value(self, name: str):
-        """Возвращает значение фильтра с переданным именем."""
-        index: int = self.indexOf(name)
-        return self.filters[index].name
-
-
 class FilterComboBox(QtWidgets.QComboBox):
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QComboBox __init__().
@@ -177,45 +125,41 @@ class FilterComboBox(QtWidgets.QComboBox):
         self.setObjectName('comboBox_{0}'.format(parameter_name))
 
 
+class FilterModel(QAbstractListModel):
+    class Item:
+        def __init__(self, name: str, sql_condition: str | None):
+            self.name: str = name
+            self.sql_condition: str | None = sql_condition
+
+    def __init__(self, parent: QObject | None = ...):
+        super().__init__(parent)  # __init__() QAbstractListModel.
+
+        Item = self.Item  # Даём псевдоним классу.
+        self._items: tuple[Item, ...] = ()
+
+    def rowCount(self, parent: QModelIndex = ...) -> int:
+        return len(self._items)
+
+    def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
+        if role == Qt.ItemDataRole.DisplayRole:
+            return QVariant(self._items[index.row()].name)
+        elif role == Qt.ItemDataRole.UserRole:
+            return QVariant(self._items[index.row()].sql_condition)
+        else:
+            return QVariant()
+
+
 class BoolFilterComboBox(FilterComboBox):
-    class BoolFilterModel(QAbstractListModel):
-        SQL_CONDITION_ROLE: int = (Qt.ItemDataRole.UserRole + 1)
-
-        class Item:
-            def __init__(self, name: str, value: bool | None):
-                self.name: str = name
-                self.value: bool | None = value
-
+    class BoolFilterModel(FilterModel):
         def __init__(self, parameter_name: str, parent: QObject | None = ...):
-            super().__init__(parent)  # __init__() QAbstractListModel.
-            self.parameter_name: str = parameter_name
+            super().__init__(parent)  # __init__() FilterModel.
 
             Item = self.Item  # Даём псевдоним классу.
             self._items: tuple[Item, Item, Item] = (
                 Item('Все', None),
-                Item('True', True),
-                Item('False', False)
+                Item('True', '\"{0}\".\"{1}\" = {2}'.format(MyConnection.BONDS_TABLE, parameter_name, MyConnection.convertBoolToBlob(True))),
+                Item('False', '\"{0}\".\"{1}\" = {2}'.format(MyConnection.BONDS_TABLE, parameter_name, MyConnection.convertBoolToBlob(False)))
             )
-
-        def rowCount(self, parent: QModelIndex = ...) -> int:
-            return len(self._items)
-
-        def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
-            if role == Qt.ItemDataRole.DisplayRole:
-                return QVariant(self._items[index.row()].name)
-            elif role == Qt.ItemDataRole.UserRole:
-                return QVariant(self._items[index.row()].value)
-            elif role == self.SQL_CONDITION_ROLE:
-                def sql_condition(row: int) -> str | None:
-                    value: bool | None = self._items[row].value
-                    if value is None:
-                        return None
-                    else:
-                        return '\"{0}\".\"{1}\" = {2}'.format(MyConnection.BONDS_TABLE, self.parameter_name, MyConnection.convertBoolToBlob(value))
-
-                return QVariant(sql_condition(index.row()))
-            else:
-                return QVariant()
 
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parameter_name, parent)  # FilterComboBox __init__().
@@ -226,23 +170,17 @@ class BoolFilterComboBox(FilterComboBox):
 
     def currentCondition(self) -> str | None:
         """Возвращает SQL-условие, соответствующее выбранному в ComboBox значению."""
-        # variant: QVariant = self.currentData(self.BoolFilterModel.SQL_CONDITION_ROLE)
+        # variant: QVariant = self.currentData(Qt.ItemDataRole.UserRole)
         # condition: str | None = variant.value()
         # return condition
 
-        return self.currentData(self.BoolFilterModel.SQL_CONDITION_ROLE)
+        return self.currentData(Qt.ItemDataRole.UserRole)
 
 
 class CurrencyFilterComboBox(FilterComboBox):
-    class CurrencyFilterModel(QAbstractListModel):
-        class Item:
-            def __init__(self, name: str, sql_condition: str | None):
-                self.name: str = name
-                self.sql_condition: str | None = sql_condition
-
+    class CurrencyFilterModel(FilterModel):
         def __init__(self, parameter_name: str, parent: QObject | None = ...):
-            super().__init__(parent)  # __init__() QAbstractListModel.
-            self.parameter_name: str = parameter_name
+            super().__init__(parent)  # __init__() FilterModel.
 
             def getAnotherCurrencyCondition(currencies: tuple[str, ...] = ('rub', 'usd', 'eur')) -> str | None:
                 """Возвращает SQL-условие, исключающее валюты, переданные в функцию."""
@@ -251,7 +189,7 @@ class CurrencyFilterComboBox(FilterComboBox):
                     for currency in currencies:
                         if condition:
                             condition += ' AND '
-                        condition += '\"{0}\".\"{1}\" != \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, currency)
+                        condition += '\"{0}\".\"{1}\" != \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, currency)
                     return '({0})'.format(condition)
                 else:
                     return None
@@ -259,24 +197,13 @@ class CurrencyFilterComboBox(FilterComboBox):
             Item = self.Item  # Даём псевдоним классу.
             self._items: tuple[Item, ...] = (
                 Item('Любая', None),
-                Item('rub', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, 'rub')),
-                Item('Иностранная', '\"{0}\".\"{1}\" != \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, 'rub')),
-                Item('usd', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, 'usd')),
-                Item('eur', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, 'eur')),
+                Item('rub', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, 'rub')),
+                Item('Иностранная', '\"{0}\".\"{1}\" != \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, 'rub')),
+                Item('usd', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, 'usd')),
+                Item('eur', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, 'eur')),
                 Item('Другая', getAnotherCurrencyCondition()),
                 Item('Мультивалютная', None)
             )
-
-        def rowCount(self, parent: QModelIndex = ...) -> int:
-            return len(self._items)
-
-        def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
-            if role == Qt.ItemDataRole.DisplayRole:
-                return QVariant(self._items[index.row()].name)
-            elif role == Qt.ItemDataRole.UserRole:
-                return QVariant(self._items[index.row()].sql_condition)
-            else:
-                return QVariant()
 
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parameter_name, parent)  # FilterComboBox __init__().
@@ -293,25 +220,69 @@ class CurrencyFilterComboBox(FilterComboBox):
         return self.currentData(Qt.ItemDataRole.UserRole)
 
 
+class RiskFilterComboBox(FilterComboBox):
+    class RiskFilterModel(FilterModel):
+        def __init__(self, parameter_name: str, parent: QObject | None = ...):
+            super().__init__(parent)  # __init__() FilterModel.
+
+            Item = self.Item  # Даём псевдоним классу.
+            self._items: tuple[Item, ...] = (
+                Item('Любой', None),
+                Item('Низкий', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_LOW)),
+                Item('Средний', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_MODERATE)),
+                Item('Высокий', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_HIGH)),
+                Item('Неизвестен', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_UNSPECIFIED))
+            )
+
+    def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parameter_name, parent)  # FilterComboBox __init__().
+        model = self.RiskFilterModel(parameter_name, self)
+        self.setModel(model)
+
+    def currentCondition(self) -> str | None:
+        """Возвращает SQL-условие, соответствующее выбранному в ComboBox значению."""
+        return self.currentData(Qt.ItemDataRole.UserRole)
+
+
+class MaturityFilterComboBox(FilterComboBox):
+    class MaturityFilterModel(FilterModel):
+        def __init__(self, parameter_name: str, parent: QObject | None = ...):
+            super().__init__(parent)  # __init__() FilterModel.
+
+            Item = self.Item  # Даём псевдоним классу.
+            self._items: tuple[Item, ...] = (
+                Item('Все', None),
+                Item('Непогашенные', None),
+                Item('Погашенные', None)
+                # Item('Непогашенные', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, '{0}')),
+                # Item('Погашенные', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, '{0}'))
+            )
+
+    def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parameter_name, parent)  # FilterComboBox __init__().
+        model = self.MaturityFilterModel(parameter_name, self)
+        self.setModel(model)
+        self.setCurrentIndex(1)
+
+    def currentCondition(self, compared_datetime: datetime = getUtcDateTime()) -> str | None:
+        """Возвращает SQL-условие, соответствующее выбранному в ComboBox значению."""
+        sql_condition: str | None = self.currentData(Qt.ItemDataRole.UserRole)
+        return None if sql_condition is None else sql_condition.format(compared_datetime)
+
+
+class FilterLabel(QtWidgets.QLabel):
+    """Класс для шаблонного создания QLabel на панелях фильтров."""
+    def __init__(self, object_name: str, text: str | None, tooltip: str | None, parent: QtWidgets.QWidget | None = ...):
+        super().__init__(parent)  # QLabel __init__().
+        _translate = QtCore.QCoreApplication.translate
+        self.setObjectName(object_name)
+        self.setText(text)
+        self.setToolTip(tooltip)
+
+
 class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
     """GroupBox с фильтрами инструментов."""
     filtersChanged: pyqtSignal = pyqtSignal()  # Сигнал испускается при изменении фильтров.
-
-    @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
-    class Filters(enum.IntEnum):
-        """Перечисление фильтров инструментов."""
-        # TRADING_STATUS = 1  # Текущий режим торгов инструмента.
-        API_ACCESS = 0  # Доступ API.
-        IIS_ACCESS = 1  # Доступ ИИС.
-        QUAL_INVESTOR = 2  # Торговля инструментом только для квалифицированных инвесторов.
-        LIQUIDITY_FLAG = 3  # Флаг достаточной ликвидности.
-        SHORT_ENABLE = 4  # Признак доступности для операций в шорт.
-        BUY_AVAILABLE = 5  # Признак доступности для покупки.
-        SELL_AVAILABLE = 6  # Признак доступности для продажи.
-        WEEKEND_FLAG = 7  # Доступность торговли инструментом по выходным.
-        OTC_FLAG = 8  # Признак внебиржевой ценной бумаги.
-        BLOCKED_TCA = 9  # Флаг заблокированного ТКС.
-        CURRENCY = 10  # Валюта расчётов.
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
@@ -330,10 +301,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         _translate = QtCore.QCoreApplication.translate
 
         """---------------Возможность торговать инструментом через API---------------"""
-        self.label_api_trade_available_flag = QtWidgets.QLabel(self)
-        self.label_api_trade_available_flag.setObjectName('label_api_trade_available_flag')
-        self.label_api_trade_available_flag.setToolTip(_translate('MainWindow', 'Параметр указывает на возможность торговать инструментом через API.'))
-        self.label_api_trade_available_flag.setText(_translate('MainWindow', 'Доступ API:'))
+        self.label_api_trade_available_flag = FilterLabel(object_name='label_api_trade_available_flag',
+                                                          text=_translate('MainWindow', 'Доступ API:'),
+                                                          tooltip=_translate('MainWindow', 'Параметр указывает на возможность торговать инструментом через API.'),
+                                                          parent=self)
         self.gridLayout_main.addWidget(self.label_api_trade_available_flag, 0, 0, 1, 1)
 
         self.comboBox_api_trade_available_flag = BoolFilterComboBox('api_trade_available_flag', self)
@@ -341,10 +312,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """--------------------------------------------------------------------------"""
 
         """---------------------Признак доступности для ИИС---------------------"""
-        self.label_for_iis_flag = QtWidgets.QLabel(self)
-        self.label_for_iis_flag.setObjectName('label_for_iis_flag')
-        self.label_for_iis_flag.setToolTip(_translate('MainWindow', 'Признак доступности для ИИС.'))
-        self.label_for_iis_flag.setText(_translate('MainWindow', 'Доступ ИИС:'))
+        self.label_for_iis_flag = FilterLabel(object_name='label_for_iis_flag',
+                                              text=_translate('MainWindow', 'Доступ ИИС:'),
+                                              tooltip=_translate('MainWindow', 'Признак доступности для ИИС.'),
+                                              parent=self)
         self.gridLayout_main.addWidget(self.label_for_iis_flag, 1, 0, 1, 1)
 
         self.comboBox_for_iis_flag = BoolFilterComboBox('for_iis_flag', self)
@@ -352,10 +323,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """---------------------------------------------------------------------"""
 
         """------Доступность торговли инструментом только для квалифицированных инвесторов------"""
-        self.label_for_qual_investor_flag = QtWidgets.QLabel(self)
-        self.label_for_qual_investor_flag.setObjectName('label_for_qual_investor_flag')
-        self.label_for_qual_investor_flag.setToolTip(_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.'))
-        self.label_for_qual_investor_flag.setText(_translate('MainWindow', 'Только \"квалы\":'))
+        self.label_for_qual_investor_flag = FilterLabel(object_name='label_for_qual_investor_flag',
+                                                        text=_translate('MainWindow', 'Только \"квалы\":'),
+                                                        tooltip=_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.'),
+                                                        parent=self)
         self.gridLayout_main.addWidget(self.label_for_qual_investor_flag, 2, 0, 1, 1)
 
         self.comboBox_for_qual_investor_flag = BoolFilterComboBox('for_qual_investor_flag', self)
@@ -363,10 +334,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """-------------------------------------------------------------------------------------"""
 
         """---------------------Флаг достаточной ликвидности---------------------"""
-        self.label_liquidity_flag = QtWidgets.QLabel(self)
-        self.label_liquidity_flag.setObjectName('label_liquidity_flag')
-        self.label_liquidity_flag.setToolTip(_translate('MainWindow', 'Флаг достаточной ликвидности.'))
-        self.label_liquidity_flag.setText(_translate('MainWindow', 'Ликвидность:'))
+        self.label_liquidity_flag = FilterLabel(object_name='label_liquidity_flag',
+                                                text=_translate('MainWindow', 'Ликвидность:'),
+                                                tooltip=_translate('MainWindow', 'Флаг достаточной ликвидности.'),
+                                                parent=self)
         self.gridLayout_main.addWidget(self.label_liquidity_flag, 3, 0, 1, 1)
 
         self.comboBox_liquidity_flag = BoolFilterComboBox('liquidity_flag', self)
@@ -374,10 +345,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """----------------------------------------------------------------------"""
 
         """---------------Признак доступности для операций в шорт---------------"""
-        self.label_short_enabled_flag = QtWidgets.QLabel(self)
-        self.label_short_enabled_flag.setObjectName('label_short_enabled_flag')
-        self.label_short_enabled_flag.setToolTip(_translate('MainWindow', 'Признак доступности для операций в шорт.'))
-        self.label_short_enabled_flag.setText(_translate('MainWindow', 'Операции в шорт:'))
+        self.label_short_enabled_flag = FilterLabel(object_name='label_short_enabled_flag',
+                                                    text=_translate('MainWindow', 'Операции в шорт:'),
+                                                    tooltip=_translate('MainWindow', 'Признак доступности для операций в шорт.'),
+                                                    parent=self)
         self.gridLayout_main.addWidget(self.label_short_enabled_flag, 4, 0, 1, 1)
 
         self.comboBox_short_enabled_flag = BoolFilterComboBox('short_enabled_flag', self)
@@ -385,10 +356,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """---------------------------------------------------------------------"""
 
         """------------------------Признак доступности для покупки------------------------"""
-        self.label_buy_available_flag = QtWidgets.QLabel(self)
-        self.label_buy_available_flag.setObjectName('label_buy_available_flag')
-        self.label_buy_available_flag.setToolTip(_translate('MainWindow', 'Признак доступности для покупки.'))
-        self.label_buy_available_flag.setText(_translate('MainWindow', 'Доступность покупки:'))
+        self.label_buy_available_flag = FilterLabel(object_name='label_buy_available_flag',
+                                                    text=_translate('MainWindow', 'Доступность покупки:'),
+                                                    tooltip=_translate('MainWindow', 'Признак доступности для покупки.'),
+                                                    parent=self)
         self.gridLayout_main.addWidget(self.label_buy_available_flag, 0, 2, 1, 1)
 
         self.comboBox_buy_available_flag = BoolFilterComboBox('buy_available_flag', self)
@@ -396,10 +367,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """-------------------------------------------------------------------------------"""
 
         """------------------------Признак доступности для продажи------------------------"""
-        self.label_sell_available_flag = QtWidgets.QLabel(self)
-        self.label_sell_available_flag.setObjectName('label_sell_available_flag')
-        self.label_sell_available_flag.setToolTip(_translate('MainWindow', 'Признак доступности для продажи.'))
-        self.label_sell_available_flag.setText(_translate('MainWindow', 'Доступность продажи:'))
+        self.label_sell_available_flag = FilterLabel(object_name='label_sell_available_flag',
+                                                     text=_translate('MainWindow', 'Доступность продажи:'),
+                                                     tooltip=_translate('MainWindow', 'Признак доступности для продажи.'),
+                                                     parent=self)
         self.gridLayout_main.addWidget(self.label_sell_available_flag, 1, 2, 1, 1)
 
         self.comboBox_sell_available_flag = BoolFilterComboBox('sell_available_flag', self)
@@ -407,10 +378,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """-------------------------------------------------------------------------------"""
 
         """------------Доступность торговли инструментом по выходным------------"""
-        self.label_weekend_flag = QtWidgets.QLabel(self)
-        self.label_weekend_flag.setObjectName('label_weekend_flag')
-        self.label_weekend_flag.setToolTip(_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом по выходным.'))
-        self.label_weekend_flag.setText(_translate('MainWindow', 'Торговля по выходным:'))
+        self.label_weekend_flag = FilterLabel(object_name='label_weekend_flag',
+                                              text=_translate('MainWindow', 'Торговля по выходным:'),
+                                              tooltip=_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом по выходным.'),
+                                              parent=self)
         self.gridLayout_main.addWidget(self.label_weekend_flag, 2, 2, 1, 1)
 
         self.comboBox_weekend_flag = BoolFilterComboBox('weekend_flag', self)
@@ -418,10 +389,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """---------------------------------------------------------------------"""
 
         """------------------Признак внебиржевой ценной бумаги------------------"""
-        self.label_otc_flag = QtWidgets.QLabel(self)
-        self.label_otc_flag.setObjectName("label_otc_flag")
-        self.label_otc_flag.setToolTip(_translate('MainWindow', 'Признак внебиржевой ценной бумаги.'))
-        self.label_otc_flag.setText(_translate('MainWindow', 'Внебиржевая бумага:'))
+        self.label_otc_flag = FilterLabel(object_name='label_otc_flag',
+                                          text=_translate('MainWindow', 'Внебиржевая бумага:'),
+                                          tooltip=_translate('MainWindow', 'Признак внебиржевой ценной бумаги.'),
+                                          parent=self)
         self.gridLayout_main.addWidget(self.label_otc_flag, 3, 2, 1, 1)
 
         self.comboBox_otc_flag = BoolFilterComboBox('otc_flag', self)
@@ -429,10 +400,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """---------------------------------------------------------------------"""
 
         """---------------------Флаг заблокированного ТКС---------------------"""
-        self.label_blocked_tca_flag = QtWidgets.QLabel(self)
-        self.label_blocked_tca_flag.setObjectName('label_blocked_tca_flag')
-        self.label_blocked_tca_flag.setToolTip(_translate('MainWindow', 'Флаг заблокированного ТКС.'))
-        self.label_blocked_tca_flag.setText(_translate('MainWindow', 'Заблокированный ТКС:'))
+        self.label_blocked_tca_flag = FilterLabel(object_name='label_blocked_tca_flag',
+                                                  text=_translate('MainWindow', 'Заблокированный ТКС:'),
+                                                  tooltip=_translate('MainWindow', 'Флаг заблокированного ТКС.'),
+                                                  parent=self)
         self.gridLayout_main.addWidget(self.label_blocked_tca_flag, 4, 2, 1, 1)
 
         self.comboBox_blocked_tca_flag = BoolFilterComboBox('blocked_tca_flag', self)
@@ -440,10 +411,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """-------------------------------------------------------------------"""
 
         """----------------------------Валюта----------------------------"""
-        self.label_currency = QtWidgets.QLabel(self)
-        self.label_currency.setObjectName('label_currency')
-        self.label_currency.setToolTip(_translate('MainWindow', 'Валюта расчётов.'))
-        self.label_currency.setText(_translate('MainWindow', 'Валюта:'))
+        self.label_currency = FilterLabel(object_name='label_currency',
+                                          text=_translate('MainWindow', 'Валюта:'),
+                                          tooltip=_translate('MainWindow', 'Валюта расчётов.'),
+                                          parent=self)
         self.gridLayout_main.addWidget(self.label_currency, 5, 0, 1, 1)
 
         self.comboBox_currency = CurrencyFilterComboBox('currency', self)
@@ -452,9 +423,9 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         self.verticalLayout_main.addLayout(self.gridLayout_main)
 
-        """------------------------------------retranslateUi------------------------------------"""
+        """------------------------retranslateUi------------------------"""
         self.setTitle(_translate('MainWindow', 'Общие фильтры'))
-        """-------------------------------------------------------------------------------------"""
+        """-------------------------------------------------------------"""
 
         self.filters: dict[str, BoolFilterComboBox | CurrencyFilterComboBox] = {
             'api_trade_available_flag': self.comboBox_api_trade_available_flag,
@@ -488,15 +459,7 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
 class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
     """GroupBox с фильтрами облигаций."""
-    @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
-    class Filters(enum.IntEnum):
-        """Перечисление фильтров облигаций."""
-        MATURITY_FLAG = 0  # Погашенность.
-        RISK_LEVEL = 1  # Уровень риска.
-        AMORTIZATION_FLAG = 2  # Признак облигации с амортизацией долга.
-        FLOATING_COUPON_FLAG = 3  # Признак облигации с плавающим купоном.
-        PERPETUAL_FLAG = 4  # Признак бессрочной облигации.
-        SUBORDINATED_FLAG = 5  # Признак субординированной облигации.
+    filtersChanged: pyqtSignal = pyqtSignal()  # Сигнал испускается при изменении фильтров.
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
@@ -515,175 +478,96 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         self.gridLayout_main.setObjectName('gridLayout_main')
 
         """----------------------------Погашенность----------------------------"""
-        self.label_maturity = QtWidgets.QLabel(self)
-        self.label_maturity.setObjectName('label_maturity')
-        self.label_maturity.setToolTip(_translate('MainWindow', 'Флаг, отображающий погашенность облигации к текущей дате.'))
-        self.label_maturity.setText(_translate('MainWindow', 'Погашенность:'))
+        self.label_maturity = FilterLabel(object_name='label_maturity',
+                                          text=_translate('MainWindow', 'Погашенность:'),
+                                          tooltip=_translate('MainWindow', 'Флаг, отображающий погашенность облигации к текущей дате.'),
+                                          parent=self)
         self.gridLayout_main.addWidget(self.label_maturity, 0, 0, 1, 1)
 
-        self.comboBox_maturity = QtWidgets.QComboBox(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.comboBox_maturity.sizePolicy().hasHeightForWidth())
-        self.comboBox_maturity.setSizePolicy(sizePolicy)
-        self.comboBox_maturity.setObjectName('comboBox_maturity')
-        self.comboBox_maturity.addItem(_translate('MainWindow', 'Все'))
-        self.comboBox_maturity.addItem(_translate('MainWindow', 'Непогашенные'))
-        self.comboBox_maturity.addItem(_translate('MainWindow', 'Погашенные'))
+        self.comboBox_maturity = MaturityFilterComboBox('maturity', self)
         self.gridLayout_main.addWidget(self.comboBox_maturity, 0, 1, 1, 1)
         """--------------------------------------------------------------------"""
 
         """----------------------------Плавающий купон---------------------------"""
-        self.label_floating_coupon_flag = QtWidgets.QLabel(self)
-        self.label_floating_coupon_flag.setObjectName('label_floating_coupon_flag')
-        self.label_floating_coupon_flag.setToolTip(_translate("MainWindow", "Признак облигации с плавающим купоном."))
-        self.label_floating_coupon_flag.setText(_translate("MainWindow", "Плавающий купон:"))
+        self.label_floating_coupon_flag = FilterLabel(object_name='label_floating_coupon_flag',
+                                                      text=_translate('MainWindow', 'Плавающий купон:'),
+                                                      tooltip=_translate('MainWindow', 'Признак облигации с плавающим купоном.'),
+                                                      parent=self)
         self.gridLayout_main.addWidget(self.label_floating_coupon_flag, 0, 2, 1, 1)
 
-        self.comboBox_floating_coupon_flag = QtWidgets.QComboBox(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.comboBox_floating_coupon_flag.sizePolicy().hasHeightForWidth())
-        self.comboBox_floating_coupon_flag.setSizePolicy(sizePolicy)
-        self.comboBox_floating_coupon_flag.setObjectName('comboBox_floating_coupon_flag')
-        self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "Все"))
-        self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "True"))
-        self.comboBox_floating_coupon_flag.addItem(_translate("MainWindow", "False"))
+        self.comboBox_floating_coupon_flag = BoolFilterComboBox('floating_coupon_flag', self)
         self.gridLayout_main.addWidget(self.comboBox_floating_coupon_flag, 0, 3, 1, 1)
         """----------------------------------------------------------------------"""
 
         """----------------------------Уровень риска----------------------------"""
-        self.label_risk_level = QtWidgets.QLabel(self)
-        self.label_risk_level.setObjectName('label_risk_level')
-        self.label_risk_level.setToolTip(_translate("MainWindow", "Уровень риска."))
-        self.label_risk_level.setText(_translate("MainWindow", "Уровень риска:"))
+        self.label_risk_level = FilterLabel(object_name='label_risk_level',
+                                            text=_translate('MainWindow', 'Уровень риска:'),
+                                            tooltip=_translate('MainWindow', 'Уровень риска.'),
+                                            parent=self)
         self.gridLayout_main.addWidget(self.label_risk_level, 1, 0, 1, 1)
 
-        self.comboBox_risk_level = QtWidgets.QComboBox(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.comboBox_risk_level.sizePolicy().hasHeightForWidth())
-        self.comboBox_risk_level.setSizePolicy(sizePolicy)
-        self.comboBox_risk_level.setObjectName('comboBox_risk_level')
-        self.comboBox_risk_level.addItem(_translate("MainWindow", "Любой"))
-        self.comboBox_risk_level.addItem(_translate("MainWindow", "Низкий"))
-        self.comboBox_risk_level.addItem(_translate("MainWindow", "Средний"))
-        self.comboBox_risk_level.addItem(_translate("MainWindow", "Высокий"))
-        self.comboBox_risk_level.addItem(_translate("MainWindow", "Неизвестен"))
+        self.comboBox_risk_level = RiskFilterComboBox('risk_level', self)
         self.gridLayout_main.addWidget(self.comboBox_risk_level, 1, 1, 1, 1)
         """---------------------------------------------------------------------"""
 
         """----------------------------Бессрочность----------------------------"""
-        self.label_perpetual_flag = QtWidgets.QLabel(self)
-        self.label_perpetual_flag.setObjectName('label_perpetual_flag')
-        self.label_perpetual_flag.setToolTip(_translate("MainWindow", "Признак бессрочной облигации."))
-        self.label_perpetual_flag.setText(_translate("MainWindow", "Бессрочность:"))
+        self.label_perpetual_flag = FilterLabel(object_name='label_perpetual_flag',
+                                                text=_translate('MainWindow', 'Бессрочность:'),
+                                                tooltip=_translate('MainWindow', 'Признак бессрочной облигации.'),
+                                                parent=self)
         self.gridLayout_main.addWidget(self.label_perpetual_flag, 1, 2, 1, 1)
 
-        self.comboBox_perpetual_flag = QtWidgets.QComboBox(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.comboBox_perpetual_flag.sizePolicy().hasHeightForWidth())
-        self.comboBox_perpetual_flag.setSizePolicy(sizePolicy)
-        self.comboBox_perpetual_flag.setObjectName('comboBox_perpetual_flag')
-        self.comboBox_perpetual_flag.addItem(_translate("MainWindow", "Все"))
-        self.comboBox_perpetual_flag.addItem(_translate("MainWindow", "True"))
-        self.comboBox_perpetual_flag.addItem(_translate("MainWindow", "False"))
+        self.comboBox_perpetual_flag = BoolFilterComboBox('perpetual_flag', self)
         self.gridLayout_main.addWidget(self.comboBox_perpetual_flag, 1, 3, 1, 1)
         """--------------------------------------------------------------------"""
 
         """-----------------------------Амортизация-----------------------------"""
-        self.label_amortization_flag = QtWidgets.QLabel(self)
-        self.label_amortization_flag.setObjectName('label_amortization_flag')
-        self.label_amortization_flag.setToolTip(_translate("MainWindow", "Признак облигации с амортизацией долга."))
-        self.label_amortization_flag.setText(_translate("MainWindow", "Амортизация:"))
+        self.label_amortization_flag = FilterLabel(object_name='label_amortization_flag',
+                                                   text=_translate('MainWindow', 'Амортизация:'),
+                                                   tooltip=_translate('MainWindow', 'Признак облигации с амортизацией долга.'),
+                                                   parent=self)
         self.gridLayout_main.addWidget(self.label_amortization_flag, 2, 0, 1, 1)
 
-        self.comboBox_amortization_flag = QtWidgets.QComboBox(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.comboBox_amortization_flag.sizePolicy().hasHeightForWidth())
-        self.comboBox_amortization_flag.setSizePolicy(sizePolicy)
-        self.comboBox_amortization_flag.setObjectName('comboBox_amortization_flag')
-        self.comboBox_amortization_flag.addItem(_translate("MainWindow", "Все"))
-        self.comboBox_amortization_flag.addItem(_translate("MainWindow", "True"))
-        self.comboBox_amortization_flag.addItem(_translate("MainWindow", "False"))
+        self.comboBox_amortization_flag = BoolFilterComboBox('amortization_flag', self)
         self.gridLayout_main.addWidget(self.comboBox_amortization_flag, 2, 1, 1, 1)
         """---------------------------------------------------------------------"""
 
         """-------------------------------Суборд-------------------------------"""
-        self.label_subordinated_flag = QtWidgets.QLabel(self)
-        self.label_subordinated_flag.setObjectName('label_subordinated_flag')
-        self.label_subordinated_flag.setToolTip(_translate("MainWindow", "Признак субординированной облигации."))
-        self.label_subordinated_flag.setText(_translate("MainWindow", "Суборд:"))
+        self.label_subordinated_flag = FilterLabel(object_name='label_subordinated_flag',
+                                                   text=_translate('MainWindow', 'Суборд:'),
+                                                   tooltip=_translate('MainWindow', 'Признак субординированной облигации.'),
+                                                   parent=self)
         self.gridLayout_main.addWidget(self.label_subordinated_flag, 2, 2, 1, 1)
 
-        self.comboBox_subordinated_flag = QtWidgets.QComboBox(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.comboBox_subordinated_flag.sizePolicy().hasHeightForWidth())
-        self.comboBox_subordinated_flag.setSizePolicy(sizePolicy)
-        self.comboBox_subordinated_flag.setObjectName('comboBox_subordinated_flag')
-        self.comboBox_subordinated_flag.addItem(_translate("MainWindow", "Все"))
-        self.comboBox_subordinated_flag.addItem(_translate("MainWindow", "True"))
-        self.comboBox_subordinated_flag.addItem(_translate("MainWindow", "False"))
+        self.comboBox_subordinated_flag = BoolFilterComboBox('subordinated_flag', self)
         self.gridLayout_main.addWidget(self.comboBox_subordinated_flag, 2, 3, 1, 1)
         """--------------------------------------------------------------------"""
 
         self.verticalLayout_main.addLayout(self.gridLayout_main)
 
-        self.comboBox_maturity.setCurrentIndex(1)
-        self.comboBox_floating_coupon_flag.setCurrentIndex(0)
-        self.comboBox_perpetual_flag.setCurrentIndex(0)
-        self.comboBox_amortization_flag.setCurrentIndex(0)
-        self.comboBox_subordinated_flag.setCurrentIndex(0)
-
-        '''------------------------------------Фильтры облигаций------------------------------------'''
-        def appFilter_Maturity(bond: Bond, cur_filter: str) -> bool:
-            """Фильтр по погашенности."""
-            match cur_filter:
-                case 'Все': return True
-                case 'Непогашенные': return not MyBond.ifBondIsMaturity(bond)
-                case 'Погашенные': return MyBond.ifBondIsMaturity(bond)
-                case _: raise ValueError('Некорректное значение фильтра \"Погашенность\" ({0})!'.format(cur_filter))
-
-        def appFilter_RiskLevel(risk_level: RiskLevel, cur_filter: str) -> bool:
-            """Фильтр по уровню риска."""
-            match cur_filter:
-                case 'Любой': return True
-                case 'Низкий': return True if risk_level == RiskLevel.RISK_LEVEL_LOW else False
-                case 'Средний': return True if risk_level == RiskLevel.RISK_LEVEL_MODERATE else False
-                case 'Высокий': return True if risk_level == RiskLevel.RISK_LEVEL_HIGH else False
-                case 'Неизвестен': return True if risk_level == RiskLevel.RISK_LEVEL_UNSPECIFIED else False
-                case _: raise ValueError('Некорректное значение фильтра \"Уровень риска\" ({0})!'.format(cur_filter))
-
-        self.filters: dict = {
-            self.Filters.MATURITY_FLAG:
-                lambda bond: appFilter_Maturity(bond, self.comboBox_maturity.currentText()),
-            self.Filters.RISK_LEVEL:
-                lambda bond: appFilter_RiskLevel(bond.risk_level, self.comboBox_risk_level.currentText()),
-            self.Filters.AMORTIZATION_FLAG:
-                lambda bond: appFilter_Flag(bond.amortization_flag, self.comboBox_amortization_flag.currentText()),
-            self.Filters.FLOATING_COUPON_FLAG:
-                lambda bond: appFilter_Flag(bond.floating_coupon_flag, self.comboBox_floating_coupon_flag.currentText()),
-            self.Filters.PERPETUAL_FLAG:
-                lambda bond: appFilter_Flag(bond.perpetual_flag, self.comboBox_perpetual_flag.currentText()),
-            self.Filters.SUBORDINATED_FLAG:
-                lambda bond: appFilter_Flag(bond.subordinated_flag, self.comboBox_subordinated_flag.currentText()),
+        self.filters: dict[str, BoolFilterComboBox] = {
+            'amortization_flag': self.comboBox_amortization_flag,
+            'floating_coupon_flag': self.comboBox_floating_coupon_flag,
+            'perpetual_flag': self.comboBox_perpetual_flag,
+            'subordinated_flag': self.comboBox_subordinated_flag,
+            'risk_level': self.comboBox_risk_level,
+            'maturity': self.comboBox_maturity
         }
-        '''-----------------------------------------------------------------------------------------'''
 
-    def checkFilters(self, bond: Bond) -> bool:
-        """Проверяет облигацию на соответствие фильтрам."""
         for filter in self.filters.values():
-            if not filter(bond): return False
-        return True
+            filter.currentIndexChanged.connect(lambda index: self.filtersChanged.emit())
+
+    def getSqlCondition(self) -> str | None:
+        condition: str = ''
+        for comboBox in self.filters.values():
+            current_condition: str | None = comboBox.currentCondition()
+            if current_condition is not None:
+                if condition:
+                    condition += ' AND '
+                else:
+                    condition += '('
+                condition += '{0}'.format(current_condition)
+        return '{0})'.format(condition) if condition else None
 
 
 class GroupBox_BondsFilters(QtWidgets.QGroupBox):
@@ -758,6 +642,7 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         self.horizontalLayout_bond_filters.setObjectName('horizontalLayout_bond_filters')
 
         self.groupBox_bonds_filters: GroupBox_OnlyBondsFilters = GroupBox_OnlyBondsFilters('groupBox_bonds_filters', self)
+        self.groupBox_bonds_filters.filtersChanged.connect(self.filtersChanged.emit)
         self.horizontalLayout_bond_filters.addWidget(self.groupBox_bonds_filters)
 
         spacerItem42 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
@@ -766,29 +651,26 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout_bond_filters)
         """-------------------------------------------------------------"""
 
-        """------------------------------------retranslateUi------------------------------------"""
+        '''-----------------------retranslateUi-----------------------'''
         _translate = QtCore.QCoreApplication.translate
         self.label_title.setText(_translate('MainWindow', 'ФИЛЬТРЫ'))
         self.label_count.setText(_translate('MainWindow', '0'))
-        """-------------------------------------------------------------------------------------"""
-
-    def _checkFilters(self, bond: Bond) -> bool:
-        """Проверяет облигацию на соответствие фильтрам."""
-        # return self.groupBox_instruments_filters.checkFilters(bond) & self.groupBox_bonds_filters.checkFilters(bond)
-        pass
-
-    def getFilteredBondsList(self, bonds: list[Bond]) -> list[Bond]:
-        """Фильтрует список облигаций и возвращает отфильтрованный список."""
-        filtered_list: list[Bond] = list(filter(self._checkFilters, bonds))
-        # self.setCount(len(filtered_list))  # Обновляет количество отобранных облигаций.
-        return filtered_list
+        '''-----------------------------------------------------------'''
 
     def setCount(self, count: int):
         """Устанавливает количество отобранных облигаций."""
         self.label_count.setText(str(count))
 
     def getSqlCondition(self) -> str | None:
-        return self.groupBox_instruments_filters.getSqlCondition()
+        instruments_condition: str | None = self.groupBox_instruments_filters.getSqlCondition()
+        bonds_condition: str | None = self.groupBox_bonds_filters.getSqlCondition()
+        if instruments_condition is None:
+            return bonds_condition
+        else:
+            if bonds_condition is None:
+                return instruments_condition
+            else:
+                return '{0} AND {1}'.format(instruments_condition, bonds_condition)
 
 
 class GroupBox_CouponsView(QtWidgets.QGroupBox):
