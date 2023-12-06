@@ -163,9 +163,7 @@ class BoolFilterComboBox(FilterComboBox):
 
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parameter_name, parent)  # FilterComboBox __init__().
-
-        BoolFilterModel = self.BoolFilterModel  # Даём псевдоним классу.
-        model: BoolFilterModel = BoolFilterModel(parameter_name, self)
+        model = self.BoolFilterModel(parameter_name, self)
         self.setModel(model)
 
     def currentCondition(self) -> str | None:
@@ -252,10 +250,10 @@ class MaturityFilterComboBox(FilterComboBox):
             Item = self.Item  # Даём псевдоним классу.
             self._items: tuple[Item, ...] = (
                 Item('Все', None),
-                Item('Непогашенные', None),
-                Item('Погашенные', None)
-                # Item('Непогашенные', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, '{0}')),
-                # Item('Погашенные', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, self.parameter_name, '{0}'))
+                Item('Непогашенные', 'DATETIME(\"{0}\".\"{1}\") >= DATETIME(\'now\')'.format(MyConnection.BONDS_TABLE, parameter_name)),
+                Item('Погашенные', 'DATETIME(\"{0}\".\"{1}\") < DATETIME(\'now\')'.format(MyConnection.BONDS_TABLE, parameter_name))
+                # Item('Непогашенные', 'DATETIME(\"{0}\".\"{1}\") >= DATETIME(\'{2}\')'.format(MyConnection.BONDS_TABLE, parameter_name, '{0}')),
+                # Item('Погашенные', 'DATETIME(\"{0}\".\"{1}\") < DATETIME(\'{2}\')'.format(MyConnection.BONDS_TABLE, parameter_name, '{0}'))
             )
 
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
@@ -484,7 +482,7 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
                                           parent=self)
         self.gridLayout_main.addWidget(self.label_maturity, 0, 0, 1, 1)
 
-        self.comboBox_maturity = MaturityFilterComboBox('maturity', self)
+        self.comboBox_maturity = MaturityFilterComboBox('maturity_date', self)
         self.gridLayout_main.addWidget(self.comboBox_maturity, 0, 1, 1, 1)
         """--------------------------------------------------------------------"""
 

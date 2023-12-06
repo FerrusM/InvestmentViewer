@@ -762,7 +762,7 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
         current_try_count: RequestTryClass = RequestTryClass()
         last_prices_response: MyResponse = MyResponse()
         while current_try_count and not last_prices_response.ifDataSuccessfullyReceived():
-            last_prices_response = getLastPrices(token.token, [cls.figi for cls in class_list])
+            last_prices_response = getLastPrices(token.token, [cls.uid for cls in class_list])
             assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
             current_try_count += 1
 
@@ -771,15 +771,15 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
             MainConnection.addLastPrices(last_prices)  # Добавляем последние цены в таблицу последних цен.
             zip_list: list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]] = []
             '''------------------Проверка полученного списка последних цен------------------'''
-            last_prices_figi_list: list[str] = [last_price.figi for last_price in last_prices]
+            last_prices_uid_list: list[str] = [last_price.instrument_uid for last_price in last_prices]
             for cls in class_list:
-                figi_count: int = last_prices_figi_list.count(cls.figi)
-                if figi_count == 1:
-                    last_price_number: int = last_prices_figi_list.index(cls.figi)
+                uid_count: int = last_prices_uid_list.count(cls.uid)
+                if uid_count == 1:
+                    last_price_number: int = last_prices_uid_list.index(cls.uid)
                     last_price: LastPrice = last_prices[last_price_number]
                     zip_list.append((cls, last_price))
-                elif figi_count > 1:
-                    assert False, 'Список последних цен содержит несколько элементов с одним и тем же figi ().'.format(cls.figi)
+                elif uid_count > 1:
+                    assert False, 'Список последних цен содержит несколько элементов с одним и тем же uid ({0}).'.format(cls.uid)
                     pass
                 else:
                     '''

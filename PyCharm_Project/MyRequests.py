@@ -161,7 +161,7 @@ def getBonds(token: str, instrument_status: InstrumentStatus) -> MyResponse:
     return MyResponse('bonds()', request_occurred, bonds_list, exception_flag, exception, request_error_flag, request_error)
 
 
-def getLastPrices(token: str, figi_list: list[str]) -> MyResponse:
+def getLastPrices(token: str, instrument_uid: list[str] | None) -> MyResponse:
     """Получает и возвращает список цен последних сделок."""
     last_prices: list[LastPrice] = []
     request_occurred: bool = False  # Флаг произведённого запроса.
@@ -171,7 +171,7 @@ def getLastPrices(token: str, figi_list: list[str]) -> MyResponse:
     request_error: RequestError | None = None  # RequestError.
     with Client(token) as client:
         try:
-            last_prices = client.market_data.get_last_prices(figi=figi_list).last_prices
+            last_prices = client.market_data.get_last_prices(instrument_id=instrument_uid).last_prices
         except RequestError as error:
             request_error_flag = True  # Флаг наличия RequestError.
             request_error = error  # RequestError.

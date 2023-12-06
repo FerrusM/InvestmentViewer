@@ -838,7 +838,7 @@ class MainConnection(MyConnection):
 
             if transaction_flag:
                 query = QSqlQuery(db)
-                sql_command: str = '''INSERT INTO "LastPrices"("figi", "price", "time", "instrument_uid") VALUES '''
+                sql_command: str = '''INSERT INTO "LastPrices" ("figi", "price", "time", "instrument_uid") VALUES '''
                 lp_count: int = len(last_prices)  # Количество последних цен.
                 for i in range(lp_count):
                     if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.

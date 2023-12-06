@@ -156,6 +156,7 @@ class MyConnection(ABC):
 
     '''---------Названия таблиц БД---------'''
     BONDS_TABLE: str = 'Bonds'
+    LAST_PRICES_TABLE: str = 'LastPrices'
     '''------------------------------------'''
 
     SQLITE_DRIVER: str = 'QSQLITE'
@@ -210,13 +211,11 @@ class MyConnection(ABC):
     @staticmethod
     def convertDateTimeToText(dt: datetime, sep: str = ' ', timespec: str = 'auto') -> str:
         """Конвертирует datetime в TEXT для хранения в БД."""
-        # return str(dt)
         return dt.isoformat(sep=sep, timespec=timespec)
 
     @staticmethod
     def convertTextToDateTime(text: str) -> datetime:
         """Конвертирует TEXT в datetime при извлечении из БД."""
-        # return datetime.strptime(text, '%Y-%m-%d %H:%M:%S%z')
         return datetime.fromisoformat(text)
 
     @staticmethod

@@ -4,7 +4,7 @@ from PyQt6.QtCore import QAbstractTableModel, QObject, QModelIndex, QSortFilterP
 from PyQt6.QtGui import QBrush
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import InstrumentStatus, Bond, Quotation, SecurityTradingStatus, RealExchange
-from tinkoff.invest.schemas import RiskLevel
+from tinkoff.invest.schemas import RiskLevel, LastPrice
 from Classes import MyConnection, Column, TokenClass, reportTradingStatus
 from MyBondClass import MyBondClass, MyBond
 from MyDatabase import MainConnection
@@ -67,7 +67,9 @@ class BondsModel(QAbstractTableModel):
             BondColumn(header='Номинал',
                        header_tooltip='Номинал облигации.',
                        data_function=lambda bond_class: bond_class.bond.nominal,
-                       display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.nominal, 2)),
+                       display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.nominal, 2),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lambda left, right, role: MyMoneyValue.__lt__(left.data(role=role), right.data(role=role))),
             BondColumn(header='Шаг цены',
                        header_tooltip='Минимальное изменение цены определённого инструмента.',
                        data_function=lambda bond_class: bond_class.bond.min_price_increment,
@@ -84,7 +86,9 @@ class BondsModel(QAbstractTableModel):
                        header_tooltip='Дата погашения облигации в часовом поясе UTC.',
                        data_function=lambda bond_class: bond_class.bond.maturity_date,
                        display_function=lambda bond_class: reportSignificantInfoFromDateTime(bond_class.bond.maturity_date),
-                       tooltip_function=lambda bond_class: str(bond_class.bond.maturity_date)),
+                       tooltip_function=lambda bond_class: str(bond_class.bond.maturity_date),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             BondColumn(header='Валюта',
                        header_tooltip='Валюта расчётов.',
                        data_function=lambda bond_class: bond_class.bond.currency),
@@ -110,33 +114,6 @@ class BondsModel(QAbstractTableModel):
 
         self.update(token, instrument_status, sql_condition)  # Обновляем данные модели.
 
-    # @property
-    # def token(self) -> TokenClass | None:
-    #     return self.__token
-    #
-    # @token.setter
-    # def token(self, token: TokenClass | None):
-    #     self.__token = token
-    #     self.update()  # Обновляем данные модели.
-    #
-    # @property
-    # def instrument_status(self) -> InstrumentStatus:
-    #     return self.__instrument_status
-    #
-    # @instrument_status.setter
-    # def instrument_status(self, instrument_status: InstrumentStatus):
-    #     self.__instrument_status = instrument_status
-    #     self.update()  # Обновляем данные модели.
-    #
-    # @property
-    # def sql_condition(self) -> str | None:
-    #     return self.__sql_condition
-    #
-    # @sql_condition.setter
-    # def sql_condition(self, sql_condition: str | None):
-    #     self.__sql_condition = sql_condition
-    #     self.update()  # Обновляем данные модели.
-
     def update(self, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None):
         """Обновляет данные модели в соответствии с переданными параметрами запроса к БД."""
         self.beginResetModel()  # Начинает операцию сброса модели.
@@ -157,27 +134,62 @@ class BondsModel(QAbstractTableModel):
             # "maturity_date", "nominal", "initial_nominal", "state_reg_date", "placement_date", "placement_price",
             # "aci_value", "country_of_risk", "country_of_risk_name", "sector", "issue_kind", "issue_size", "issue_size_plan",
             # "trading_status", "otc_flag", "buy_available_flag", "sell_available_flag", "floating_coupon_flag",
-            # "perpetual_flag", "amortization_flag", "min_price_increment", "api_trade_available_flag", "Bonds"."uid",
+            # "perpetual_flag", "amortization_flag", "min_price_increment", "api_trade_available_flag", {0}."uid",
             # "real_exchange", "position_uid", "for_iis_flag", "for_qual_investor_flag", "weekend_flag", "blocked_tca_flag",
             # "subordinated_flag", "liquidity_flag", "first_1min_candle_date", "first_1day_candle_date", "risk_level"
-            # FROM "BondsStatus", "Bonds"
+            # FROM "BondsStatus", {0}
             # WHERE "BondsStatus"."token" = :token AND "BondsStatus"."status" = :status AND
-            # "BondsStatus"."uid" = "Bonds"."uid";'''
+            # "BondsStatus"."uid" = {0}."uid"{1};'''.format(
+            #     '\"{0}\"'.format(MyConnection.BONDS_TABLE),
+            #     '' if sql_condition is None else ' AND {0}'.format(sql_condition)
+            # )
 
-            sql_command: str = '''
-            SELECT "figi", "ticker", "class_code", "isin", "lot", "currency", "klong", "kshort", "dlong", "dshort",
-            "dlong_min", "dshort_min", "short_enabled_flag", "name", "exchange", "coupon_quantity_per_year",
-            "maturity_date", "nominal", "initial_nominal", "state_reg_date", "placement_date", "placement_price",
-            "aci_value", "country_of_risk", "country_of_risk_name", "sector", "issue_kind", "issue_size", "issue_size_plan", 
-            "trading_status", "otc_flag", "buy_available_flag", "sell_available_flag", "floating_coupon_flag", 
-            "perpetual_flag", "amortization_flag", "min_price_increment", "api_trade_available_flag", {0}."uid", 
-            "real_exchange", "position_uid", "for_iis_flag", "for_qual_investor_flag", "weekend_flag", "blocked_tca_flag", 
-            "subordinated_flag", "liquidity_flag", "first_1min_candle_date", "first_1day_candle_date", "risk_level"
+            bonds_select: str = '''
+            SELECT {0}."figi", {0}."ticker", {0}."class_code", {0}."isin", {0}."lot", {0}."currency", {0}."klong", 
+            {0}."kshort", {0}."dlong", {0}."dshort", {0}."dlong_min", {0}."dshort_min", {0}."short_enabled_flag", 
+            {0}."name", {0}."exchange", {0}."coupon_quantity_per_year", {0}."maturity_date", {0}."nominal", 
+            {0}."initial_nominal", {0}."state_reg_date", {0}."placement_date", {0}."placement_price", {0}."aci_value", 
+            {0}."country_of_risk", {0}."country_of_risk_name", {0}."sector", {0}."issue_kind", {0}."issue_size", 
+            {0}."issue_size_plan", {0}."trading_status", {0}."otc_flag", {0}."buy_available_flag", 
+            {0}."sell_available_flag", {0}."floating_coupon_flag", {0}."perpetual_flag", {0}."amortization_flag", 
+            {0}."min_price_increment", {0}."api_trade_available_flag", {0}."uid", {0}."real_exchange", 
+            {0}."position_uid", {0}."for_iis_flag", {0}."for_qual_investor_flag", {0}."weekend_flag", 
+            {0}."blocked_tca_flag", {0}."subordinated_flag", {0}."liquidity_flag", {0}."first_1min_candle_date", 
+            {0}."first_1day_candle_date", {0}."risk_level"
             FROM "BondsStatus", {0}
             WHERE "BondsStatus"."token" = :token AND "BondsStatus"."status" = :status AND
-            "BondsStatus"."uid" = {0}."uid"{1};'''.format(
+            "BondsStatus"."uid" = {0}."uid"{1}'''.format(
                 '\"{0}\"'.format(MyConnection.BONDS_TABLE),
                 '' if sql_condition is None else ' AND {0}'.format(sql_condition)
+            )
+            prices_select: str = '''
+            SELECT {0}."figi", {0}."price", MAX({0}."time") AS "time", {0}."instrument_uid" 
+            FROM {0} GROUP BY {0}."instrument_uid"
+            '''.format(
+                '\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE)
+            )
+
+            sql_command: str = '''
+            SELECT {1}."figi", {1}."ticker", {1}."class_code", {1}."isin", {1}."lot", {1}."currency", {1}."klong", 
+            {1}."kshort", {1}."dlong", {1}."dshort", {1}."dlong_min", {1}."dshort_min", {1}."short_enabled_flag", 
+            {1}."name", {1}."exchange", {1}."coupon_quantity_per_year", {1}."maturity_date", {1}."nominal", 
+            {1}."initial_nominal", {1}."state_reg_date", {1}."placement_date", {1}."placement_price", {1}."aci_value", 
+            {1}."country_of_risk", {1}."country_of_risk_name", {1}."sector", {1}."issue_kind", {1}."issue_size", 
+            {1}."issue_size_plan", {1}."trading_status", {1}."otc_flag", {1}."buy_available_flag", 
+            {1}."sell_available_flag", {1}."floating_coupon_flag", {1}."perpetual_flag", {1}."amortization_flag", 
+            {1}."min_price_increment", {1}."api_trade_available_flag", {1}."uid", {1}."real_exchange", 
+            {1}."position_uid", {1}."for_iis_flag", {1}."for_qual_investor_flag", {1}."weekend_flag", 
+            {1}."blocked_tca_flag", {1}."subordinated_flag", {1}."liquidity_flag", {1}."first_1min_candle_date", 
+            {1}."first_1day_candle_date", {1}."risk_level", 
+            {3}."figi" AS "lp_figi", {3}."price" AS "lp_price", {3}."time" AS "lp_time", 
+            {3}."instrument_uid" AS "lp_instrument_uid"
+            FROM ({0}) AS {1}, ({2}) AS {3}
+            WHERE {3}."instrument_uid" = {1}."uid"
+            ;'''.format(
+                bonds_select,
+                '\"B\"',
+                prices_select,
+                '\"Prices\"'
             )
 
             db: QSqlDatabase = MainConnection.getDatabase()
@@ -270,8 +282,16 @@ class BondsModel(QAbstractTableModel):
                                 liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
                                 first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
 
+                def getLastPrice() -> LastPrice:
+                    figi: str = query.value('lp_figi')
+                    price: Quotation = MyConnection.convertTextToQuotation(query.value('lp_price'))
+                    time: datetime = MyConnection.convertTextToDateTime(query.value('lp_time'))
+                    instrument_uid: str = query.value('lp_instrument_uid')
+                    return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
+
                 bond: Bond = getBond()
-                bond_class: MyBondClass = MyBondClass(bond)
+                last_price: LastPrice = getLastPrice()
+                bond_class: MyBondClass = MyBondClass(bond, last_price)
                 self._bonds.append(bond_class)
             '''--------------------------------------------------------------------------'''
 
@@ -286,7 +306,7 @@ class BondsModel(QAbstractTableModel):
         return len(self.columns)
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
-        column: Column = self.columns[index.column()]
+        column: BondColumn = self.columns[index.column()]
         bond_class: MyBondClass = self._bonds[index.row()]
         return column(role, bond_class)
 
@@ -310,3 +330,11 @@ class BondsProxyModel(QSortFilterProxyModel):
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header
         elif role == Qt.ItemDataRole.ToolTipRole:  # Подсказки.
             if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header_tooltip
+
+    def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
+        """Определяет критерий сравнения данных для сортировки."""
+        left_column_number: int = left.column()  # Номер строки "левого" элемента.
+        if left_column_number == right.column():
+            column: BondColumn = self.sourceModel().columns[left_column_number]
+            if column.lessThan is None: return super().lessThan(left, right)  # Сортировка по умолчанию.
+            return column.lessThan(left, right, column.getSortRole)
