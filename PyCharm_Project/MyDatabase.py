@@ -353,7 +353,7 @@ class MainConnection(MyConnection):
             '''----------------Создание таблицы последних цен----------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "LastPrices"(
+            CREATE TABLE IF NOT EXISTS "LastPrices" (
             "figi" TEXT NOT NULL,
             "price" TEXT NOT NULL,
             "time" TEXT NOT NULL,
@@ -364,6 +364,20 @@ class MainConnection(MyConnection):
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
+
+            '''---------------Создание представления последних цен---------------'''
+            last_prices_view_query = QSqlQuery(db)
+            last_prices_view_query.prepare('''
+            CREATE VIEW IF NOT EXISTS {0} ("figi", "price", "time", "instrument_uid") AS
+            SELECT {1}."figi" AS "figi", {1}."price" AS "price", MAX({1}."time") AS "time", {1}."instrument_uid" AS "instrument_uid" 
+            FROM {1} GROUP BY {1}."instrument_uid"
+            ;'''.format(
+                '\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW),
+                '\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE)
+            ))
+            last_prices_view_exec_flag: bool = last_prices_view_query.exec()
+            assert last_prices_view_exec_flag, last_prices_view_query.lastError().text()
+            '''------------------------------------------------------------------'''
 
             '''-------------------Создание таблицы брэндов-------------------'''
             query = QSqlQuery(db)

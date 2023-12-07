@@ -157,6 +157,10 @@ class MyConnection(ABC):
     '''---------Названия таблиц БД---------'''
     BONDS_TABLE: str = 'Bonds'
     LAST_PRICES_TABLE: str = 'LastPrices'
+    COUPONS_TABLE: str = 'Coupons'
+    BONDS_FIGI_TABLE: str = 'BondsFinancialInstrumentGlobalIdentifiers'
+
+    LAST_PRICES_VIEW: str = 'LastPricesView'
     '''------------------------------------'''
 
     SQLITE_DRIVER: str = 'QSQLITE'

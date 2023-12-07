@@ -767,7 +767,8 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
 
 class GroupBox_BondsView(QtWidgets.QGroupBox):
     """Панель отображения облигаций."""
-    def __init__(self, object_name: str, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, object_name: str, token: TokenClass | None, instrument_status: InstrumentStatus,
+                 sql_condition: str | None, calculation_dt: datetime, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -855,7 +856,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         '''---------------------------------------------------------'''
 
         '''--------------------------Модель облигаций--------------------------'''
-        source_model: BondsModel = BondsModel(token, instrument_status, sql_condition)  # Создаём модель.
+        source_model: BondsModel = BondsModel(token, instrument_status, sql_condition, calculation_dt)
         proxy_model: BondsProxyModel = BondsProxyModel(source_model)  # Создаём прокси-модель.
         self.tableView.setModel(proxy_model)  # Подключаем модель к TableView.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
@@ -876,6 +877,11 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.sourceModel().update(token, instrument_status, sql_condition)  # Передаём параметры в исходную модель.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         self.label_count.setText('{0} / {1}'.format(self.sourceModel().rowCount(), self.proxyModel().rowCount()))  # Отображаем количество облигаций.
+
+    def setCalculationDateTime(self, calculation_datetime: datetime):
+        """Устанавливает дату расчёта."""
+        self.sourceModel().setCalculationDateTime(calculation_datetime)  # Передаём дату расчёта в исходную модель.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
 
 class new_BondsPage(QtWidgets.QWidget):
@@ -971,7 +977,9 @@ class new_BondsPage(QtWidgets.QWidget):
         self.verticalLayout_top.setStretch(1, 1)
 
         '''-----------------Панель отображения облигаций-----------------'''
-        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.token, self.instrument_status, self.sql_condition, self.splitter)
+        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.token, self.instrument_status,
+                                                                    self.sql_condition,
+                                                                    self.groupBox_calendar.getDateTime(), self.splitter)
         '''--------------------------------------------------------------'''
 
         self.verticalLayout_main.addWidget(self.splitter)
@@ -983,8 +991,8 @@ class new_BondsPage(QtWidgets.QWidget):
 
         self.groupBox_filters.filtersChanged.connect(lambda: self.__setSqlCondition(self.groupBox_filters.getSqlCondition()))
 
-        # self.groupBox_calendar.calendarWidget.selectionChanged.connect(lambda: self.groupBox_view.setCalculationDateTime(self.groupBox_calendar.getDateTime()))
-        #
+        self.groupBox_calendar.calendarWidget.selectionChanged.connect(lambda: self.groupBox_view.setCalculationDateTime(self.groupBox_calendar.getDateTime()))
+
         # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены выбранной облигации.
 
         # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.sourceModel().getBond(current)))  # Событие смены выбранной облигации.
