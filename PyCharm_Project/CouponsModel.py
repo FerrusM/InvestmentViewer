@@ -1,7 +1,7 @@
 import typing
 from datetime import datetime
 from decimal import Decimal
-from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
+from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt, QObject
 from PyQt6.QtGui import QBrush
 from tinkoff.invest import Coupon, CouponType
 from Classes import Column
@@ -70,8 +70,8 @@ class CouponColumn(Column):
 
 class CouponsModel(QAbstractTableModel):
     """Модель для отображения купонов облигаций."""
-    def __init__(self):
-        super().__init__()  # __init__() QAbstractTableModel.
+    def __init__(self, parent: QObject | None = ...):
+        super().__init__(parent)  # __init__() QAbstractTableModel.
         self._bond_class: MyBondClass | None = None
         self.columns: tuple[CouponColumn, ...] = (
             CouponColumn(header='Дата выплаты',
@@ -137,6 +137,11 @@ class CouponsModel(QAbstractTableModel):
 
 class CouponsProxyModel(QSortFilterProxyModel):
     """Прокси-модель купонов."""
+    def __init__(self, parent: QObject | None = ...):
+        super().__init__(parent)  # __init__() QSortFilterProxyModel.
+        source_model: CouponsModel = CouponsModel(self)  # Создаём исходную модель.
+        self.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
+
     def sourceModel(self) -> CouponsModel:
         """Возвращает исходную модель."""
         source_model = super().sourceModel()

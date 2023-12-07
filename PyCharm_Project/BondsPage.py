@@ -501,9 +501,9 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         """----------------------------------------------------------"""
 
         '''-----------------------Модель купонов-----------------------'''
-        coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
-        coupons_proxy_model: CouponsProxyModel = CouponsProxyModel()  # Создаём прокси-модель.
-        coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
+        # coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
+        coupons_proxy_model: CouponsProxyModel = CouponsProxyModel(self)  # Создаём прокси-модель.
+        # coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
         self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         '''------------------------------------------------------------'''

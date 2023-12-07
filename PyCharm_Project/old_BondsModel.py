@@ -28,8 +28,11 @@ def reportRiskLevel(risk_level: RiskLevel) -> str:
 
 class BondColumn(Column):
     """Класс столбца таблицы облигаций."""
+    MATURITY_COLOR: QBrush = QBrush(Qt.GlobalColor.lightGray)  # Цвет фона строк погашенных облигаций.
+    PERPETUAL_COLOR: QBrush = QBrush(Qt.GlobalColor.magenta)  # Цвет фона строк бессрочных облигаций.
+
     def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
-                 background_function=lambda bond_class, *args: QBrush(Qt.GlobalColor.magenta) if bond_class.bond.perpetual_flag and ifDateTimeIsEmpty(bond_class.bond.maturity_date) else QBrush(Qt.GlobalColor.lightGray) if MyBond.ifBondIsMaturity(bond_class.bond) else QVariant(),
+                 background_function=lambda bond_class, *args: BondColumn.PERPETUAL_COLOR if bond_class.bond.perpetual_flag and ifDateTimeIsEmpty(bond_class.bond.maturity_date) else BondColumn.MATURITY_COLOR if MyBond.ifBondIsMaturity(bond_class.bond) else QVariant(),
                  foreground_function=None,
                  lessThan=None, sort_role: Qt.ItemDataRole = Qt.ItemDataRole.UserRole,
                  date_dependence: bool = False, entered_datetime: datetime | None = None, coupon_dependence: bool = False):

@@ -13,16 +13,13 @@ class MainConnection(MyConnection):
         self.createDataBase()  # Создаёт базу данных.
 
         def notificationSlot(name: str, source: QSqlDriver.NotificationSource, payload):
-            match name:
-                case 'Bonds':
-                    print('notificationSlot: name = Bonds, source = {0}, payload = {1}'.format(source, payload))
-                case _:
-                    print('notificationSlot: name = {0}, source = {1}, payload = {2}'.format(name, source, payload))
-                    assert False, 'Неверный параметр name ({0}).'.format(name)
+            print('notificationSlot: name = {0}, source = {1}, payload = {2}'.format(name, source, payload))
+            assert name == self.BONDS_TABLE, 'Неверный параметр name ({0}).'.format(name)
 
         db: QSqlDatabase = self.getDatabase()
         driver = db.driver()
-        driver.subscribeToNotification('Bonds')
+        subscribe_flag: bool = driver.subscribeToNotification(self.BONDS_TABLE)
+        assert subscribe_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}.'.format(self.BONDS_TABLE)
         driver.notification.connect(notificationSlot)
 
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
@@ -92,7 +89,7 @@ class MainConnection(MyConnection):
             '''----Создание таблицы ассоциаций uid-идентификаторов инструментов----'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "InstrumentUniqueIdentifiers"(
+            CREATE TABLE IF NOT EXISTS "InstrumentUniqueIdentifiers" (
             "uid" TEXT NOT NULL,
             "instrument_type" TEXT NOT NULL,
             PRIMARY KEY ("uid")
@@ -495,7 +492,7 @@ class MainConnection(MyConnection):
         db: QSqlDatabase = cls.getDatabase()
 
         transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        assert transaction_flag
+        assert transaction_flag, db.lastError().text()
 
         if transaction_flag:
             query = QSqlQuery(db)
@@ -548,7 +545,7 @@ class MainConnection(MyConnection):
                 assert exec_flag, query.lastError().text()
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-            assert commit_flag
+            assert commit_flag, db.lastError().text()
 
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
     def deleteToken(cls, token: str):
@@ -848,7 +845,7 @@ class MainConnection(MyConnection):
         if last_prices:  # Если список последних цен не пуст.
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            assert transaction_flag
+            assert transaction_flag, db.lastError().text()
 
             if transaction_flag:
                 query = QSqlQuery(db)
@@ -874,7 +871,7 @@ class MainConnection(MyConnection):
                 assert exec_flag, query.lastError().text()
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                assert commit_flag
+                assert commit_flag, db.lastError().text()
 
     @staticmethod
     def addAssetInstrument(db: QSqlDatabase, asset_uid: str, instrument: AssetInstrument):
@@ -956,21 +953,3 @@ class MainConnection(MyConnection):
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
-
-    # @classmethod
-    # def getBonds(cls, token: str, instrument_status: InstrumentStatus):
-    #     db: QSqlDatabase = cls.getDatabase()
-    #
-    #     bonds_query_str: str = '''
-    #     CREATE TABLE IF NOT EXISTS "BondsStatus"(
-    #     "token" TEXT NOT NULL,
-    #     "status" TEXT NOT NULL CHECK("status" = 'INSTRUMENT_STATUS_UNSPECIFIED' OR "status" = 'INSTRUMENT_STATUS_BASE' OR "status" = 'INSTRUMENT_STATUS_ALL'),
-    #     "uid" TEXT NOT NULL,
-    #     UNIQUE ("token", "status", "uid"),
-    #     FOREIGN KEY ("token") REFERENCES "Tokens"("token") ON DELETE CASCADE,
-    #     FOREIGN KEY ("uid") REFERENCES "Bonds"("uid") ON DELETE CASCADE
-    #     );'''
-    #
-    #     bonds_query_str: str = '''
-    #     SELECT
-    #     '''

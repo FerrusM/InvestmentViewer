@@ -4,11 +4,12 @@ from PyQt6 import QtWidgets, QtCore, QtGui
 from PyQt6.QtCore import QAbstractListModel, QModelIndex, Qt, QVariant, QObject, pyqtSignal
 from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
 from Classes import TokenClass, MyConnection
+from CouponsModel import CouponsModel, CouponsProxyModel
+from MyBondClass import MyBondClass
 from MyDateTime import getUtcDateTime
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
-from new_CouponsModel import CouponsModel
 
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
@@ -753,16 +754,23 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.tableView)
         """----------------------------------------------------------"""
 
+        '''-----------------------Модель купонов-----------------------'''
+        # coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
+        coupons_proxy_model: CouponsProxyModel = CouponsProxyModel(self)  # Создаём прокси-модель.
+        # coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
+        self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        '''------------------------------------------------------------'''
+
     def sourceModel(self) -> CouponsModel:
         """Возвращает исходную модель купонов."""
-        # return self.tableView.model().sourceModel()
-        return self.tableView.model()
+        return self.tableView.model().sourceModel()
 
-    def setData(self, figi: str | None):
+    def setData(self, bond_class: MyBondClass | None):
         """Обновляет данные модели купонов в соответствии с выбранным figi."""
-        self.sourceModel().setModelData(figi)
-        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество купонов.
+        self.sourceModel().updateData(bond_class)
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество купонов.
 
 
 class GroupBox_BondsView(QtWidgets.QGroupBox):
@@ -993,9 +1001,7 @@ class new_BondsPage(QtWidgets.QWidget):
 
         self.groupBox_calendar.calendarWidget.selectionChanged.connect(lambda: self.groupBox_view.setCalculationDateTime(self.groupBox_calendar.getDateTime()))
 
-        # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены выбранной облигации.
-
-        # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.sourceModel().getBond(current)))  # Событие смены выбранной облигации.
+        self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены строки таблицы.
 
     '''-------------------------------------Токен-------------------------------------'''
     def __getToken(self) -> TokenClass | None:
