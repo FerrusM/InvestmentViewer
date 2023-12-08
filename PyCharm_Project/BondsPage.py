@@ -501,9 +501,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         """----------------------------------------------------------"""
 
         '''-----------------------Модель купонов-----------------------'''
-        # coupons_source_model: CouponsModel = CouponsModel()  # Создаём модель.
         coupons_proxy_model: CouponsProxyModel = CouponsProxyModel(self)  # Создаём прокси-модель.
-        # coupons_proxy_model.setSourceModel(coupons_source_model)  # Подключаем исходную модель к прокси-модели.
         self.tableView.setModel(coupons_proxy_model)  # Подключаем модель к таблице.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         '''------------------------------------------------------------'''
@@ -627,7 +625,14 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
     def setCalculationDateTime(self, calculation_datetime: datetime):
         """Устанавливает дату расчёта."""
         self.sourceModel().setDateTime(calculation_datetime)  # Передаём дату расчёта в исходную модель.
-        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+        def resizeDependsOnCalculationDateTimeColumns():
+            """Подгоняет ширину столбцов под содержимое для столбцов, зависящих от даты расчёта."""
+            for i, column in self.sourceModel().columns.items():
+                if column.dependsOnEnteredDate():
+                    self.tableView.resizeColumnToContents(i)
+
+        resizeDependsOnCalculationDateTimeColumns()  # Авторазмер столбцов зависящих от даты расчёта под содержимое.
 
 
 class BondsPage(QtWidgets.QWidget):

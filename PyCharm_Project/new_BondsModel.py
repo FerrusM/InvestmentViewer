@@ -104,6 +104,30 @@ class BondsModel(QAbstractTableModel):
                 assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), lessThan_Decimal_or_None.__name__)
                 return True
 
+        def lessThan_RiskLevel(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
+            """Функция сортировки для столбца BOND_RISK_LEVEL."""
+            left_data: RiskLevel = left.data(role=role)
+            right_data: RiskLevel = right.data(role=role)
+            if type(left_data) == RiskLevel and type(right_data) == RiskLevel:
+                if left_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
+                    if right_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
+                        return False
+                    elif right_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
+                        return False
+                    else:
+                        raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(right_data))
+                elif left_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
+                    if right_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
+                        return left_data < right_data
+                    elif right_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
+                        return True
+                    else:
+                        raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(right_data))
+                else:
+                    raise ValueError('Некорректное значение переменной \"Уровень риска\" ({0})!'.format(left_data))
+            else:
+                raise TypeError('Некорректный тип переменной в функции lessThan_RiskLevel!')
+
         def reportCouponAbsoluteProfitCalculation(bond_class: MyBondClass, calculation_datetime: datetime, current_dt: datetime = getUtcDateTime()) -> str:
             """Рассчитывает купонную доходность к указанной дате."""
             if bond_class.coupons is None: return "Купоны ещё не заполнены."  # Если купоны ещё не были заполнены.
@@ -254,7 +278,9 @@ class BondsModel(QAbstractTableModel):
             BondColumn(header='Лотность',
                        header_tooltip='Лотность инструмента.',
                        data_function=lambda bond_class: bond_class.bond.lot,
-                       display_function=lambda bond_class: str(bond_class.bond.lot)),
+                       display_function=lambda bond_class: str(bond_class.bond.lot),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             BondColumn(header='Цена лота',
                        header_tooltip='Цена последней сделки по лоту облигации.',
                        data_function=lambda bond_class: bond_class.getLotLastPrice(),
@@ -265,7 +291,9 @@ class BondsModel(QAbstractTableModel):
             BondColumn(header='НКД',
                        header_tooltip='Значение НКД (накопленного купонного дохода) на дату.',
                        data_function=lambda bond_class: bond_class.bond.aci_value,
-                       display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.aci_value)),
+                       display_function=lambda bond_class: MyMoneyValue.__str__(bond_class.bond.aci_value),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lambda left, right, role: MyMoneyValue.__lt__(left.data(role=role), right.data(role=role))),
             BondColumn(header='Номинал',
                        header_tooltip='Номинал облигации.',
                        data_function=lambda bond_class: bond_class.bond.nominal,
@@ -275,7 +303,9 @@ class BondsModel(QAbstractTableModel):
             BondColumn(header='Шаг цены',
                        header_tooltip='Минимальное изменение цены определённого инструмента.',
                        data_function=lambda bond_class: bond_class.bond.min_price_increment,
-                       display_function=lambda bond_class: MyQuotation.__str__(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True)),
+                       display_function=lambda bond_class: MyQuotation.__str__(bond_class.bond.min_price_increment, ndigits=9, delete_decimal_zeros=True),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             BondColumn(header='Амортизация',
                        header_tooltip='Признак облигации с амортизацией долга.',
                        data_function=lambda bond_class: bond_class.bond.amortization_flag,
@@ -283,7 +313,9 @@ class BondsModel(QAbstractTableModel):
             BondColumn(header='Дней до погашения',
                        header_tooltip='Количество дней до погашения облигации.',
                        data_function=lambda bond_class: MyBond.getDaysToMaturityCount(bond_class.bond),
-                       display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else MyBond.getDaysToMaturityCount(bond_class.bond)),
+                       display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else MyBond.getDaysToMaturityCount(bond_class.bond),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             BondColumn(header='Дата погашения',
                        header_tooltip='Дата погашения облигации в часовом поясе UTC.',
                        data_function=lambda bond_class: bond_class.bond.maturity_date,
@@ -300,7 +332,9 @@ class BondsModel(QAbstractTableModel):
             BondColumn(header='Риск',
                        header_tooltip='Уровень риска.',
                        data_function=lambda bond_class: bond_class.bond.risk_level,
-                       display_function=lambda bond_class: reportRiskLevel(bond_class.bond.risk_level)),
+                       display_function=lambda bond_class: reportRiskLevel(bond_class.bond.risk_level),
+                       sort_role=Qt.ItemDataRole.UserRole,
+                       lessThan=lessThan_RiskLevel),
             BondColumn(header='Купонная дох-ть',
                        header_tooltip='Купонная доходность к выбранной дате.',
                        data_function=lambda bond_class, entered_dt: bond_class.getCouponAbsoluteProfit(entered_dt),
