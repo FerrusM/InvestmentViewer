@@ -636,7 +636,7 @@ class SharesPage(QtWidgets.QWidget):
         self.groupBox_filters.groupBox_shares_filters.comboBox_div_yield_flag.currentIndexChanged.connect(lambda index: onFilterChanged())
         '''-------------------------------------------------------------------------'''
 
-        # @pyqtSlot(QModelIndex, QModelIndex)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        # @pyqtSlot(QModelIndex, QModelIndex)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         # def onCurrentRowChanged(current: QModelIndex, previous: QModelIndex):
         #     """Событие при изменении выбранной акции."""
         #     share_class: MyShareClass | None = self.groupBox_view.proxyModel().getShare(current)

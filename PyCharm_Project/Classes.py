@@ -3,7 +3,7 @@ from datetime import datetime
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation
+from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyDateTime import getUtcDateTime
 from MyMoneyValue import MyMoneyValue
@@ -155,12 +155,21 @@ class MyConnection(ABC):
     """Абстрактный класс, хранящий общий функционал соединений с БД."""
 
     '''---------Названия таблиц БД---------'''
+    TOKENS_TABLE: str = 'Tokens'
+    ASSETS_TABLE: str = 'Accounts'
     BONDS_TABLE: str = 'Bonds'
     LAST_PRICES_TABLE: str = 'LastPrices'
     COUPONS_TABLE: str = 'Coupons'
     BONDS_FIGI_TABLE: str = 'BondsFinancialInstrumentGlobalIdentifiers'
+    CANDLES_TABLE: str = 'HistoricCandles'
+    SHARES_TABLE: str = 'Shares'
+    STREAM_LIMITS_TABLE: str = 'StreamLimits'
+    UNARY_LIMITS_TABLE: str = 'UnaryLimits'
+    INSTRUMENT_UIDS_TABLE: str = 'InstrumentUniqueIdentifiers'
 
     LAST_PRICES_VIEW: str = 'LastPricesView'
+
+    CANDLES_TRIGGER_BEFORE_INSERT: str = 'Candles_before_insert_trigger'
     '''------------------------------------'''
 
     SQLITE_DRIVER: str = 'QSQLITE'
@@ -223,12 +232,29 @@ class MyConnection(ABC):
         return datetime.fromisoformat(text)
 
     @staticmethod
-    def convertTextToQuotation(text: str) -> Quotation:
-        """Конвертирует TEXT в Quotation при извлечении из БД."""
+    def extractUnitsAndNanoFromText(text: str) -> tuple[int, int]:
+        """Извлекает units и nano из строки Quotation."""
         units_str, nano_str = text.split('.', 1)
         units: int = int(units_str)
         nano: int = int(nano_str)
+        return units, nano
+
+    @staticmethod
+    def convertTextToQuotation(text: str) -> Quotation:
+        """Конвертирует TEXT в Quotation при извлечении из БД."""
+        # units_str, nano_str = text.split('.', 1)
+        # units: int = int(units_str)
+        # nano: int = int(nano_str)
+
+        units, nano = MyConnection.extractUnitsAndNanoFromText(text)
         return Quotation(units, nano)
+
+    @staticmethod
+    def convertTextToMoneyValue(text: str) -> MoneyValue:
+        """Конвертирует TEXT в MoneyValue при извлечении из БД."""
+        quotation_str, currency = text.split(' ', 1)
+        units, nano = MyConnection.extractUnitsAndNanoFromText(quotation_str)
+        return MoneyValue(currency=currency, units=units, nano=nano)
 
     @staticmethod
     def convertTextToMyMoneyValue(text: str) -> MyMoneyValue:

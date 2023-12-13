@@ -16,23 +16,30 @@ class TokenModel(QAbstractItemModel):
         """===========================Заполняем список токенов==========================="""
         db: QSqlDatabase = MainConnection.getDatabase()
 
+        tokens_sql_command: str = 'SELECT \"token\", \"name\" FROM {0};'.format('\"{0}\"'.format(MyConnection.TOKENS_TABLE))
         tokens_query = QSqlQuery(db)
-        tokens_query.prepare('SELECT token, name FROM Tokens')
-        exec_flag: bool = tokens_query.exec()
-        assert exec_flag
+        tokens_prepare_flag: bool = tokens_query.prepare(tokens_sql_command)
+        assert tokens_prepare_flag, tokens_query.lastError().text()
+
+        tokens_exec_flag: bool = tokens_query.exec()
+        assert tokens_exec_flag, tokens_query.lastError().text()
 
         while tokens_query.next():
             token: str = tokens_query.value(0)  # Токен.
             name: str = tokens_query.value(1)  # Название токена.
 
             '''---------Получение счетов---------'''
+            accounts_sql_command: str = '''
+            SELECT \"id\", \"type\", \"name\", \"status\", \"opened_date\", \"closed_date\", \"access_level\" FROM {0} WHERE {0}.\"token\" = :token;
+            '''.format('\"{0}\"'.format(MyConnection.ASSETS_TABLE))
             accounts_query = QSqlQuery(db)
-            accounts_query.prepare('''
-            SELECT id, type, name, status, opened_date, closed_date, access_level FROM Accounts WHERE token = :token
-            ''')
+            accounts_prepare_flag: bool = accounts_query.prepare(accounts_sql_command)
+            assert accounts_prepare_flag, accounts_query.lastError().text()
+
             accounts_query.bindValue(':token', token)
-            exec_flag: bool = accounts_query.exec()
-            assert exec_flag
+
+            accounts_exec_flag: bool = accounts_query.exec()
+            assert accounts_exec_flag, accounts_query.lastError().text()
 
             accounts: list[Account] = []  # Список аккаунтов.
             while accounts_query.next():
@@ -50,10 +57,15 @@ class TokenModel(QAbstractItemModel):
 
             '''---------Получение unary-лимитов---------'''
             unary_limits_query = QSqlQuery(db)
-            unary_limits_query.prepare('SELECT limit_per_minute, methods FROM UnaryLimits WHERE token = :token')
+
+            unary_limits_sql_command: str = 'SELECT \"limit_per_minute\", \"methods\" FROM {0} WHERE \"token\" = :token;'.format('\"{0}\"'.format(MyConnection.UNARY_LIMITS_TABLE))
+            unary_limits_prepare_flag: bool = unary_limits_query.prepare(unary_limits_sql_command)
+            assert unary_limits_prepare_flag, unary_limits_query.lastError().text()
+
             unary_limits_query.bindValue(':token', token)
-            exec_flag: bool = unary_limits_query.exec()
-            assert exec_flag
+
+            unary_limits_exec_flag: bool = unary_limits_query.exec()
+            assert unary_limits_exec_flag, unary_limits_query.lastError().text()
 
             unary_limits: list[UnaryLimit] = []  # Unary-лимиты.
             while unary_limits_query.next():
@@ -68,10 +80,15 @@ class TokenModel(QAbstractItemModel):
 
             '''---------Получение stream-соединений---------'''
             stream_limits_query = QSqlQuery(db)
-            stream_limits_query.prepare('SELECT limit_count, streams, open FROM StreamLimits WHERE token = :token')
+
+            stream_limits_sql_command: str = 'SELECT \"limit_count\", \"streams\", \"open\" FROM {0} WHERE \"token\" = :token;'.format('\"{0}\"'.format(MyConnection.STREAM_LIMITS_TABLE))
+            stream_limits_prepare_flag: bool = stream_limits_query.prepare(stream_limits_sql_command)
+            assert stream_limits_prepare_flag, stream_limits_query.lastError().text()
+
             stream_limits_query.bindValue(':token', token)
-            exec_flag: bool = stream_limits_query.exec()
-            assert exec_flag
+
+            stream_limits_exec_flag: bool = stream_limits_query.exec()
+            assert stream_limits_exec_flag, stream_limits_query.lastError().text()
 
             stream_limits: list[StreamLimit] = []  # Stream-лимиты.
             while stream_limits_query.next():

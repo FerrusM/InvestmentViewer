@@ -123,7 +123,7 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout_instrument_type)
         '''----------------------------------------------------------'''
 
-        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onTokenChangedSlot():
             current_token: TokenClass | None = self.getCurrentToken()
             self.currentTokenReset.emit() if current_token is None else self.currentTokenChanged.emit(current_token, self.getCurrentInstrumentType())

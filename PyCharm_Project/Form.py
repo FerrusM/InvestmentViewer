@@ -1,6 +1,7 @@
 from PyQt6 import QtCore, QtWidgets
 from AssetsPage import AssetsPage
 from BondsPage import BondsPage
+from CandlesPage import CandlesPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
 from SharesPage import SharesPage
@@ -56,6 +57,11 @@ class Ui_MainWindow(object):
         self.new_tab_bonds: new_BondsPage = new_BondsPage('new_tab_bonds')
         self.tabWidget.addTab(self.new_tab_bonds, _translate('MainWindow', 'new_Облигации'))
         """------------------------------------------------------------------------------"""
+
+        '''-------------------------------Страница "Свечи"-------------------------------'''
+        self.tab_candles = CandlesPage(main_window)
+        self.tabWidget.addTab(self.tab_candles, _translate('MainWindow', 'Свечи'))
+        '''------------------------------------------------------------------------------'''
 
         """------------------------------Страница "Активы"------------------------------"""
         self.tab_assets: AssetsPage = AssetsPage('tab_assets')

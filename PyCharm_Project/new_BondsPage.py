@@ -15,13 +15,12 @@ from new_BondsModel import BondsModel, BondsProxyModel
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
     """Панель прогресса получения купонов."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+        super().__init__(parent)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
-        self.setTitle('')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -258,7 +257,7 @@ class MaturityFilterComboBox(FilterComboBox):
             )
 
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parameter_name, parent)  # FilterComboBox __init__().
+        super().__init__(parameter_name, parent)
         model = self.MaturityFilterModel(parameter_name, self)
         self.setModel(model)
         self.setCurrentIndex(1)
@@ -272,7 +271,7 @@ class MaturityFilterComboBox(FilterComboBox):
 class FilterLabel(QtWidgets.QLabel):
     """Класс для шаблонного создания QLabel на панелях фильтров."""
     def __init__(self, object_name: str, text: str | None, tooltip: str | None, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QLabel __init__().
+        super().__init__(parent)
         _translate = QtCore.QCoreApplication.translate
         self.setObjectName(object_name)
         self.setText(text)
@@ -284,7 +283,7 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
     filtersChanged: pyqtSignal = pyqtSignal()  # Сигнал испускается при изменении фильтров.
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+        super().__init__(parent)
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -575,7 +574,6 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -629,8 +627,7 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         self.horizontalLayout_instruments_filters.addWidget(self.groupBox_instruments_filters)
         """----------------------------------------------------------------------"""
 
-        spacerItem41 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_instruments_filters.addItem(spacerItem41)
+        self.horizontalLayout_instruments_filters.addItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_instruments_filters)
         """--------------------------------------------------------------"""

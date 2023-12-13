@@ -80,7 +80,7 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.calendarWidget)
         """------------------------------------------------------------"""
 
-        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def updateDaysBeforeCount():
             """Обновляет количество дней до даты расчёта."""
             start_date: date = getMoscowDateTime().date()
@@ -183,7 +183,7 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout_token)
         """-----------------------------------------------------------"""
 
-        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onTokenChangedSlot():
             current_token: TokenClass | None = self.getCurrentToken()
             self.currentTokenReset.emit() if current_token is None else self.currentTokenChanged.emit(current_token)
@@ -211,7 +211,6 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -318,7 +317,7 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         self.comboBox_token.setCurrentIndex(0)
         self.comboBox_status.setCurrentIndex(0)
 
-        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onTokenChangedSlot():
             current_token: TokenClass | None = self.getCurrentToken()
             self.currentTokenReset.emit() if current_token is None else self.currentTokenChanged.emit(current_token, self.getCurrentStatus())

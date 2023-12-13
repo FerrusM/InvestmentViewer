@@ -77,7 +77,7 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
         delete_button_delegate: TreeProxyModel.DeleteButtonDelegate = tree_token_model.DeleteButtonDelegate(self.treeView_saved_tokens)
         # delete_button_delegate.clicked.connect(lambda index: print('Номер строки: {0}'.format(str(index.row()))))
 
-        @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+        @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def deleteTokenDialog(token: str) -> QMessageBox.StandardButton:
             """Диалоговое окно удаления токена."""
             msgBox = QMessageBox()
@@ -213,7 +213,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         for i in range(tabs_count):
             self.tabWidget_accounts.removeTab(i)
 
-    @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+    @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def addedTokenChanged_slot(self, text: str):
         """Событие при изменении добавляемого токена."""
         self._clearAccountsTabWidget()  # Очищаем tabWidget счетов добавляемого токена.
@@ -328,7 +328,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
             self.tabWidget_accounts.addTab(account_tab, '')  # Добавляем страницу.
             self.tabWidget_accounts.setTabText(i, 'Счёт ' + str(i + 1))
 
-    @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет его выполнение.
+    @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def _addToken(self):
         """Добавляет токен в модель."""
         new_token: str = self.lineEdit_new_token.text()  # Извлекаем текст из lineEdit.

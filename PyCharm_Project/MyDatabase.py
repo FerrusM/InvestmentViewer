@@ -33,10 +33,10 @@ class MainConnection(MyConnection):
             '''------------Создание таблицы токенов------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Tokens"(
-            "token" TEXT NOT NULL,
-            "name" TEXT NULL,
-            PRIMARY KEY ("token")
+            CREATE TABLE IF NOT EXISTS \"Tokens\" (
+            \"token\" TEXT NOT NULL,
+            \"name\" TEXT NULL,
+            PRIMARY KEY (\"token\")
             );''')
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
@@ -45,7 +45,7 @@ class MainConnection(MyConnection):
             '''------------Создание таблиц лимитов------------'''
             unary_limits_query = QSqlQuery(db)
             unary_limits_query.prepare('''
-            CREATE TABLE IF NOT EXISTS "UnaryLimits"(
+            CREATE TABLE IF NOT EXISTS "UnaryLimits" (
             "token" TEXT NOT NULL,
             "limit_per_minute" INTEGER NOT NULL,
             "methods" TEXT NOT NULL,
@@ -56,7 +56,7 @@ class MainConnection(MyConnection):
 
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "StreamLimits"(
+            CREATE TABLE IF NOT EXISTS "StreamLimits" (
             "token" TEXT NOT NULL,
             "limit_count" INTEGER NOT NULL,
             "streams" TEXT NOT NULL,
@@ -70,7 +70,7 @@ class MainConnection(MyConnection):
             '''------------------Создание таблицы счетов------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Accounts"(
+            CREATE TABLE IF NOT EXISTS "Accounts" (
             "token" TEXT NOT NULL,
             "id" TEXT NOT NULL,
             "type" INTEGER NOT NULL,
@@ -118,7 +118,7 @@ class MainConnection(MyConnection):
             '''----Создание таблицы ассоциаций figi-идентификаторов облигаций----'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "BondsFinancialInstrumentGlobalIdentifiers"(
+            CREATE TABLE IF NOT EXISTS "BondsFinancialInstrumentGlobalIdentifiers" (
             "figi" TEXT NOT NULL,
             "coupons" TEXT CHECK("coupons" = 'Yes' OR "coupons" = 'No'),
             PRIMARY KEY ("figi")
@@ -130,7 +130,7 @@ class MainConnection(MyConnection):
             '''------------------Создание таблицы облигаций------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Bonds"(
+            CREATE TABLE IF NOT EXISTS "Bonds" (
             figi TEXT NOT NULL,
             ticker TEXT NOT NULL,
             class_code TEXT NOT NULL,
@@ -143,7 +143,7 @@ class MainConnection(MyConnection):
             dshort TEXT NOT NULL,
             dlong_min TEXT NOT NULL,
             dshort_min TEXT NOT NULL,
-            short_enabled_flag BOOL NOT NULL,
+            short_enabled_flag BLOB NOT NULL,
             name TEXT NOT NULL,
             exchange TEXT NOT NULL,
             coupon_quantity_per_year INTEGER NOT NULL,
@@ -161,23 +161,23 @@ class MainConnection(MyConnection):
             issue_size INTEGER NOT NULL,
             issue_size_plan INTEGER NOT NULL,
             trading_status INTEGER NOT NULL,
-            otc_flag BOOL NOT NULL,
-            buy_available_flag BOOL NOT NULL,
-            sell_available_flag BOOL NOT NULL,
-            floating_coupon_flag BOOL NOT NULL,
-            perpetual_flag BOOL NOT NULL,
-            amortization_flag BOOL NOT NULL,
+            otc_flag BLOB NOT NULL,
+            buy_available_flag BLOB NOT NULL,
+            sell_available_flag BLOB NOT NULL,
+            floating_coupon_flag BLOB NOT NULL,
+            perpetual_flag BLOB NOT NULL,
+            amortization_flag BLOB NOT NULL,
             min_price_increment TEXT NOT NULL,
-            api_trade_available_flag BOOL NOT NULL,
+            api_trade_available_flag BLOB NOT NULL,
             uid TEXT NOT NULL,
             real_exchange INTEGER NOT NULL,
             position_uid TEXT NOT NULL,
-            for_iis_flag BOOL NOT NULL,
-            for_qual_investor_flag BOOL NOT NULL,
-            weekend_flag BOOL NOT NULL,
-            blocked_tca_flag BOOL NOT NULL,
-            subordinated_flag BOOL NOT NULL,
-            liquidity_flag BOOL NOT NULL,
+            for_iis_flag BLOB NOT NULL,
+            for_qual_investor_flag BLOB NOT NULL,
+            weekend_flag BLOB NOT NULL,
+            blocked_tca_flag BLOB NOT NULL,
+            subordinated_flag BLOB NOT NULL,
+            liquidity_flag BLOB NOT NULL,
             first_1min_candle_date TEXT NOT NULL,
             first_1day_candle_date TEXT NOT NULL,
             risk_level INTEGER NOT NULL,
@@ -205,7 +205,7 @@ class MainConnection(MyConnection):
             '''-------------------Создание таблицы купонов-------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Coupons"(
+            CREATE TABLE IF NOT EXISTS "Coupons" (
             figi TEXT NOT NULL,
             coupon_date TEXT NOT NULL,
             coupon_number INTEGER NOT NULL,
@@ -238,7 +238,7 @@ class MainConnection(MyConnection):
             '''------Создание таблицы ассоциаций figi-идентификаторов акций------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "SharesFinancialInstrumentGlobalIdentifiers"(
+            CREATE TABLE IF NOT EXISTS "SharesFinancialInstrumentGlobalIdentifiers" (
             "figi" TEXT NOT NULL,
             "dividends" TEXT CHECK("dividends" = 'Yes' OR "dividends" = 'No'),
             PRIMARY KEY ("figi")
@@ -250,7 +250,7 @@ class MainConnection(MyConnection):
             '''--------------------Создание таблицы акций--------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Shares"(
+            CREATE TABLE IF NOT EXISTS "Shares" (
             figi TEXT NOT NULL,
             ticker TEXT NOT NULL,
             class_code TEXT NOT NULL,
@@ -263,7 +263,7 @@ class MainConnection(MyConnection):
             dshort TEXT NOT NULL,
             dlong_min TEXT NOT NULL,
             dshort_min TEXT NOT NULL,
-            short_enabled_flag BOOL NOT NULL,
+            short_enabled_flag BLOB NOT NULL,
             name TEXT NOT NULL,
             exchange TEXT NOT NULL, 
             ipo_date TEXT NOT NULL,
@@ -274,21 +274,21 @@ class MainConnection(MyConnection):
             issue_size_plan INTEGER NOT NULL,
             nominal TEXT NOT NULL,
             trading_status INTEGER NOT NULL,
-            otc_flag BOOL NOT NULL,
-            buy_available_flag BOOL NOT NULL,
-            sell_available_flag BOOL NOT NULL,
-            div_yield_flag BOOL NOT NULL,
+            otc_flag BLOB NOT NULL,
+            buy_available_flag BLOB NOT NULL,
+            sell_available_flag BLOB NOT NULL,
+            div_yield_flag BLOB NOT NULL,
             share_type INTEGER NOT NULL,
             min_price_increment TEXT NOT NULL,
-            api_trade_available_flag BOOL NOT NULL,
+            api_trade_available_flag BLOB NOT NULL,
             uid TEXT NOT NULL,
             real_exchange INTEGER NOT NULL,
             position_uid TEXT NOT NULL,
-            for_iis_flag BOOL NOT NULL,
-            for_qual_investor_flag BOOL NOT NULL,
-            weekend_flag BOOL NOT NULL,
-            blocked_tca_flag BOOL NOT NULL,
-            liquidity_flag BOOL NOT NULL,
+            for_iis_flag BLOB NOT NULL,
+            for_qual_investor_flag BLOB NOT NULL,
+            weekend_flag BLOB NOT NULL,
+            blocked_tca_flag BLOB NOT NULL,
+            liquidity_flag BLOB NOT NULL,
             first_1min_candle_date TEXT NOT NULL,
             first_1day_candle_date TEXT NOT NULL,
             UNIQUE ("uid"),
@@ -315,7 +315,7 @@ class MainConnection(MyConnection):
             '''-------------------Создание таблицы дивидендов-------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Dividends"(
+            CREATE TABLE IF NOT EXISTS "Dividends" (
             figi TEXT NOT NULL,
             dividend_net TEXT NOT NULL,
             payment_date TEXT NOT NULL,
@@ -350,14 +350,14 @@ class MainConnection(MyConnection):
             '''----------------Создание таблицы последних цен----------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "LastPrices" (
-            "figi" TEXT NOT NULL,
-            "price" TEXT NOT NULL,
-            "time" TEXT NOT NULL,
-            "instrument_uid" TEXT NOT NULL,
-            PRIMARY KEY ("time", "instrument_uid"),
-            FOREIGN KEY ("instrument_uid") REFERENCES "InstrumentUniqueIdentifiers"("uid") ON DELETE CASCADE
-            );''')
+            CREATE TABLE IF NOT EXISTS {0} (
+            \"figi\" TEXT NOT NULL,
+            \"price\" TEXT NOT NULL,
+            \"time\" TEXT NOT NULL,
+            \"instrument_uid\" TEXT NOT NULL,
+            PRIMARY KEY (\"time\", \"instrument_uid\"),
+            FOREIGN KEY (\"instrument_uid\") REFERENCES \"InstrumentUniqueIdentifiers\"(\"uid\") ON DELETE CASCADE
+            );'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE)))
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
             '''--------------------------------------------------------------'''
@@ -376,10 +376,48 @@ class MainConnection(MyConnection):
             assert last_prices_view_exec_flag, last_prices_view_query.lastError().text()
             '''------------------------------------------------------------------'''
 
+            '''---------------------Создание таблицы свечей---------------------'''
+            candles_query = QSqlQuery(db)
+            candles_prepare_flag: bool = candles_query.prepare('''
+            CREATE TABLE IF NOT EXISTS \"HistoricCandles\" (
+            \"instrument_id\" TEXT NOT NULL,
+            \"open\" TEXT NOT NULL,
+            \"high\" TEXT NOT NULL,
+            \"low\" TEXT NOT NULL,
+            \"close\" TEXT NOT NULL,
+            \"volume\" INTEGER NOT NULL,
+            \"time\" TEXT NOT NULL,
+            \"is_complete\"	BLOB NOT NULL,
+            UNIQUE (\"instrument_id\", \"time\"),
+            FOREIGN KEY (\"instrument_id\") REFERENCES \"InstrumentUniqueIdentifiers\"(\"uid\") ON DELETE CASCADE
+            );
+            '''.format(
+                '\"{0}\"'.format(MyConnection.CANDLES_TABLE)
+            ))
+            assert candles_prepare_flag, candles_query.lastError().text()
+            candles_exec_flag: bool = candles_query.exec()
+            assert candles_exec_flag, candles_query.lastError().text()
+            '''-----------------------------------------------------------------'''
+
+            # '''------------Триггер перед добавлением исторической свечи------------'''
+            # candles_before_insert_trigger_query = QSqlQuery(db)
+            # candles_before_insert_trigger_query.prepare('''
+            # CREATE TRIGGER IF NOT EXISTS {0} BEFORE INSERT ON {1}
+            # BEGIN
+            #
+            # END;
+            # '''.format(
+            #     '\"{0}\"'.format(MyConnection.CANDLES_TRIGGER_BEFORE_INSERT),
+            #     '\"{0}\"'.format(MyConnection.CANDLES_TABLE)
+            # ))
+            # candles_before_insert_trigger_exec_flag: bool = candles_before_insert_trigger_query.exec()
+            # assert candles_before_insert_trigger_exec_flag, candles_before_insert_trigger_query.lastError().text()
+            # '''--------------------------------------------------------------------'''
+
             '''-------------------Создание таблицы брэндов-------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Brands"(
+            CREATE TABLE IF NOT EXISTS "Brands" (
             "uid" TEXT NOT NULL,
             "name" TEXT NOT NULL,
             "description" TEXT NOT NULL,
@@ -397,7 +435,7 @@ class MainConnection(MyConnection):
             '''-------------------Создание таблицы активов-------------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Assets"(
+            CREATE TABLE IF NOT EXISTS "Assets" (
             uid TEXT NOT NULL PRIMARY KEY,
             type INTEGER NOT NULL,
             name TEXT NOT NULL,
@@ -424,7 +462,7 @@ class MainConnection(MyConnection):
             '''--------------Создание таблицы AssetInstruments--------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "AssetInstruments"(
+            CREATE TABLE IF NOT EXISTS "AssetInstruments" (
             asset_uid TEXT NOT NULL,
             uid TEXT NOT NULL,
             figi TEXT NOT NULL,
@@ -443,7 +481,7 @@ class MainConnection(MyConnection):
             '''--------------Создание таблицы InstrumentLinks--------------'''
             query = QSqlQuery(db)
             query.prepare('''
-            CREATE TABLE IF NOT EXISTS "InstrumentLinks"(
+            CREATE TABLE IF NOT EXISTS "InstrumentLinks" (
             "asset_uid" TEXT NOT NULL,
             "uid" TEXT NOT NULL,
             "type" TEXT NOT NULL,
@@ -469,7 +507,7 @@ class MainConnection(MyConnection):
 
             '''---------------------Создание таблицы запросов облигаций---------------------'''
             bonds_status_query_str: str = '''
-            CREATE TABLE IF NOT EXISTS "BondsStatus"(
+            CREATE TABLE IF NOT EXISTS "BondsStatus" (
             "token" TEXT NOT NULL,
             "status" TEXT NOT NULL CHECK("status" = 'INSTRUMENT_STATUS_UNSPECIFIED' OR "status" = 'INSTRUMENT_STATUS_BASE' OR "status" = 'INSTRUMENT_STATUS_ALL'),
             "uid" TEXT NOT NULL,
@@ -495,37 +533,40 @@ class MainConnection(MyConnection):
         assert transaction_flag, db.lastError().text()
 
         if transaction_flag:
-            query = QSqlQuery(db)
-            query.prepare('INSERT INTO "Tokens" ("token", "name") VALUES (:token, :name);')
-            query.bindValue(':token', token.token)
-            query.bindValue(':name', token.name)
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            tokens_query = QSqlQuery(db)
+            tokens_prepare_flag: bool = tokens_query.prepare('INSERT INTO {0} (\"token\", \"name\") VALUES (:token, :name);'.format('\"{0}\"'.format(MyConnection.TOKENS_TABLE)))
+            assert tokens_prepare_flag, tokens_query.lastError().text()
+            tokens_query.bindValue(':token', token.token)
+            tokens_query.bindValue(':name', token.name)
+            tokens_exec_flag: bool = tokens_query.exec()
+            assert tokens_exec_flag, tokens_query.lastError().text()
 
             for unary_limit in token.unary_limits:
-                query = QSqlQuery(db)
-                query.prepare('''
-                INSERT INTO "UnaryLimits" ("token", "limit_per_minute", "methods") 
+                unary_limit_query = QSqlQuery(db)
+                unary_limit_prepare_flag: bool = unary_limit_query.prepare('''
+                INSERT INTO \"{0}\" (\"token\", \"limit_per_minute\", \"methods\") 
                 VALUES (:token, :limit_per_minute, :methods);
-                ''')
-                query.bindValue(':token', token.token)
-                query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
-                query.bindValue(':methods', cls.convertStrListToStr([method.full_method for method in unary_limit.methods]))
-                exec_flag: bool = query.exec()
-                assert exec_flag, query.lastError().text()
+                '''.format(MyConnection.UNARY_LIMITS_TABLE))
+                assert unary_limit_prepare_flag, unary_limit_query.lastError().text()
+                unary_limit_query.bindValue(':token', token.token)
+                unary_limit_query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
+                unary_limit_query.bindValue(':methods', cls.convertStrListToStr([method.full_method for method in unary_limit.methods]))
+                unary_limit_exec_flag: bool = unary_limit_query.exec()
+                assert unary_limit_exec_flag, unary_limit_query.lastError().text()
 
             for stream_limit in token.stream_limits:
-                query = QSqlQuery(db)
-                query.prepare('''
-                INSERT INTO "StreamLimits" ("token", "limit_count", "streams", "open") 
+                stream_limit_query = QSqlQuery(db)
+                stream_limit_prepare_flag: bool = stream_limit_query.prepare('''
+                INSERT INTO \"{0}\" (\"token\", \"limit_count\", \"streams\", \"open\") 
                 VALUES (:token, :limit_count, :streams, :open);
-                ''')
-                query.bindValue(':token', token.token)
-                query.bindValue(':limit_count', stream_limit.limit)
-                query.bindValue(':streams', cls.convertStrListToStr([method.full_method for method in stream_limit.methods]))
-                query.bindValue(':open', stream_limit.open)
-                exec_flag: bool = query.exec()
-                assert exec_flag, query.lastError().text()
+                '''.format(MyConnection.STREAM_LIMITS_TABLE))
+                assert stream_limit_prepare_flag, stream_limit_query.lastError().text()
+                stream_limit_query.bindValue(':token', token.token)
+                stream_limit_query.bindValue(':limit_count', stream_limit.limit)
+                stream_limit_query.bindValue(':streams', cls.convertStrListToStr([method.full_method for method in stream_limit.methods]))
+                stream_limit_query.bindValue(':open', stream_limit.open)
+                stream_limit_exec_flag: bool = stream_limit_query.exec()
+                assert stream_limit_exec_flag, stream_limit_query.lastError().text()
 
             for account in token.accounts:
                 query = QSqlQuery(db)
@@ -552,7 +593,8 @@ class MainConnection(MyConnection):
         """Удаляет токен и все связанные с ним данные."""
         db: QSqlDatabase = cls.getDatabase()
         query = QSqlQuery(db)
-        query.prepare('DELETE FROM "Tokens" WHERE "token" = :token;')
+        prepare_flag: bool = query.prepare('DELETE FROM \"{0}\" WHERE \"token\" = :token;'.format(MyConnection.TOKENS_TABLE))
+        assert prepare_flag, query.lastError().text()
         query.bindValue(':token', token)
         exec_flag: bool = query.exec()
         assert exec_flag, query.lastError().text()
