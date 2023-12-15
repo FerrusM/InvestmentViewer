@@ -31,7 +31,7 @@ class TokenModel(QAbstractItemModel):
             '''---------Получение счетов---------'''
             accounts_sql_command: str = '''
             SELECT \"id\", \"type\", \"name\", \"status\", \"opened_date\", \"closed_date\", \"access_level\" FROM {0} WHERE {0}.\"token\" = :token;
-            '''.format('\"{0}\"'.format(MyConnection.ASSETS_TABLE))
+            '''.format('\"{0}\"'.format(MyConnection.ACCOUNTS_TABLE))
             accounts_query = QSqlQuery(db)
             accounts_prepare_flag: bool = accounts_query.prepare(accounts_sql_command)
             assert accounts_prepare_flag, accounts_query.lastError().text()
@@ -202,3 +202,9 @@ class TokenListModel(QIdentityProxyModel):
             source_index: QModelIndex = self.sourceModel().index(source_row, 0)
             source_data = source_index.data(role)
             return QVariant(source_data)
+
+    def getToken(self, row: int) -> TokenClass | None:
+        if row == 0:
+            return None
+        else:
+            return self.sourceModel().getTokenClass(row - 1)

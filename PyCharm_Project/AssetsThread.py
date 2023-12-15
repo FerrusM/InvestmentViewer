@@ -37,7 +37,7 @@ class AssetsThread(QThread):
             query.prepare('''
             INSERT INTO "Brands" (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name) 
             VALUES (:uid, :name, :description, :info, :company, :sector, :country_of_risk, :country_of_risk_name)
-            ON CONFLICT(uid) DO UPDATE SET name = excluded.name, description = excluded.description, 
+            ON CONFLICT (uid) DO UPDATE SET name = excluded.name, description = excluded.description, 
             info = excluded.info, company = excluded.company, sector = excluded.sector, 
             country_of_risk = excluded.country_of_risk, country_of_risk_name = excluded.country_of_risk_name;
             ''')
@@ -103,8 +103,7 @@ class AssetsThread(QThread):
     '''-------------------------------------------------------'''
 
     '''-----------------Сигналы progressBar'а-----------------'''
-    # Сигнал для установления минимума и максимума progressBar'а заполнения купонов.
-    setProgressBarRange_signal: pyqtSignal = pyqtSignal(int, int)
+    setProgressBarRange_signal: pyqtSignal = pyqtSignal(int, int)  # Сигнал для установления минимума и максимума progressBar'а заполнения купонов.
     setProgressBarValue_signal: pyqtSignal = pyqtSignal(int)  # Сигнал для изменения прогресса в progressBar'е.
     '''-------------------------------------------------------'''
 

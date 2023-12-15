@@ -2,7 +2,7 @@ import enum
 import typing
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import pyqtSlot
-from tinkoff.invest import Share, InstrumentStatus, ShareType
+from tinkoff.invest import Share, InstrumentStatus, ShareType, Dividend
 from Classes import TokenClass
 from DividendsModel import DividendsModel, DividendsProxyModel
 from DividendsThread import DividendsThread
@@ -311,7 +311,8 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         if share_class is None:
             self.sourceModel().updateData([])
         else:
-            self.sourceModel().updateData(share_class.dividends)
+            dividends: list[Dividend] | None = share_class.dividends
+            self.sourceModel().updateData([] if dividends is None else dividends)
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
 
@@ -470,8 +471,6 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         '''-------------------------------------------------------------'''
 
         self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ ДИВИДЕНДОВ'))
-
-        self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а."""

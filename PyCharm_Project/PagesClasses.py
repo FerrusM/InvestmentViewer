@@ -719,7 +719,7 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
     """ProgressBar для получения данных."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QProgressBar __init__().
+        super().__init__(parent)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -733,6 +733,7 @@ class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
         self.setObjectName(object_name)
         _translate = QtCore.QCoreApplication.translate
         self.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
+        self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а. Если максимум равен нулю, то скрывает бегающую полоску."""

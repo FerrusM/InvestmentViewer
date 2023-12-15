@@ -105,8 +105,6 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout_coupons_type)
         self.verticalLayout_main.setStretch(1, 1)
 
-        self.reset()  # Сбрасывает progressBar.
-
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а."""
         self.progressBar_coupons.setRange(minimum, maximum)

@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from PyQt6.QtCore import QObject, pyqtSignal
-from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation
+from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation, HistoricCandle
 from tinkoff.invest.utils import decimal_to_quotation
 from MyDateTime import getUtcDateTime
 from MyLastPrice import MyLastPrice
@@ -93,11 +93,12 @@ class MyBondClass(QObject):
     """Класс облигации, дополненный параметрами (последняя цена, купоны) и функциями."""
     setCoupons_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении списка купонов.
 
-    def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None):
-        super().__init__()  # __init__() QObject.
+    def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None, candles: list[HistoricCandle] | None = None, parent: QObject | None = None):
+        super().__init__(parent)
         self.bond: Bond = bond
         self.last_price: LastPrice | None = last_price
         self.coupons: list[Coupon] | None = coupons  # Список купонов.
+        self.candles: list[HistoricCandle] | None = candles
 
     def getLastPrice(self) -> MyMoneyValue | None:
         """Рассчитывает последнюю цену одной облигации."""

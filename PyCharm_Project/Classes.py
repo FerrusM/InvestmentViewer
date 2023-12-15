@@ -156,7 +156,7 @@ class MyConnection(ABC):
 
     '''---------Названия таблиц БД---------'''
     TOKENS_TABLE: str = 'Tokens'
-    ASSETS_TABLE: str = 'Accounts'
+    ACCOUNTS_TABLE: str = 'Accounts'
     BONDS_TABLE: str = 'Bonds'
     LAST_PRICES_TABLE: str = 'LastPrices'
     COUPONS_TABLE: str = 'Coupons'
@@ -242,10 +242,6 @@ class MyConnection(ABC):
     @staticmethod
     def convertTextToQuotation(text: str) -> Quotation:
         """Конвертирует TEXT в Quotation при извлечении из БД."""
-        # units_str, nano_str = text.split('.', 1)
-        # units: int = int(units_str)
-        # nano: int = int(nano_str)
-
         units, nano = MyConnection.extractUnitsAndNanoFromText(text)
         return Quotation(units, nano)
 

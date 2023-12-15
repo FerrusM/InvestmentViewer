@@ -106,4 +106,5 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
         self.tab_bonds.setTokensModel(token_list_model)
         self.new_tab_bonds.setTokensModel(token_list_model)
         self.tab_assets.setTokensModel(token_list_model)
+        self.tab_candles.setTokensModel(token_list_model)
         """------------------------------------------------------------"""

@@ -1,15 +1,15 @@
-from tinkoff.invest import Share, Dividend, LastPrice, AssetFull
+from tinkoff.invest import Share, Dividend, LastPrice, AssetFull, HistoricCandle
 from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue
 
 
 class MyShareClass:
     """Мой класс акций."""
-    def __init__(self, share: Share, last_price: LastPrice | None = None):
+    def __init__(self, share: Share, last_price: LastPrice | None = None, dividends: list[Dividend] | None = None, candles: list[HistoricCandle] | None = None):
         self.share: Share = share
         self.last_price: LastPrice | None = last_price
-        self.dividends: list[Dividend] = []  # Дивиденды.
-        self.asset: AssetFull | None = None
+        self.dividends: list[Dividend] | None = dividends  # Дивиденды.
+        self.candles: list[HistoricCandle] | None = candles
 
     def setDividends(self, dividends: list[Dividend]):
         """Записывает список дивидендов."""

@@ -22,9 +22,8 @@ class CouponsThread(QThread):
             def setCouponsColumnValue(value: str):
                 """Заполняет столбец coupons значением."""
                 coupons_query = QSqlQuery(db)
-                coupons_query.prepare('''
-                UPDATE "BondsFinancialInstrumentGlobalIdentifiers" SET "coupons" = :coupons WHERE "figi" = :coupon_figi;
-                ''')
+                coupons_prepare_flag: bool = coupons_query.prepare('UPDATE \"{0}\" SET \"coupons\" = :coupons WHERE \"figi\" = :coupon_figi;'.format(MyConnection.BONDS_FIGI_TABLE))
+                assert coupons_prepare_flag, coupons_query.lastError().text()
                 coupons_query.bindValue(':coupons', value)
                 coupons_query.bindValue(':coupon_figi', figi)
                 coupons_exec_flag: bool = coupons_query.exec()
@@ -40,7 +39,8 @@ class CouponsThread(QThread):
                 if transaction_flag:
                     '''----Удаляет из таблицы купонов все купоны, имеющие переданный figi----'''
                     delete_coupons_query = QSqlQuery(db)
-                    delete_coupons_query.prepare('''DELETE FROM "Coupons" WHERE "figi" = :figi;''')
+                    delete_coupons_prepare_flag: bool = delete_coupons_query.prepare('DELETE FROM \"{0}\" WHERE \"figi\" = :figi;'.format(MyConnection.COUPONS_TABLE))
+                    assert delete_coupons_prepare_flag, delete_coupons_query.lastError().text()
                     delete_coupons_query.bindValue(':figi', figi)
                     delete_coupons_exec_flag: bool = delete_coupons_query.exec()
                     assert delete_coupons_exec_flag, delete_coupons_query.lastError().text()
@@ -48,10 +48,10 @@ class CouponsThread(QThread):
 
                     '''---------------------------Добавляет купоны в таблицу купонов---------------------------'''
                     add_coupons_query = QSqlQuery(db)
-                    sql_command: str = 'INSERT INTO "Coupons"(' \
-                                       'figi, coupon_date, coupon_number, fix_date, pay_one_bond, coupon_type, ' \
-                                       'coupon_start_date, coupon_end_date, coupon_period' \
-                                       ') VALUES '
+                    sql_command: str = 'INSERT INTO \"{0}\" (' \
+                                       '\"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", \"pay_one_bond\", ' \
+                                       '\"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"' \
+                                       ') VALUES '.format(MyConnection.COUPONS_TABLE)
                     for i in range(coupons_count):
                         if i > 0: sql_command += ', '  # Если добавляемый купон не первый.
                         sql_command += '(' \
@@ -61,8 +61,8 @@ class CouponsThread(QThread):
                                        ')'.format(i)
                     sql_command += ';'
 
-                    prepare_flag: bool = add_coupons_query.prepare(sql_command)
-                    assert prepare_flag, add_coupons_query.lastError().text()
+                    add_coupons_prepare_flag: bool = add_coupons_query.prepare(sql_command)
+                    assert add_coupons_prepare_flag, add_coupons_query.lastError().text()
 
                     for i, coupon in enumerate(coupons):
                         add_coupons_query.bindValue(':figi{0}'.format(i), coupon.figi)
@@ -107,7 +107,7 @@ class CouponsThread(QThread):
     releaseSemaphore_signal: pyqtSignal = pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
 
     def __init__(self, token_class: TokenClass, bond_class_list: list[MyBondClass]):
-        super().__init__()  # __init__() QThread.
+        super().__init__()
         self.token: TokenClass = token_class
         self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_coupons_method_name)
         self.bonds: list[MyBondClass] = bond_class_list

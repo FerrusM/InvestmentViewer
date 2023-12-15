@@ -5,7 +5,7 @@ from PyQt6.QtGui import QBrush
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from decimal import Decimal
 from tinkoff.invest import InstrumentStatus, Bond, Quotation, SecurityTradingStatus, RealExchange
-from tinkoff.invest.schemas import RiskLevel, LastPrice, Coupon, CouponType
+from tinkoff.invest.schemas import RiskLevel, LastPrice, Coupon, CouponType, MoneyValue
 from Classes import MyConnection, Column, TokenClass, reportTradingStatus
 from MyBondClass import MyBondClass, MyBond, TINKOFF_COMMISSION, MyCoupon, NDFL, DAYS_IN_YEAR
 from MyDatabase import MainConnection
@@ -473,12 +473,12 @@ class BondsModel(QAbstractTableModel):
                     exchange: str = query.value('exchange')
                     coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
                     maturity_date: datetime = MyConnection.convertTextToDateTime(query.value('maturity_date'))
-                    nominal: MyMoneyValue = MyConnection.convertTextToMyMoneyValue(query.value('nominal'))
-                    initial_nominal: MyMoneyValue = MyConnection.convertTextToMyMoneyValue(query.value('initial_nominal'))
+                    nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
+                    initial_nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('initial_nominal'))
                     state_reg_date: datetime = MyConnection.convertTextToDateTime(query.value('state_reg_date'))
                     placement_date: datetime = MyConnection.convertTextToDateTime(query.value('placement_date'))
-                    placement_price: MyMoneyValue = MyConnection.convertTextToMyMoneyValue(query.value('placement_price'))
-                    aci_value: MyMoneyValue = MyConnection.convertTextToMyMoneyValue(query.value('aci_value'))
+                    placement_price: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('placement_price'))
+                    aci_value: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('aci_value'))
                     country_of_risk: str = query.value('country_of_risk')
                     country_of_risk_name: str = query.value('country_of_risk_name')
                     sector: str = query.value('sector')
@@ -616,7 +616,7 @@ class BondsModel(QAbstractTableModel):
                                 coupon_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_date'))
                                 coupon_number: int = coupons_query.value('coupon_number')
                                 fix_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('fix_date'))
-                                pay_one_bond: MyMoneyValue = MyConnection.convertTextToMyMoneyValue(coupons_query.value('pay_one_bond'))
+                                pay_one_bond: MoneyValue = MyConnection.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
                                 coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
                                 coupon_start_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_start_date'))
                                 coupon_end_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_end_date'))

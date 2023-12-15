@@ -31,45 +31,48 @@ class MainConnection(MyConnection):
 
         if transaction_flag:
             '''------------Создание таблицы токенов------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS \"Tokens\" (
+            tokens_query = QSqlQuery(db)
+            tokens_prepare_flag: bool = tokens_query.prepare('''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"token\" TEXT NOT NULL,
             \"name\" TEXT NULL,
             PRIMARY KEY (\"token\")
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            );'''.format(MyConnection.TOKENS_TABLE))
+            assert tokens_prepare_flag, tokens_query.lastError().text()
+            tokens_exec_flag: bool = tokens_query.exec()
+            assert tokens_exec_flag, tokens_query.lastError().text()
             '''------------------------------------------------'''
 
             '''------------Создание таблиц лимитов------------'''
             unary_limits_query = QSqlQuery(db)
-            unary_limits_query.prepare('''
-            CREATE TABLE IF NOT EXISTS "UnaryLimits" (
-            "token" TEXT NOT NULL,
-            "limit_per_minute" INTEGER NOT NULL,
-            "methods" TEXT NOT NULL,
-            FOREIGN KEY ("token") REFERENCES "Tokens"("token") ON DELETE CASCADE
-            );''')
-            exec_flag: bool = unary_limits_query.exec()
-            assert exec_flag, unary_limits_query.lastError().text()
+            unary_limits_prepare_flag: bool = unary_limits_query.prepare('''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"token\" TEXT NOT NULL,
+            \"limit_per_minute\" INTEGER NOT NULL,
+            \"methods\" TEXT NOT NULL,
+            FOREIGN KEY (\"token\") REFERENCES \"{1}\"(\"token\") ON DELETE CASCADE
+            );'''.format(MyConnection.UNARY_LIMITS_TABLE, MyConnection.TOKENS_TABLE))
+            assert unary_limits_prepare_flag, unary_limits_query.lastError().text()
+            unary_limits_exec_flag: bool = unary_limits_query.exec()
+            assert unary_limits_exec_flag, unary_limits_query.lastError().text()
 
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "StreamLimits" (
-            "token" TEXT NOT NULL,
-            "limit_count" INTEGER NOT NULL,
-            "streams" TEXT NOT NULL,
-            "open" INTEGER NOT NULL,
-            FOREIGN KEY ("token") REFERENCES "Tokens"("token") ON DELETE CASCADE
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            stream_limits_query = QSqlQuery(db)
+            stream_limits_prepare_flag: bool = stream_limits_query.prepare('''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"token\" TEXT NOT NULL,
+            \"limit_count\" INTEGER NOT NULL,
+            \"streams\" TEXT NOT NULL,
+            \"open\" INTEGER NOT NULL,
+            FOREIGN KEY (\"token\") REFERENCES \"{1}\"(\"token\") ON DELETE CASCADE
+            );'''.format(MyConnection.STREAM_LIMITS_TABLE, MyConnection.TOKENS_TABLE))
+            assert stream_limits_prepare_flag, stream_limits_query.lastError().text()
+            stream_limits_exec_flag: bool = stream_limits_query.exec()
+            assert stream_limits_exec_flag, stream_limits_query.lastError().text()
             '''-----------------------------------------------'''
 
             '''------------------Создание таблицы счетов------------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
+            accounts_query = QSqlQuery(db)
+            accounts_prepare_flag: bool = accounts_query.prepare('''
             CREATE TABLE IF NOT EXISTS "Accounts" (
             "token" TEXT NOT NULL,
             "id" TEXT NOT NULL,
@@ -81,9 +84,10 @@ class MainConnection(MyConnection):
             "access_level" INTEGER NOT NULL,
             PRIMARY KEY ("token", "id"),
             FOREIGN KEY ("token") REFERENCES "Tokens"("token") ON DELETE CASCADE
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            );'''.format())
+            assert accounts_prepare_flag, accounts_query.lastError().text()
+            accounts_exec_flag: bool = accounts_query.exec()
+            assert accounts_exec_flag, accounts_query.lastError().text()
             '''-----------------------------------------------------------'''
 
             '''----Создание таблицы ассоциаций uid-идентификаторов инструментов----'''
@@ -379,7 +383,7 @@ class MainConnection(MyConnection):
             '''---------------------Создание таблицы свечей---------------------'''
             candles_query = QSqlQuery(db)
             candles_prepare_flag: bool = candles_query.prepare('''
-            CREATE TABLE IF NOT EXISTS \"HistoricCandles\" (
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"instrument_id\" TEXT NOT NULL,
             \"open\" TEXT NOT NULL,
             \"high\" TEXT NOT NULL,
@@ -391,9 +395,7 @@ class MainConnection(MyConnection):
             UNIQUE (\"instrument_id\", \"time\"),
             FOREIGN KEY (\"instrument_id\") REFERENCES \"InstrumentUniqueIdentifiers\"(\"uid\") ON DELETE CASCADE
             );
-            '''.format(
-                '\"{0}\"'.format(MyConnection.CANDLES_TABLE)
-            ))
+            '''.format(MyConnection.CANDLES_TABLE))
             assert candles_prepare_flag, candles_query.lastError().text()
             candles_exec_flag: bool = candles_query.exec()
             assert candles_exec_flag, candles_query.lastError().text()

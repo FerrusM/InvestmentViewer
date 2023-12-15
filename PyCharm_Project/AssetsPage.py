@@ -18,8 +18,7 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
     currentStatusChanged: pyqtSignal = pyqtSignal(InstrumentType)  # Сигнал испускается при изменении текущего типа инструмента.
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
+        super().__init__(parent)
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -77,15 +76,13 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         self.label_token.setText(_translate('MainWindow', 'Токен:'))
         self.horizontalLayout_token.addWidget(self.label_token)
 
-        spacerItem3 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_token.addItem(spacerItem3)
+        self.horizontalLayout_token.addItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.comboBox_token = QtWidgets.QComboBox(self)
         self.comboBox_token.setObjectName('comboBox_token')
         self.horizontalLayout_token.addWidget(self.comboBox_token)
 
-        spacerItem4 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_token.addItem(spacerItem4)
+        self.horizontalLayout_token.addItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_token)
         '''-----------------------------------------------------------'''
@@ -101,8 +98,7 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         self.label_instrument_type.setText(_translate('MainWindow', 'Тип инструментов:'))
         self.horizontalLayout_instrument_type.addWidget(self.label_instrument_type)
 
-        spacerItem13 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_instrument_type.addItem(spacerItem13)
+        self.horizontalLayout_instrument_type.addItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.comboBox_instrument_type = QtWidgets.QComboBox(self)
         self.comboBox_instrument_type.setObjectName('comboBox_instrument_type')
@@ -117,8 +113,7 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         self.comboBox_instrument_type.addItem(_translate('MainWindow', 'Clearing certificate'))
         self.horizontalLayout_instrument_type.addWidget(self.comboBox_instrument_type)
 
-        spacerItem14 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_instrument_type.addItem(spacerItem14)
+        self.horizontalLayout_instrument_type.addItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_instrument_type)
         '''----------------------------------------------------------'''
@@ -200,8 +195,6 @@ class GroupBox_AssetFullsReceiving(QtWidgets.QGroupBox):
         self.progressBar_assets = ProgressBar_DataReceiving('progressBar_assets', self)
         self.verticalLayout_main.addWidget(self.progressBar_assets)
         '''-------------------------------------------------------------'''
-
-        self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а."""
