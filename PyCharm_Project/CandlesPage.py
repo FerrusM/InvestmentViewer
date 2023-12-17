@@ -495,22 +495,26 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
             self.setText(None)
 
         def __reportBond(self, bond: MyBondClass):
-            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}'.format(
+            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
                 'Облигация',
                 bond.bond.name,
                 bond.bond.uid,
                 bond.bond.figi,
-                bond.bond.isin
+                bond.bond.isin,
+                bond.bond.first_1min_candle_date,
+                bond.bond.first_1day_candle_date
             )
             self.setText(text)
 
         def __reportShare(self, share: MyShareClass):
-            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}'.format(
+            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
                 'Акция',
                 share.share.name,
                 share.share.uid,
                 share.share.figi,
-                share.share.isin
+                share.share.isin,
+                share.share.first_1min_candle_date,
+                share.share.first_1day_candle_date
             )
             self.setText(text)
 
@@ -544,19 +548,19 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             CONNECTION_NAME: str = 'InvestmentViewer_CandlesThread'
 
             @classmethod
-            def insertHistoricCandles(cls, uid: str, candles: list[HistoricCandle]):
+            def insertHistoricCandles(cls, uid: str, interval: CandleInterval, candles: list[HistoricCandle]):
                 """Добавляет свечи в таблицу исторических свечей."""
                 if candles:  # Если список не пуст.
                     '''------------------------Добавляем свечи в таблицу исторических свечей------------------------'''
                     db: QSqlDatabase = cls.getDatabase()
                     query = QSqlQuery(db)
 
-                    sql_command: str = 'INSERT OR IGNORE INTO \"{0}\" (\"instrument_id\", \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\") VALUES '.format(MyConnection.CANDLES_TABLE)
+                    sql_command: str = 'INSERT OR IGNORE INTO \"{0}\" (\"instrument_id\", \"interval\", \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\") VALUES '.format(MyConnection.CANDLES_TABLE)
                     candles_count: int = len(candles)
                     for i in range(candles_count):
                         if i > 0: sql_command += ', '  # Если добавляемая свеча не первая.
-                        sql_command += '(:uid, :open{0}, :high{0}, :low{0}, :close{0}, :volume{0}, :time{0}, :is_complete{0})'.format(i)
-                    sql_command += ' ON CONFLICT (\"instrument_id\", \"time\") DO UPDATE SET ' \
+                        sql_command += '(:uid, :interval, :open{0}, :high{0}, :low{0}, :close{0}, :volume{0}, :time{0}, :is_complete{0})'.format(i)
+                    sql_command += ' ON CONFLICT (\"instrument_id\", \"interval\", \"time\") DO UPDATE SET ' \
                                    '\"open\" = \"excluded\".\"open\", \"high\" = \"excluded\".\"high\", ' \
                                    '\"low\" = \"excluded\".\"low\", \"close\" = \"excluded\".\"close\", ' \
                                    '\"volume\" = \"excluded\".\"volume\", \"is_complete\" = \"excluded\".\"is_complete\";'
@@ -565,6 +569,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                     assert prepare_flag, query.lastError().text()
 
                     query.bindValue(':uid', uid)
+                    query.bindValue(':interval', interval.name)
                     for i, candle in enumerate(candles):
                         query.bindValue(':open{0}'.format(i), MyQuotation.__repr__(candle.open))
                         query.bindValue(':high{0}'.format(i), MyQuotation.__repr__(candle.high))
@@ -610,27 +615,57 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             if self.semaphore is None:
                 printInConsole('Лимит для метода {0} не найден.'.format(self.receive_candles_method_name))
             else:
-                '''---------Определяем uid инструмента---------'''
-                if isinstance(self.instrument, MyBondClass):
-                    uid: str = self.instrument.bond.uid
-                elif isinstance(self.instrument, MyShareClass):
-                    uid: str = self.instrument.share.uid
-                else:
-                    raise TypeError('Некорректный тип инструмента!')
-                '''--------------------------------------------'''
+                uid: str = self.instrument.instrument().uid
+
+                def requestCandles(from_: datetime, to: datetime, interval=CandleInterval.CANDLE_INTERVAL_1_MIN) -> MyResponse:
+                    try_count: RequestTryClass = RequestTryClass()
+                    response: MyResponse = MyResponse()
+                    while try_count and not response.ifDataSuccessfullyReceived():
+                        if self.isInterruptionRequested():
+                            printInConsole('Поток прерван.')
+                            break
+
+                        """------------------------------Выполнение запроса------------------------------"""
+                        self.semaphore.acquire(1)  # Блокирует вызов до тех пор, пока не будет доступно достаточно ресурсов.
+
+                        '''----------------Подсчёт статистических параметров----------------'''
+                        if ifFirstIteration():  # Не выполняется до второго запроса.
+                            delta: float = (getUtcDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
+                            printInConsole('{0} из {1} Период: {3} - {4} ({2:.2f}с)'.format(request_number, requests_count, delta, dt_from, dt_to))
+                        else:
+                            printInConsole('{0} из {1} Период: {2} - {3}'.format(request_number, requests_count, dt_from, dt_to))
+                        self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
+                        '''-----------------------------------------------------------------'''
+
+                        response = getCandles(token=self.token.token,
+                                              uid=uid,
+                                              from_=from_,
+                                              to=to,
+                                              interval=interval)
+                        assert response.request_occurred, 'Запрос свечей не был произведён.'
+                        self.request_count += 1  # Подсчитываем запрос.
+
+                        '''------------------------Сообщаем об ошибке------------------------'''
+                        if response.request_error_flag:
+                            printInConsole('RequestError {0}'.format(response.request_error))
+                        elif response.exception_flag:
+                            printInConsole('Exception {0}'.format(response.exception))
+                        '''------------------------------------------------------------------'''
+
+                        self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
+                        """------------------------------------------------------------------------------"""
+                        try_count += 1
+                    return response
 
                 '''Максимально допустимый период получения свечей за один запрос — 1 календарный год.'''
-                if isinstance(self.instrument, MyBondClass):
-                    dt_from: datetime = self.instrument.bond.first_1min_candle_date
-                elif isinstance(self.instrument, MyShareClass):
-                    dt_from: datetime = self.instrument.share.first_1min_candle_date
-                else:
-                    raise TypeError('Некорректный тип инструмента!')
+                dt_from: datetime = self.instrument.instrument().first_1min_candle_date
 
                 if ifDateTimeIsEmpty(dt_from):
                     printInConsole('Время первой минутной свечи инструмента {0} пустое. Получение исторических свечей для таких инструментов пока не реализовано.'.format(uid))
                     return
                 else:
+                    candle_interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_1_MIN
+
                     self.CandlesConnection.open()  # Открываем соединение с БД.
 
                     current_dt: datetime = getUtcDateTime()
@@ -654,56 +689,39 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
                         request_number += 1
 
-                        candles_try_count: RequestTryClass = RequestTryClass()
-                        candles_response: MyResponse = MyResponse()
-                        while candles_try_count and not candles_response.ifDataSuccessfullyReceived():
-                            if self.isInterruptionRequested():
-                                printInConsole('Поток прерван.')
-                                break
-
-                            """------------------------------Выполнение запроса------------------------------"""
-                            self.semaphore.acquire(1)  # Блокирует вызов до тех пор, пока не будет доступно достаточно ресурсов.
-
-                            '''----------------Подсчёт статистических параметров----------------'''
-                            if ifFirstIteration():  # Не выполняется до второго запроса.
-                                delta: float = (getUtcDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
-                                printInConsole('{0} из {1} Период: {3} - {4} ({2:.2f}с)'.format(request_number, requests_count, delta, dt_from, dt_to))
-                            else:
-                                printInConsole('{0} из {1} Период: {2} - {3}'.format(request_number, requests_count, dt_from, dt_to))
-                            self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
-                            '''-----------------------------------------------------------------'''
-
-                            candles_response: MyResponse = getCandles(token=self.token.token,
-                                                                      uid=uid,
-                                                                      from_=dt_from,
-                                                                      to=dt_to,
-                                                                      interval=CandleInterval.CANDLE_INTERVAL_1_MIN)
-                            assert candles_response.request_occurred, 'Запрос свечей не был произведён.'
-                            self.request_count += 1  # Подсчитываем запрос.
-
-                            '''------------------------Сообщаем об ошибке------------------------'''
-                            if candles_response.request_error_flag:
-                                printInConsole('RequestError {0}'.format(candles_response.request_error))
-                            elif candles_response.exception_flag:
-                                printInConsole('Exception {0}'.format(candles_response.exception))
-                            '''------------------------------------------------------------------'''
-
-                            self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
-                            """------------------------------------------------------------------------------"""
-                            candles_try_count += 1
+                        candles_response: MyResponse = requestCandles(dt_from, dt_to, candle_interval)
 
                         candles: list[HistoricCandle] | None = candles_response.response_data if candles_response.ifDataSuccessfullyReceived() else None
                         if candles is not None:  # Если поток был прерван или если информация не была получена.
                             self.instrument.candles = candles
-                            self.CandlesConnection.insertHistoricCandles(uid, candles)
+                            self.CandlesConnection.insertHistoricCandles(uid, candle_interval, candles)
+
+                        self.setProgressBarValue_signal.emit(self.request_count)  # Отображаем прогресс в progressBar.
 
                         dt_from = dt_to
                         dt_to += timedelta(days=1)
+                    else:
+                        dt_to = getUtcDateTime()
+                        assert dt_from < dt_to
+                        assert dt_to - dt_from < timedelta(days=1)
+
+                        request_number += 1
+
+                        candles_response: MyResponse = requestCandles(dt_from, dt_to, candle_interval)
+
+                        candles: list[HistoricCandle] | None = candles_response.response_data if candles_response.ifDataSuccessfullyReceived() else None
+                        if candles is not None:  # Если поток был прерван или если информация не была получена.
+                            self.instrument.candles = candles
+                            self.CandlesConnection.insertHistoricCandles(uid, candle_interval, candles)
 
                         self.setProgressBarValue_signal.emit(self.request_count)  # Отображаем прогресс в progressBar.
 
                     self.CandlesConnection.removeConnection()  # Удаляем соединение с БД.
-    
+
+    STOP: str = 'Стоп'
+    PLAY: str = 'Пуск'
+    PAUSE: str = 'Пауза'
+
     def __init__(self, parent: QtWidgets.QWidget | None = ...):
         self.__token: TokenClass | None = None
         self.__instrument: MyBondClass | MyShareClass | None = None
@@ -743,13 +761,13 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         self.play_button = QtWidgets.QPushButton(self)
         self.play_button.setEnabled(False)
-        self.play_button.setText('Play')
+        self.play_button.setText(self.PLAY)
         self.play_button.clicked.connect(self.__startThread)
         self.horizontalLayout.addWidget(self.play_button)
 
         self.stop_button = QtWidgets.QPushButton(self)
         self.stop_button.setEnabled(False)
-        self.stop_button.setText('Stop')
+        self.stop_button.setText(self.STOP)
         self.stop_button.clicked.connect(self.__stopThread)
         self.horizontalLayout.addWidget(self.stop_button)
 
@@ -787,7 +805,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 self.__candles_receiving_thread.wait()  # Ждём завершения потока.
                 self.__candles_receiving_thread = None
             """============================================================================="""
-            self.play_button.setText('Play')
+            self.progressBar.reset()  # Сбрасываем progressBar.
+            self.play_button.setText(self.PLAY)
         else:
             """==========================Поток необходимо запустить=========================="""
             assert self.__candles_receiving_thread is None, 'Поток получения исторических свечей должен быть завершён!'
@@ -804,7 +823,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             '''----------------------------------------------------------------------------'''
             self.__candles_receiving_thread.start()  # Запускаем поток.
             """=============================================================================="""
-            self.play_button.setText('Pause')
+            self.play_button.setText(self.PAUSE)
             self.play_button.setEnabled(True)
             self.stop_button.setEnabled(True)
 
@@ -819,7 +838,6 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.thread = None
         if self.__token is not None and self.__instrument is not None:
             self.play_button.setEnabled(True)
-
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""

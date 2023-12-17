@@ -73,18 +73,18 @@ class MainConnection(MyConnection):
             '''------------------Создание таблицы счетов------------------'''
             accounts_query = QSqlQuery(db)
             accounts_prepare_flag: bool = accounts_query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Accounts" (
-            "token" TEXT NOT NULL,
-            "id" TEXT NOT NULL,
-            "type" INTEGER NOT NULL,
-            "name" TEXT NOT NULL,
-            "status" INTEGER NOT NULL,
-            "opened_date" TEXT NOT NULL,
-            "closed_date" TEXT NOT NULL,
-            "access_level" INTEGER NOT NULL,
-            PRIMARY KEY ("token", "id"),
-            FOREIGN KEY ("token") REFERENCES "Tokens"("token") ON DELETE CASCADE
-            );'''.format())
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"token\" TEXT NOT NULL,
+            \"id\" TEXT NOT NULL,
+            \"type\" INTEGER NOT NULL,
+            \"name\" TEXT NOT NULL,
+            \"status\" INTEGER NOT NULL,
+            \"opened_date\" TEXT NOT NULL,
+            \"closed_date\" TEXT NOT NULL,
+            \"access_level\" INTEGER NOT NULL,
+            PRIMARY KEY (\"token\", \"id\"),
+            FOREIGN KEY (\"token\") REFERENCES \"{1}\"(\"token\") ON DELETE CASCADE
+            );'''.format(MyConnection.ACCOUNTS_TABLE, MyConnection.TOKENS_TABLE))
             assert accounts_prepare_flag, accounts_query.lastError().text()
             accounts_exec_flag: bool = accounts_query.exec()
             assert accounts_exec_flag, accounts_query.lastError().text()
@@ -385,6 +385,7 @@ class MainConnection(MyConnection):
             candles_prepare_flag: bool = candles_query.prepare('''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"instrument_id\" TEXT NOT NULL,
+            \"interval\" TEXT NOT NULL,
             \"open\" TEXT NOT NULL,
             \"high\" TEXT NOT NULL,
             \"low\" TEXT NOT NULL,
@@ -392,7 +393,7 @@ class MainConnection(MyConnection):
             \"volume\" INTEGER NOT NULL,
             \"time\" TEXT NOT NULL,
             \"is_complete\"	BLOB NOT NULL,
-            UNIQUE (\"instrument_id\", \"time\"),
+            UNIQUE (\"instrument_id\", \"interval\", \"time\"),
             FOREIGN KEY (\"instrument_id\") REFERENCES \"InstrumentUniqueIdentifiers\"(\"uid\") ON DELETE CASCADE
             );
             '''.format(MyConnection.CANDLES_TABLE))

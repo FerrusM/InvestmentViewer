@@ -11,6 +11,10 @@ class MyShareClass:
         self.dividends: list[Dividend] | None = dividends  # Дивиденды.
         self.candles: list[HistoricCandle] | None = candles
 
+    def instrument(self) -> Share:
+        """Возвращает инструмент (акцию), хранящийся в классе."""
+        return self.share
+
     def setDividends(self, dividends: list[Dividend]):
         """Записывает список дивидендов."""
         self.dividends = dividends

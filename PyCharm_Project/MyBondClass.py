@@ -100,6 +100,10 @@ class MyBondClass(QObject):
         self.coupons: list[Coupon] | None = coupons  # Список купонов.
         self.candles: list[HistoricCandle] | None = candles
 
+    def instrument(self) -> Bond:
+        """Возвращает инструмент (облигацию), хранящийся в классе."""
+        return self.bond
+
     def getLastPrice(self) -> MyMoneyValue | None:
         """Рассчитывает последнюю цену одной облигации."""
         if self.last_price is None: return None
