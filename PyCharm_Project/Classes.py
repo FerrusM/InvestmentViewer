@@ -1,12 +1,19 @@
 from abc import ABC
 from datetime import datetime
 from PyQt6 import QtWidgets
-from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex
+from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, pyqtSlot
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyDateTime import getUtcDateTime
 from MyMoneyValue import MyMoneyValue
+
+
+@pyqtSlot(str)
+def print_slot(text: str):
+    """По моим наблюдениям, функция print с добавленным декоратором pyqtSlot работает быстрее.
+    Но это следует проверить."""
+    print(text)
 
 
 class MyTreeView(QtWidgets.QTreeView):

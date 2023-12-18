@@ -6,7 +6,7 @@ from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import InstrumentStatus, Bond
 from tinkoff.invest.schemas import RiskLevel
 from old_BondsModel import BondsModel, BondsProxyModel
-from Classes import TokenClass
+from Classes import TokenClass, print_slot
 from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
 from MyBondClass import MyBondClass, MyBond
@@ -889,8 +889,8 @@ class BondsPage(QtWidgets.QWidget):
 
         self.groupBox_view.sourceModel().coupons_receiving_thread = CouponsThread(token_class=self.token, bond_class_list=bonds)
         """---------------------Подключаем сигналы потока к слотам---------------------"""
-        # self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print, type=Qt.ConnectionType.BlockingQueuedConnection)  # Сигнал для отображения сообщений в консоли.
-        self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
+        # self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
+        self.groupBox_view.sourceModel().coupons_receiving_thread.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
 
         self.groupBox_view.sourceModel().coupons_receiving_thread.setProgressBarRange_signal.connect(self.groupBox_coupons_receiving.setRange)
         self.groupBox_view.sourceModel().coupons_receiving_thread.setProgressBarValue_signal.connect(self.groupBox_coupons_receiving.setValue)

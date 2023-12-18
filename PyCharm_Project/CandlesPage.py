@@ -1,11 +1,10 @@
 from datetime import datetime, timedelta
 import typing
 from PyQt6 import QtWidgets, QtCore, QtCharts, QtGui, QtSql
-from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
-from Classes import MyConnection, TokenClass
+from Classes import MyConnection, TokenClass, print_slot
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -23,13 +22,13 @@ TITLE_FONT.setBold(True)
 
 class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
     """GroupBox для выбора инструмента."""
-    bondSelected: pyqtSignal = pyqtSignal(MyBondClass)  # Сигнал испускается при выборе облигации.
-    shareSelected: pyqtSignal = pyqtSignal(MyShareClass)  # Сигнал испускается при выборе акции.
-    instrumentReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
+    bondSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyBondClass)  # Сигнал испускается при выборе облигации.
+    shareSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyShareClass)  # Сигнал испускается при выборе акции.
+    instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
 
     class ComboBox_InstrumentType(QtWidgets.QComboBox):
-        typeChanged: pyqtSignal = pyqtSignal(str)  # Сигнал испускается при изменении выбранного типа.
-        typeReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при сбросе выбранного типа.
+        typeChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал испускается при изменении выбранного типа.
+        typeReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного типа.
 
         class InstrumentsTypeModel(QtCore.QAbstractListModel):
             """Модель типов инструментов."""
@@ -90,8 +89,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 self.typeChanged.emit(instrument_type)
 
     class ComboBox_Instrument(QtWidgets.QComboBox):
-        instrumentChanged: pyqtSignal = pyqtSignal(str)  # Сигнал испускается при изменении выбранного инструмента.
-        instrumentReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
+        instrumentChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал испускается при изменении выбранного инструмента.
+        instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
 
         class InstrumentsUidModel(QtCore.QAbstractListModel):
             """Модель инструментов выбранного типа."""
@@ -585,12 +584,12 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         receive_candles_method_name: str = 'GetCandles'
 
-        printText_signal: pyqtSignal = pyqtSignal(str)  # Сигнал для отображения сообщений в консоли.
-        releaseSemaphore_signal: pyqtSignal = pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
+        printText_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал для отображения сообщений в консоли.
+        releaseSemaphore_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
 
         '''-----------------Сигналы progressBar'а-----------------'''
-        setProgressBarRange_signal: pyqtSignal = pyqtSignal(int, int)  # Сигнал для установления минимума и максимума progressBar'а заполнения купонов.
-        setProgressBarValue_signal: pyqtSignal = pyqtSignal(int)  # Сигнал для изменения прогресса в progressBar'е.
+        setProgressBarRange_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(int, int)  # Сигнал для установления минимума и максимума progressBar'а заполнения купонов.
+        setProgressBarValue_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(int)  # Сигнал для изменения прогресса в progressBar'е.
         '''-------------------------------------------------------'''
 
         def __init__(self, token_class: TokenClass, instrument: MyBondClass | MyShareClass, parent: QtCore.QObject | None = ...):
@@ -598,6 +597,14 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             self.token: TokenClass = token_class
             self.instrument: MyBondClass | MyShareClass = instrument
             self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_candles_method_name)
+
+            if self.semaphore is not None:
+                @QtCore.pyqtSlot(LimitPerMinuteSemaphore, int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                def __releaseSemaphore(semaphore: LimitPerMinuteSemaphore, n: int):
+                    semaphore.release(n)
+
+                # self.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
+                self.releaseSemaphore_signal.connect(__releaseSemaphore)  # Освобождаем ресурсы семафора из основного потока.
 
             '''------------Статистические переменные------------'''
             self.request_count: int = 0  # Общее количество запросов.
@@ -762,13 +769,11 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.play_button = QtWidgets.QPushButton(self)
         self.play_button.setEnabled(False)
         self.play_button.setText(self.PLAY)
-        self.play_button.clicked.connect(self.__startThread)
         self.horizontalLayout.addWidget(self.play_button)
 
         self.stop_button = QtWidgets.QPushButton(self)
         self.stop_button.setEnabled(False)
         self.stop_button.setText(self.STOP)
-        self.stop_button.clicked.connect(self.__stopThread)
         self.horizontalLayout.addWidget(self.stop_button)
 
         self.progressBar = ProgressBar_DataReceiving('progressBar_candles', self)
@@ -777,17 +782,25 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout)
         '''--------------------------------------------------------------------'''
 
+        self.start_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
+        self.pause_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
+        self.stop_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
+
+    def __setStartThreadEnabled(self):
+        self.start_thread_connection = self.play_button.clicked.connect(self.__startThread)
+        self.play_button.setEnabled(True)
+
     def setToken(self, token: TokenClass | None):
         self.thread = None
         self.__token = token
         if self.__token is not None and self.__instrument is not None:
-            self.play_button.setEnabled(True)
+            self.__setStartThreadEnabled()
 
     def setInstrument(self, instrument: MyBondClass | MyShareClass | None):
         self.thread = None
         self.__instrument = instrument
         if self.__token is not None and self.__instrument is not None:
-            self.play_button.setEnabled(True)
+            self.__setStartThreadEnabled()
 
     @property
     def thread(self) -> CandlesThread | None:
@@ -799,6 +812,12 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.stop_button.setEnabled(False)
 
         if candles_receiving_thread is None:
+            disconnect_flag: bool = self.stop_button.disconnect(self.stop_thread_connection)
+            # assert disconnect_flag, 'Не удалось отключить слот!'
+
+            disconnect_flag: bool = self.play_button.disconnect(self.pause_thread_connection)
+            # assert disconnect_flag, 'Не удалось отключить слот!'
+
             """================Если поток запущен, то его следует остановить================"""
             if self.__candles_receiving_thread is not None:  # Если поток был создан.
                 self.__candles_receiving_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
@@ -808,36 +827,63 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             self.progressBar.reset()  # Сбрасываем progressBar.
             self.play_button.setText(self.PLAY)
         else:
+            disconnect_flag: bool = self.play_button.disconnect(self.start_thread_connection)
+            assert disconnect_flag, 'Не удалось отключить слот!'
+
             """==========================Поток необходимо запустить=========================="""
             assert self.__candles_receiving_thread is None, 'Поток получения исторических свечей должен быть завершён!'
             self.__candles_receiving_thread = candles_receiving_thread
             '''---------------------Подключаем сигналы потока к слотам---------------------'''
-            self.__candles_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
-            self.__candles_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
+            # self.__candles_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
+            self.__candles_receiving_thread.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
 
-            self.__candles_receiving_thread.setProgressBarRange_signal.connect(self.progressBar.setRange)
-            self.__candles_receiving_thread.setProgressBarValue_signal.connect(self.progressBar.setValue)
+            # self.__candles_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
+
+            @QtCore.pyqtSlot(int, int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+            def __setRange(minimum: int, maximum: int):
+                if self.thread is not None:
+                    self.progressBar.setRange(minimum, maximum)
+
+            self.__candles_receiving_thread.setProgressBarRange_signal.connect(__setRange)
+
+            @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+            def __setValue(value: int):
+                if self.thread is not None:
+                    self.progressBar.setValue(value)
+
+            self.__candles_receiving_thread.setProgressBarValue_signal.connect(__setValue)
 
             self.__candles_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
             self.__candles_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
             '''----------------------------------------------------------------------------'''
             self.__candles_receiving_thread.start()  # Запускаем поток.
             """=============================================================================="""
+
             self.play_button.setText(self.PAUSE)
+            self.pause_thread_connection = self.play_button.clicked.connect(self.__pauseThread)
             self.play_button.setEnabled(True)
+
+            self.stop_thread_connection = self.stop_button.clicked.connect(self.__stopThread)
             self.stop_button.setEnabled(True)
 
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def __startThread(self):
         """Запускает поток получения исторических свечей."""
         self.thread = GroupBox_CandlesReceiving.CandlesThread(token_class=self.__token,
                                                               instrument=self.__instrument,
                                                               parent=self)
 
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def __pauseThread(self):
+        """Приостанавливает поток получения исторических свечей."""
+        pass
+
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def __stopThread(self):
         """Останавливает поток получения исторических свечей."""
         self.thread = None
         if self.__token is not None and self.__instrument is not None:
-            self.play_button.setEnabled(True)
+            self.__setStartThreadEnabled()
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""

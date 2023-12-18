@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation, HistoricCandle
 from tinkoff.invest.utils import decimal_to_quotation
 from MyDateTime import getUtcDateTime
@@ -141,6 +141,7 @@ class MyBondClass(QObject):
         else:
             return None
 
+    @pyqtSlot(list)
     def setCoupons(self, coupons_list: list[Coupon]):
         """Заполняет список купонов."""
         self.coupons = coupons_list
