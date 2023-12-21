@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import typing
+from enum import Enum
 from PyQt6 import QtWidgets, QtCore, QtCharts, QtGui, QtSql
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
@@ -536,6 +537,7 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
     def setInstrument(self, instrument: MyBondClass | MyShareClass):
         self.label_info.setInstrument(instrument)
 
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def reset(self):
         self.label_info.reset()
 
@@ -594,6 +596,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         def __init__(self, token_class: TokenClass, instrument: MyBondClass | MyShareClass, parent: QtCore.QObject | None = ...):
             super().__init__(parent)
+            self.__mutex: QtCore.QMutex = QtCore.QMutex()
             self.token: TokenClass = token_class
             self.instrument: MyBondClass | MyShareClass = instrument
             self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_candles_method_name)
@@ -610,6 +613,26 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             self.request_count: int = 0  # Общее количество запросов.
             self.control_point: datetime | None = None  # Начальная точка отсчёта времени.
             '''-------------------------------------------------'''
+
+            # self.finished.connect(self.deleteLater())
+
+            self.__pause: bool = False
+            self.__pause_condition: QtCore.QWaitCondition = QtCore.QWaitCondition()
+
+        def pause(self):
+            """Приостанавливает прогресс."""
+            self.__mutex.lock()
+            assert not self.__pause
+            self.__pause = True
+            self.__mutex.unlock()
+
+        def resume(self):
+            """Возобновляет работу потока, поставленного на паузу."""
+            self.__mutex.lock()
+            assert self.__pause
+            self.__pause = False
+            self.__mutex.unlock()
+            self.__pause_condition.wakeAll()
 
         def run(self) -> None:
             def printInConsole(text: str):
@@ -632,7 +655,15 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                             printInConsole('Поток прерван.')
                             break
 
-                        """------------------------------Выполнение запроса------------------------------"""
+                        '''--Проверяем необходимость поставить поток на паузу--'''
+                        self.__mutex.lock()
+                        if self.__pause:
+                            printInConsole('Поток приостановлен.')
+                            self.__pause_condition.wait(self.__mutex)
+                        self.__mutex.unlock()
+                        '''----------------------------------------------------'''
+
+                        """==============================Выполнение запроса=============================="""
                         self.semaphore.acquire(1)  # Блокирует вызов до тех пор, пока не будет доступно достаточно ресурсов.
 
                         '''----------------Подсчёт статистических параметров----------------'''
@@ -652,15 +683,15 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                         assert response.request_occurred, 'Запрос свечей не был произведён.'
                         self.request_count += 1  # Подсчитываем запрос.
 
-                        '''------------------------Сообщаем об ошибке------------------------'''
+                        '''-----------------------Сообщаем об ошибке-----------------------'''
                         if response.request_error_flag:
                             printInConsole('RequestError {0}'.format(response.request_error))
                         elif response.exception_flag:
                             printInConsole('Exception {0}'.format(response.exception))
-                        '''------------------------------------------------------------------'''
+                        '''----------------------------------------------------------------'''
 
                         self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
-                        """------------------------------------------------------------------------------"""
+                        """=============================================================================="""
                         try_count += 1
                     return response
 
@@ -725,14 +756,280 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
                     self.CandlesConnection.removeConnection()  # Удаляем соединение с БД.
 
+    class ThreadStatus(Enum):
+        """Статус потока."""
+        START_NOT_POSSIBLE = 0  # Поток не запущен. Запуск потока невозможен.
+        START_POSSIBLE = 1  # Поток не запущен. Возможен запуск потока.
+        RUNNING = 2  # Поток запущен.
+        PAUSE = 3  # Поток приостановлен.
+        FINISHED = 4  # Поток завершился.
+
     STOP: str = 'Стоп'
     PLAY: str = 'Пуск'
     PAUSE: str = 'Пауза'
+
+    def setStatus(self, status: ThreadStatus):
+        print('Статус: {0} -> {1}.'.format(self.__thread_status.name, status.name))
+        match status:
+            case self.ThreadStatus.START_NOT_POSSIBLE:
+                assert self.__token is None or self.__instrument is None
+
+                match self.__thread_status:
+                    case self.ThreadStatus.START_NOT_POSSIBLE:
+                        return
+                    case self.ThreadStatus.START_POSSIBLE:
+                        self.play_button.setEnabled(False)
+                        disconnect_flag: bool = self.play_button.disconnect(self.start_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                    case self.ThreadStatus.RUNNING:
+                        self.play_button.setEnabled(False)
+                        self.stop_button.setEnabled(False)
+
+                        '''-------------------------Останавливаем поток-------------------------'''
+                        assert self.__candles_receiving_thread is not None
+                        disconnect_flag: bool = self.__candles_receiving_thread.disconnect(self.thread_finished_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                        self.__candles_receiving_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
+                        self.__candles_receiving_thread.wait()  # Ждём завершения потока.
+                        self.__candles_receiving_thread = None
+                        '''---------------------------------------------------------------------'''
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.pause_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+
+                        disconnect_flag: bool = self.stop_button.disconnect(self.stop_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+
+                        self.progressBar.reset()  # Сбрасываем progressBar.
+                        self.play_button.setText(self.PLAY)
+                    case self.ThreadStatus.PAUSE:
+                        self.play_button.setEnabled(False)
+                        self.stop_button.setEnabled(False)
+
+                        '''-------------------------Останавливаем поток-------------------------'''
+                        assert self.__candles_receiving_thread is not None
+                        self.__candles_receiving_thread.resume()  # Возобновляем работу потока, чтобы он мог безопасно завершиться.
+                        self.__candles_receiving_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
+                        self.__candles_receiving_thread.wait()  # Ждём завершения потока.
+                        self.__candles_receiving_thread = None
+                        '''---------------------------------------------------------------------'''
+
+                        self.progressBar.reset()  # Сбрасываем progressBar.
+                        self.play_button.setText(self.PLAY)
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.resume_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+
+                    case self.ThreadStatus.FINISHED:
+                        self.play_button.setEnabled(False)
+
+                        assert self.__candles_receiving_thread is None
+                        self.progressBar.reset()  # Сбрасываем progressBar.
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.start_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                    case _:
+                        raise ValueError('Неверный статус потока!')
+
+                self.__thread_status = self.ThreadStatus.START_NOT_POSSIBLE
+            case self.ThreadStatus.START_POSSIBLE:
+                assert self.__token is not None and self.__instrument is not None
+                match self.__thread_status:
+                    case self.ThreadStatus.START_NOT_POSSIBLE:
+                        pass  # Ничего не требуется делать.
+                    case self.ThreadStatus.START_POSSIBLE:
+                        return
+                    case self.ThreadStatus.RUNNING:
+                        self.play_button.setEnabled(False)
+                        self.stop_button.setEnabled(False)
+
+                        '''-------------------------Останавливаем поток-------------------------'''
+                        assert self.__candles_receiving_thread is not None
+                        disconnect_flag: bool = self.__candles_receiving_thread.disconnect(self.thread_finished_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                        self.__candles_receiving_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
+                        self.__candles_receiving_thread.wait()  # Ждём завершения потока.
+                        self.__candles_receiving_thread = None
+                        '''---------------------------------------------------------------------'''
+
+                        self.progressBar.reset()  # Сбрасываем progressBar.
+                        self.play_button.setText(self.PLAY)
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.pause_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+
+                        disconnect_flag: bool = self.stop_button.disconnect(self.stop_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                    case self.ThreadStatus.PAUSE:
+                        self.play_button.setEnabled(False)
+                        self.stop_button.setEnabled(False)
+
+                        '''-------------------------Останавливаем поток-------------------------'''
+                        assert self.__candles_receiving_thread is not None
+                        disconnect_flag: bool = self.__candles_receiving_thread.disconnect(self.thread_finished_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                        self.__candles_receiving_thread.resume()  # Возобновляем работу потока, чтобы он мог безопасно завершиться.
+                        self.__candles_receiving_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
+                        self.__candles_receiving_thread.wait()  # Ждём завершения потока.
+                        self.__candles_receiving_thread = None
+                        '''---------------------------------------------------------------------'''
+
+                        self.progressBar.reset()  # Сбрасываем progressBar.
+                        self.play_button.setText(self.PLAY)
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.resume_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                    case self.ThreadStatus.FINISHED:
+                        self.play_button.setEnabled(False)
+
+                        assert self.__candles_receiving_thread is None
+                        self.progressBar.reset()  # Сбрасываем progressBar.
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.start_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                    case _:
+                        raise ValueError('Неверный статус потока!')
+
+                @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                def __startThread():
+                    """Запускает поток получения исторических свечей."""
+                    self.setStatus(self.ThreadStatus.RUNNING)
+
+                self.start_thread_connection = self.play_button.clicked.connect(__startThread)
+
+                self.__thread_status = self.ThreadStatus.START_POSSIBLE
+
+                self.play_button.setEnabled(True)
+            case self.ThreadStatus.RUNNING:
+                assert self.__token is not None and self.__instrument is not None
+                match self.__thread_status:
+                    case self.ThreadStatus.START_POSSIBLE:
+                        self.play_button.setEnabled(False)
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.start_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+
+                        """==========================Поток необходимо запустить=========================="""
+                        assert self.__candles_receiving_thread is None, 'Поток получения исторических свечей должен быть завершён!'
+                        self.__candles_receiving_thread = GroupBox_CandlesReceiving.CandlesThread(token_class=self.__token,
+                                                                                                  instrument=self.__instrument,
+                                                                                                  parent=self)
+                        '''---------------------Подключаем сигналы потока к слотам---------------------'''
+                        self.__candles_receiving_thread.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
+
+                        @QtCore.pyqtSlot(int, int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                        def __setRange(minimum: int, maximum: int):
+                            if self.__candles_receiving_thread is not None:
+                                self.progressBar.setRange(minimum, maximum)
+
+                        self.__candles_receiving_thread.setProgressBarRange_signal.connect(__setRange)
+
+                        @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                        def __setValue(value: int):
+                            if self.__candles_receiving_thread is not None:
+                                self.progressBar.setValue(value)
+
+                        self.__candles_receiving_thread.setProgressBarValue_signal.connect(__setValue)
+
+                        self.__candles_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
+                        self.__candles_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
+                        self.thread_finished_connection = self.__candles_receiving_thread.finished.connect(lambda: self.setStatus(self.ThreadStatus.FINISHED))
+                        '''----------------------------------------------------------------------------'''
+                        self.__candles_receiving_thread.start()  # Запускаем поток.
+                        """=============================================================================="""
+                    case self.ThreadStatus.PAUSE:
+                        self.play_button.setEnabled(False)
+                        self.stop_button.setEnabled(False)
+
+                        self.__candles_receiving_thread.resume()
+
+                        disconnect_flag: bool = self.play_button.disconnect(self.resume_thread_connection)
+                        assert disconnect_flag, 'Не удалось отключить слот!'
+                    case _:
+                        raise ValueError('Неверный статус потока!')
+
+                '''------------------------------Левая кнопка------------------------------'''
+                self.play_button.setText(self.PAUSE)
+
+                @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                def __pauseThread():
+                    """Приостанавливает поток получения исторических свечей."""
+                    self.setStatus(self.ThreadStatus.PAUSE)
+
+                self.pause_thread_connection = self.play_button.clicked.connect(__pauseThread)
+                '''------------------------------------------------------------------------'''
+
+                '''------------------------------Правая кнопка------------------------------'''
+                @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                def __stopThread():
+                    """Останавливает поток получения исторических свечей."""
+                    self.setStatus(self.ThreadStatus.START_POSSIBLE)
+
+                self.stop_thread_connection = self.stop_button.clicked.connect(__stopThread)
+                '''-------------------------------------------------------------------------'''
+
+                self.__thread_status = self.ThreadStatus.RUNNING
+
+                self.play_button.setEnabled(True)
+                self.stop_button.setEnabled(True)
+            case self.ThreadStatus.PAUSE:
+                assert self.__thread_status is self.ThreadStatus.RUNNING
+                self.play_button.setEnabled(False)
+                self.stop_button.setEnabled(False)
+
+                self.__candles_receiving_thread.pause()
+
+                self.play_button.setText(self.PLAY)
+
+                disconnect_flag: bool = self.play_button.disconnect(self.pause_thread_connection)
+                assert disconnect_flag, 'Не удалось отключить слот!'
+
+                @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                def __resumeThread():
+                    """Возобновляет работу потока получения исторических свечей."""
+                    self.setStatus(self.ThreadStatus.RUNNING)
+
+                self.resume_thread_connection = self.play_button.clicked.connect(__resumeThread)
+
+                self.__thread_status = self.ThreadStatus.PAUSE
+
+                self.play_button.setEnabled(True)
+                self.stop_button.setEnabled(True)
+            case self.ThreadStatus.FINISHED:
+                assert self.__thread_status is self.ThreadStatus.RUNNING
+                self.play_button.setEnabled(False)
+                self.stop_button.setEnabled(False)
+
+                assert self.__candles_receiving_thread.isFinished()
+                self.__candles_receiving_thread = None
+
+                self.play_button.setText(self.PLAY)
+
+                disconnect_flag: bool = self.play_button.disconnect(self.pause_thread_connection)
+                assert disconnect_flag, 'Не удалось отключить слот!'
+
+                disconnect_flag: bool = self.stop_button.disconnect(self.stop_thread_connection)
+                assert disconnect_flag, 'Не удалось отключить слот!'
+
+                @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+                def __startThread():
+                    """Запускает поток получения исторических свечей."""
+                    self.setStatus(self.ThreadStatus.START_POSSIBLE)
+                    self.setStatus(self.ThreadStatus.RUNNING)
+
+                self.start_thread_connection = self.play_button.clicked.connect(__startThread)
+
+                self.__thread_status = self.ThreadStatus.FINISHED
+
+                self.play_button.setEnabled(True)
+            case _:
+                raise ValueError('Неверный статус потока!')
 
     def __init__(self, parent: QtWidgets.QWidget | None = ...):
         self.__token: TokenClass | None = None
         self.__instrument: MyBondClass | MyShareClass | None = None
         self.__candles_receiving_thread: GroupBox_CandlesReceiving.CandlesThread | None = None
+        self.__thread_status: GroupBox_CandlesReceiving.ThreadStatus = self.ThreadStatus.START_NOT_POSSIBLE
 
         super().__init__(parent)
 
@@ -784,111 +1081,35 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         self.start_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
         self.pause_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
+        self.resume_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
         self.stop_thread_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
 
-    def __setStartThreadEnabled(self):
-        self.start_thread_connection = self.play_button.clicked.connect(self.__startThread)
-        self.play_button.setEnabled(True)
+        self.thread_finished_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
 
     def setToken(self, token: TokenClass | None):
-        self.thread = None
         self.__token = token
-        if self.__token is not None and self.__instrument is not None:
-            self.__setStartThreadEnabled()
-
-    def setInstrument(self, instrument: MyBondClass | MyShareClass | None):
-        self.thread = None
-        self.__instrument = instrument
-        if self.__token is not None and self.__instrument is not None:
-            self.__setStartThreadEnabled()
-
-    @property
-    def thread(self) -> CandlesThread | None:
-        return self.__candles_receiving_thread
-
-    @thread.setter
-    def thread(self, candles_receiving_thread: CandlesThread | None):
-        self.play_button.setEnabled(False)
-        self.stop_button.setEnabled(False)
-
-        if candles_receiving_thread is None:
-            disconnect_flag: bool = self.stop_button.disconnect(self.stop_thread_connection)
-            # assert disconnect_flag, 'Не удалось отключить слот!'
-
-            disconnect_flag: bool = self.play_button.disconnect(self.pause_thread_connection)
-            # assert disconnect_flag, 'Не удалось отключить слот!'
-
-            """================Если поток запущен, то его следует остановить================"""
-            if self.__candles_receiving_thread is not None:  # Если поток был создан.
-                self.__candles_receiving_thread.requestInterruption()  # Сообщаем потоку о том, что надо завершиться.
-                self.__candles_receiving_thread.wait()  # Ждём завершения потока.
-                self.__candles_receiving_thread = None
-            """============================================================================="""
-            self.progressBar.reset()  # Сбрасываем progressBar.
-            self.play_button.setText(self.PLAY)
+        if self.__token is None or self.__instrument is None:
+            self.setStatus(self.ThreadStatus.START_NOT_POSSIBLE)
         else:
-            disconnect_flag: bool = self.play_button.disconnect(self.start_thread_connection)
-            assert disconnect_flag, 'Не удалось отключить слот!'
+            self.setStatus(self.ThreadStatus.START_POSSIBLE)
 
-            """==========================Поток необходимо запустить=========================="""
-            assert self.__candles_receiving_thread is None, 'Поток получения исторических свечей должен быть завершён!'
-            self.__candles_receiving_thread = candles_receiving_thread
-            '''---------------------Подключаем сигналы потока к слотам---------------------'''
-            # self.__candles_receiving_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
-            self.__candles_receiving_thread.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
-
-            # self.__candles_receiving_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
-
-            @QtCore.pyqtSlot(int, int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-            def __setRange(minimum: int, maximum: int):
-                if self.thread is not None:
-                    self.progressBar.setRange(minimum, maximum)
-
-            self.__candles_receiving_thread.setProgressBarRange_signal.connect(__setRange)
-
-            @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-            def __setValue(value: int):
-                if self.thread is not None:
-                    self.progressBar.setValue(value)
-
-            self.__candles_receiving_thread.setProgressBarValue_signal.connect(__setValue)
-
-            self.__candles_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
-            self.__candles_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
-            '''----------------------------------------------------------------------------'''
-            self.__candles_receiving_thread.start()  # Запускаем поток.
-            """=============================================================================="""
-
-            self.play_button.setText(self.PAUSE)
-            self.pause_thread_connection = self.play_button.clicked.connect(self.__pauseThread)
-            self.play_button.setEnabled(True)
-
-            self.stop_thread_connection = self.stop_button.clicked.connect(self.__stopThread)
-            self.stop_button.setEnabled(True)
+    def setInstrument(self, instrument: MyBondClass | MyShareClass):
+        self.__instrument = instrument
+        if self.__token is None or self.__instrument is None:
+            self.setStatus(self.ThreadStatus.START_NOT_POSSIBLE)
+        else:
+            self.setStatus(self.ThreadStatus.START_POSSIBLE)
 
     @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def __startThread(self):
-        """Запускает поток получения исторических свечей."""
-        self.thread = GroupBox_CandlesReceiving.CandlesThread(token_class=self.__token,
-                                                              instrument=self.__instrument,
-                                                              parent=self)
-
-    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def __pauseThread(self):
-        """Приостанавливает поток получения исторических свечей."""
-        pass
-
-    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def __stopThread(self):
-        """Останавливает поток получения исторических свечей."""
-        self.thread = None
-        if self.__token is not None and self.__instrument is not None:
-            self.__setStartThreadEnabled()
+    def reset(self):
+        self.__instrument = None
+        self.setStatus(self.ThreadStatus.START_NOT_POSSIBLE)
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
         self.comboBox_token.setModel(token_list_model)
 
+        @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onTokenChanged(index: int):
             token: TokenClass | None = self.comboBox_token.model().getToken(index)
             self.setToken(token)
@@ -952,7 +1173,7 @@ class CandlesPage(QtWidgets.QWidget):
         self.groupBox_candles_receiving = GroupBox_CandlesReceiving(self)
         self.groupBox_instrument.bondSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.shareSelected.connect(self.groupBox_candles_receiving.setInstrument)
-        self.groupBox_instrument.instrumentReset.connect(lambda: self.groupBox_candles_receiving.setInstrument(None))
+        self.groupBox_instrument.instrumentReset.connect(self.groupBox_candles_receiving.reset)
         self.verticalLayout_candles.addWidget(self.groupBox_candles_receiving)
 
         self.groupBox_candles_view = GroupBox_CandlesView(self)
