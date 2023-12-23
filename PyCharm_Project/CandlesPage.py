@@ -542,6 +542,82 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
         self.label_info.reset()
 
 
+def getMaxInterval(interval: CandleInterval) -> timedelta:
+    """Возвращает максимальный временной интервал, соответствующий переданному интервалу."""
+    match interval:
+        case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:
+            raise ValueError('Интервал не определён.')
+        case CandleInterval.CANDLE_INTERVAL_1_MIN:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_5_MIN:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_15_MIN:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_HOUR:
+            return timedelta(weeks=1)
+        case CandleInterval.CANDLE_INTERVAL_DAY:
+            '''В timedelta нельзя указать один год, можно указать 365 дней. Но как быть с високосным годом?'''
+            return timedelta(days=365)
+        case CandleInterval.CANDLE_INTERVAL_2_MIN:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_3_MIN:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_10_MIN:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_30_MIN:
+            return timedelta(days=2)
+        case CandleInterval.CANDLE_INTERVAL_2_HOUR:
+            '''В timedelta нельзя указать один месяц, можно указать 31 дней. Но как быть с более короткими месяцами?'''
+            return timedelta(days=31)
+        case CandleInterval.CANDLE_INTERVAL_4_HOUR:
+            '''В timedelta нельзя указать один месяц, можно указать 31 дней. Но как быть с более короткими месяцами?'''
+            return timedelta(days=31)
+        case CandleInterval.CANDLE_INTERVAL_WEEK:
+            '''В timedelta нельзя указать два года, можно указать 2x365 дней. Но как быть с високосными годами?'''
+            return timedelta(days=(2 * 365))
+        case CandleInterval.CANDLE_INTERVAL_MONTH:
+            '''В timedelta нельзя указать десять лет, можно указать 10x365 дней. Но как быть с високосными годами?'''
+            return timedelta(days=(10 * 365))
+        case _:
+            raise ValueError('Некорректный временной интервал свечей!')
+
+
+def getMinInterval(interval: CandleInterval) -> timedelta:
+    """Возвращает временной интервал, соответствующий переданному интервалу."""
+    match interval:
+        case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:
+            raise ValueError('Интервал не определён.')
+        case CandleInterval.CANDLE_INTERVAL_1_MIN:
+            return timedelta(minutes=1)
+        case CandleInterval.CANDLE_INTERVAL_5_MIN:
+            return timedelta(minutes=5)
+        case CandleInterval.CANDLE_INTERVAL_15_MIN:
+            return timedelta(minutes=15)
+        case CandleInterval.CANDLE_INTERVAL_HOUR:
+            return timedelta(hours=1)
+        case CandleInterval.CANDLE_INTERVAL_DAY:
+            return timedelta(days=1)
+        case CandleInterval.CANDLE_INTERVAL_2_MIN:
+            return timedelta(minutes=2)
+        case CandleInterval.CANDLE_INTERVAL_3_MIN:
+            return timedelta(minutes=3)
+        case CandleInterval.CANDLE_INTERVAL_10_MIN:
+            return timedelta(minutes=10)
+        case CandleInterval.CANDLE_INTERVAL_30_MIN:
+            return timedelta(minutes=30)
+        case CandleInterval.CANDLE_INTERVAL_2_HOUR:
+            return timedelta(hours=2)
+        case CandleInterval.CANDLE_INTERVAL_4_HOUR:
+            return timedelta(hours=4)
+        case CandleInterval.CANDLE_INTERVAL_WEEK:
+            return timedelta(weeks=1)
+        case CandleInterval.CANDLE_INTERVAL_MONTH:
+            '''В timedelta нельзя указать один месяц, можно указать 31 дней. Но как быть с более короткими месяцами?'''
+            return timedelta(days=31)
+        case _:
+            raise ValueError('Некорректный временной интервал свечей!')
+
+
 class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
     class CandlesThread(QtCore.QThread):
         """Поток получения исторических свечей."""
@@ -594,11 +670,12 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         setProgressBarValue_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(int)  # Сигнал для изменения прогресса в progressBar'е.
         '''-------------------------------------------------------'''
 
-        def __init__(self, token_class: TokenClass, instrument: MyBondClass | MyShareClass, parent: QtCore.QObject | None = ...):
+        def __init__(self, token_class: TokenClass, instrument: MyBondClass | MyShareClass, interval: CandleInterval, parent: QtCore.QObject | None = ...):
             super().__init__(parent)
             self.__mutex: QtCore.QMutex = QtCore.QMutex()
             self.token: TokenClass = token_class
             self.instrument: MyBondClass | MyShareClass = instrument
+            self._interval: CandleInterval = interval
             self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_candles_method_name)
 
             if self.semaphore is not None:
@@ -611,13 +688,16 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
             '''------------Статистические переменные------------'''
             self.request_count: int = 0  # Общее количество запросов.
+            self._success_request_count: int = 0  # Количество успешных запросов.
             self.control_point: datetime | None = None  # Начальная точка отсчёта времени.
             '''-------------------------------------------------'''
 
-            # self.finished.connect(self.deleteLater())
-
             self.__pause: bool = False
             self.__pause_condition: QtCore.QWaitCondition = QtCore.QWaitCondition()
+
+            self.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
+            self.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
+            self.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
 
         def pause(self):
             """Приостанавливает прогресс."""
@@ -645,114 +725,131 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             if self.semaphore is None:
                 printInConsole('Лимит для метода {0} не найден.'.format(self.receive_candles_method_name))
             else:
+                match self._interval:
+                    case CandleInterval.CANDLE_INTERVAL_1_MIN:
+                        dt_from: datetime = self.instrument.instrument().first_1min_candle_date
+                    case CandleInterval.CANDLE_INTERVAL_DAY:
+                        dt_from: datetime = self.instrument.instrument().first_1day_candle_date
+                    case _:
+                        printInConsole('Получение исторических свечей для выбранного интервала ещё не реализовано.')
+                        return
+
                 uid: str = self.instrument.instrument().uid
-
-                def requestCandles(from_: datetime, to: datetime, interval=CandleInterval.CANDLE_INTERVAL_1_MIN) -> MyResponse:
-                    try_count: RequestTryClass = RequestTryClass()
-                    response: MyResponse = MyResponse()
-                    while try_count and not response.ifDataSuccessfullyReceived():
-                        if self.isInterruptionRequested():
-                            printInConsole('Поток прерван.')
-                            break
-
-                        '''--Проверяем необходимость поставить поток на паузу--'''
-                        self.__mutex.lock()
-                        if self.__pause:
-                            printInConsole('Поток приостановлен.')
-                            self.__pause_condition.wait(self.__mutex)
-                        self.__mutex.unlock()
-                        '''----------------------------------------------------'''
-
-                        """==============================Выполнение запроса=============================="""
-                        self.semaphore.acquire(1)  # Блокирует вызов до тех пор, пока не будет доступно достаточно ресурсов.
-
-                        '''----------------Подсчёт статистических параметров----------------'''
-                        if ifFirstIteration():  # Не выполняется до второго запроса.
-                            delta: float = (getUtcDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
-                            printInConsole('{0} из {1} Период: {3} - {4} ({2:.2f}с)'.format(request_number, requests_count, delta, dt_from, dt_to))
-                        else:
-                            printInConsole('{0} из {1} Период: {2} - {3}'.format(request_number, requests_count, dt_from, dt_to))
-                        self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
-                        '''-----------------------------------------------------------------'''
-
-                        response = getCandles(token=self.token.token,
-                                              uid=uid,
-                                              from_=from_,
-                                              to=to,
-                                              interval=interval)
-                        assert response.request_occurred, 'Запрос свечей не был произведён.'
-                        self.request_count += 1  # Подсчитываем запрос.
-
-                        '''-----------------------Сообщаем об ошибке-----------------------'''
-                        if response.request_error_flag:
-                            printInConsole('RequestError {0}'.format(response.request_error))
-                        elif response.exception_flag:
-                            printInConsole('Exception {0}'.format(response.exception))
-                        '''----------------------------------------------------------------'''
-
-                        self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
-                        """=============================================================================="""
-                        try_count += 1
-                    return response
-
-                '''Максимально допустимый период получения свечей за один запрос — 1 календарный год.'''
-                dt_from: datetime = self.instrument.instrument().first_1min_candle_date
-
                 if ifDateTimeIsEmpty(dt_from):
                     printInConsole('Время первой минутной свечи инструмента {0} пустое. Получение исторических свечей для таких инструментов пока не реализовано.'.format(uid))
                     return
                 else:
-                    candle_interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_1_MIN
+                    min_interval: timedelta = getMinInterval(self._interval)
+                    max_interval: timedelta = getMaxInterval(self._interval)
+                    request_number: int = 0
+
+                    def requestCandles(from_: datetime, to: datetime, interval: CandleInterval):
+                        try_count: RequestTryClass = RequestTryClass()
+                        response: MyResponse = MyResponse()
+                        while try_count and not response.ifDataSuccessfullyReceived():
+                            if self.isInterruptionRequested():
+                                printInConsole('Поток прерван.')
+                                break
+
+                            '''--Проверяем необходимость поставить поток на паузу--'''
+                            self.__mutex.lock()
+                            if self.__pause:
+                                printInConsole('Поток приостановлен.')
+                                self.__pause_condition.wait(self.__mutex)
+                            self.__mutex.unlock()
+                            '''----------------------------------------------------'''
+
+                            """==============================Выполнение запроса=============================="""
+                            self.semaphore.acquire(1)  # Блокирует вызов до тех пор, пока не будет доступно достаточно ресурсов.
+
+                            '''----------------Подсчёт статистических параметров----------------'''
+                            if ifFirstIteration():  # Не выполняется до второго запроса.
+                                delta: float = (getUtcDateTime() - self.control_point).total_seconds()  # Секунд прошло с последнего запроса.
+                                printInConsole('{0} из {1} Период: {3} - {4} ({2:.2f}с)'.format(request_number, requests_count, delta, from_, to))
+                            else:
+                                printInConsole('{0} из {1} Период: {2} - {3}'.format(request_number, requests_count, from_, to))
+                            self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
+                            '''-----------------------------------------------------------------'''
+
+                            response = getCandles(token=self.token.token,
+                                                  uid=uid,
+                                                  interval=interval,
+                                                  from_=from_,
+                                                  to=to)
+                            assert response.request_occurred, 'Запрос свечей не был произведён.'
+                            self.request_count += 1  # Подсчитываем запрос.
+
+                            self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
+
+                            '''-----------------------Сообщаем об ошибке-----------------------'''
+                            if response.request_error_flag:
+                                printInConsole('RequestError {0}'.format(response.request_error))
+                            elif response.exception_flag:
+                                printInConsole('Exception {0}'.format(response.exception))
+                            '''----------------------------------------------------------------'''
+                            """=============================================================================="""
+                            try_count += 1
+
+                        candles: list[HistoricCandle] | None
+                        if response.ifDataSuccessfullyReceived():
+                            self._success_request_count += 1  # Подсчитываем успешный запрос.
+                            candles = response.response_data
+                        else:
+                            candles = None
+
+                        if candles is not None:  # Если поток был прерван или если информация не была получена.
+                            if self.instrument.candles is None:
+                                self.instrument.candles = candles
+                            else:
+                                self.instrument.candles.extend(candles)
+                            self.CandlesConnection.insertHistoricCandles(uid, self._interval, candles)
+
+                        self.setProgressBarValue_signal.emit(request_number)  # Отображаем прогресс в progressBar.
+
+                    current_dt: datetime = getUtcDateTime()
+                    '''--Рассчитываем требуемое количество запросов--'''
+                    dt_delta: timedelta = current_dt - dt_from
+                    requests_count: int = dt_delta // max_interval
+                    if dt_delta % max_interval > min_interval:
+                        requests_count += 1
+                    '''----------------------------------------------'''
+                    self.setProgressBarRange_signal.emit(0, requests_count)  # Задаёт минимум и максимум progressBar'а.
+                    dt_to: datetime = dt_from + max_interval
 
                     self.CandlesConnection.open()  # Открываем соединение с БД.
 
-                    current_dt: datetime = getUtcDateTime()
-
-                    '''--Рассчитываем требуемое количество запросов--'''
-                    dt_delta: timedelta = current_dt - dt_from
-                    requests_count: int = dt_delta.days
-                    dt_delta -= timedelta(days=requests_count)
-                    if dt_delta.total_seconds() > 0:
-                        requests_count += 1
-                    '''----------------------------------------------'''
-
-                    self.setProgressBarRange_signal.emit(0, requests_count)  # Задаёт минимум и максимум progressBar'а.
-
-                    request_number: int = 0
-                    dt_to: datetime = dt_from + timedelta(days=1)
                     while dt_to < current_dt:
                         if self.isInterruptionRequested():
                             printInConsole('Поток прерван.')
                             break
 
                         request_number += 1
-
-                        candles_response: MyResponse = requestCandles(dt_from, dt_to, candle_interval)
-
-                        candles: list[HistoricCandle] | None = candles_response.response_data if candles_response.ifDataSuccessfullyReceived() else None
-                        if candles is not None:  # Если поток был прерван или если информация не была получена.
-                            self.instrument.candles = candles
-                            self.CandlesConnection.insertHistoricCandles(uid, candle_interval, candles)
-
-                        self.setProgressBarValue_signal.emit(self.request_count)  # Отображаем прогресс в progressBar.
+                        requestCandles(dt_from, dt_to, self._interval)
 
                         dt_from = dt_to
-                        dt_to += timedelta(days=1)
+                        dt_to += max_interval
                     else:
-                        dt_to = getUtcDateTime()
-                        assert dt_from < dt_to
-                        assert dt_to - dt_from < timedelta(days=1)
+                        current_dt = getUtcDateTime()
+                        while dt_to < current_dt:
+                            if self.isInterruptionRequested():
+                                printInConsole('Поток прерван.')
+                                break
 
-                        request_number += 1
+                            request_number += 1
+                            if request_number > requests_count:
+                                requests_count = request_number
+                                self.setProgressBarRange_signal.emit(0, request_number)  # Увеличиваем максимум progressBar'а.
+                            requestCandles(dt_from, dt_to, self._interval)
 
-                        candles_response: MyResponse = requestCandles(dt_from, dt_to, candle_interval)
-
-                        candles: list[HistoricCandle] | None = candles_response.response_data if candles_response.ifDataSuccessfullyReceived() else None
-                        if candles is not None:  # Если поток был прерван или если информация не была получена.
-                            self.instrument.candles = candles
-                            self.CandlesConnection.insertHistoricCandles(uid, candle_interval, candles)
-
-                        self.setProgressBarValue_signal.emit(self.request_count)  # Отображаем прогресс в progressBar.
+                            dt_from = dt_to
+                            dt_to += max_interval
+                            current_dt = getUtcDateTime()
+                        else:
+                            request_number += 1
+                            if request_number > requests_count:
+                                requests_count = request_number
+                                self.setProgressBarRange_signal.emit(0, request_number)  # Увеличиваем максимум progressBar'а.
+                            requestCandles(dt_from, current_dt, self._interval)
 
                     self.CandlesConnection.removeConnection()  # Удаляем соединение с БД.
 
@@ -913,10 +1010,10 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                         assert self.__candles_receiving_thread is None, 'Поток получения исторических свечей должен быть завершён!'
                         self.__candles_receiving_thread = GroupBox_CandlesReceiving.CandlesThread(token_class=self.__token,
                                                                                                   instrument=self.__instrument,
+                                                                                                  interval=self.__interval,
                                                                                                   parent=self)
-                        '''---------------------Подключаем сигналы потока к слотам---------------------'''
-                        self.__candles_receiving_thread.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
 
+                        '''---------------------Подключаем сигналы потока к слотам---------------------'''
                         @QtCore.pyqtSlot(int, int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
                         def __setRange(minimum: int, maximum: int):
                             if self.__candles_receiving_thread is not None:
@@ -931,10 +1028,9 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
                         self.__candles_receiving_thread.setProgressBarValue_signal.connect(__setValue)
 
-                        self.__candles_receiving_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
-                        self.__candles_receiving_thread.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
                         self.thread_finished_connection = self.__candles_receiving_thread.finished.connect(lambda: self.setStatus(self.ThreadStatus.FINISHED))
                         '''----------------------------------------------------------------------------'''
+
                         self.__candles_receiving_thread.start()  # Запускаем поток.
                         """=============================================================================="""
                     case self.ThreadStatus.PAUSE:
@@ -1060,6 +1156,71 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addLayout(self.horizontalLayout_token)
         '''--------------------------------------------------------------------'''
 
+        '''-----------------------Выбор интервала свечей-----------------------'''
+        self.horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
+
+        self.label_interval = QtWidgets.QLabel(self)
+        self.label_interval.setText('Интервал:')
+        self.horizontalLayout_interval.addWidget(self.label_interval)
+
+        self.horizontalLayout_interval.addItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+
+        self.comboBox_interval = QtWidgets.QComboBox(self)
+
+        class CandleIntervalModel(QtCore.QAbstractListModel):
+            """Модель интервалов свечей."""
+            def __init__(self, parent: QtCore.QObject | None = ...):
+                super().__init__(parent)
+                self.__intervals: tuple[tuple[str, CandleInterval], ...] = (
+                    ('Не определён', CandleInterval.CANDLE_INTERVAL_UNSPECIFIED),
+                    ('1 минута', CandleInterval.CANDLE_INTERVAL_1_MIN),
+                    ('2 минуты', CandleInterval.CANDLE_INTERVAL_2_MIN),
+                    ('3 минуты', CandleInterval.CANDLE_INTERVAL_3_MIN),
+                    ('5 минут', CandleInterval.CANDLE_INTERVAL_5_MIN),
+                    ('10 минут', CandleInterval.CANDLE_INTERVAL_10_MIN),
+                    ('15 минут', CandleInterval.CANDLE_INTERVAL_15_MIN),
+                    ('30 минут', CandleInterval.CANDLE_INTERVAL_30_MIN),
+                    ('1 час', CandleInterval.CANDLE_INTERVAL_HOUR),
+                    ('2 часа', CandleInterval.CANDLE_INTERVAL_2_HOUR),
+                    ('4 часа', CandleInterval.CANDLE_INTERVAL_4_HOUR),
+                    ('1 день', CandleInterval.CANDLE_INTERVAL_DAY),
+                    ('1 неделя', CandleInterval.CANDLE_INTERVAL_WEEK),
+                    ('1 месяц', CandleInterval.CANDLE_INTERVAL_MONTH)
+                )
+
+            def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
+                return len(self.__intervals)
+
+            def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
+                if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                    return QtCore.QVariant(self.__intervals[index.row()][0])
+                elif role == QtCore.Qt.ItemDataRole.UserRole:
+                    return QtCore.QVariant(self.__intervals[index.row()][1])
+                else:
+                    return QtCore.QVariant()
+
+            def getInterval(self, row: int) -> CandleInterval:
+                return self.__intervals[row][1]
+
+        self.comboBox_interval.setModel(CandleIntervalModel(self.comboBox_interval))
+        self.__interval: CandleInterval = self.comboBox_interval.currentData(role=QtCore.Qt.ItemDataRole.UserRole)
+
+        @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def onIntervalChanged(index: int):
+            self.__interval = self.comboBox_interval.model().getInterval(index)
+            if self.__token is None or self.__instrument is None:
+                self.setStatus(self.ThreadStatus.START_NOT_POSSIBLE)
+            else:
+                self.setStatus(self.ThreadStatus.START_POSSIBLE)
+
+        self.comboBox_interval.currentIndexChanged.connect(onIntervalChanged)
+        self.horizontalLayout_interval.addWidget(self.comboBox_interval)
+
+        self.horizontalLayout_interval.addItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+
+        self.verticalLayout_main.addLayout(self.horizontalLayout_interval)
+        '''--------------------------------------------------------------------'''
+
         '''---------------Прогресс получения исторических свечей---------------'''
         self.horizontalLayout = QtWidgets.QHBoxLayout(self)
 
@@ -1111,8 +1272,11 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onTokenChanged(index: int):
-            token: TokenClass | None = self.comboBox_token.model().getToken(index)
-            self.setToken(token)
+            self.__token = self.comboBox_token.model().getToken(index)
+            if self.__token is None or self.__instrument is None:
+                self.setStatus(self.ThreadStatus.START_NOT_POSSIBLE)
+            else:
+                self.setStatus(self.ThreadStatus.START_POSSIBLE)
 
         self.comboBox_token.currentIndexChanged.connect(onTokenChanged)
 

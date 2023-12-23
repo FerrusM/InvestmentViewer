@@ -257,7 +257,7 @@ def getAssetBy(token: str, asset_uid: str) -> MyResponse:
     return MyResponse('get_asset_by()', request_occurred, asset_full, exception_flag, exception, request_error_flag, request_error)
 
 
-def getCandles(token: str, uid: str, from_: datetime | None = None, to: datetime | None = None, interval: CandleInterval = CandleInterval(0)) -> MyResponse:
+def getCandles(token: str, uid: str, interval: CandleInterval, from_: datetime | None = None, to: datetime | None = None) -> MyResponse:
     """Получает и возвращает список исторических свечей инструмента."""
     candles: list[HistoricCandle] = []
     request_occurred: bool = False  # Флаг произведённого запроса.
