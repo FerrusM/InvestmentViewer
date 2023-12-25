@@ -2,10 +2,9 @@ from datetime import datetime, timedelta
 import typing
 from enum import Enum
 from PyQt6 import QtWidgets, QtCore, QtCharts, QtGui, QtSql
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
-from Classes import MyConnection, TokenClass, print_slot
+from Classes import MyConnection, TokenClass, print_slot, Column
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -198,12 +197,11 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         self.horizontalLayout_instrument_type.addWidget(self.label_instrument_type)
 
         self.comboBox_instrument_type = self.ComboBox_InstrumentType(self)
+        self.__instrument_type: str | None = self.comboBox_instrument_type.currentData(QtCore.Qt.ItemDataRole.DisplayRole)
         self.horizontalLayout_instrument_type.addWidget(self.comboBox_instrument_type)
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_instrument_type)
         '''------------------------------------------------------'''
-
-        self.__instrument_type: str | None = self.comboBox_instrument_type.currentData(QtCore.Qt.ItemDataRole.DisplayRole)
 
         '''---------------Строка выбора инструмента---------------'''
         self.horizontalLayout_instrument = QtWidgets.QHBoxLayout()
@@ -218,8 +216,6 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_instrument)
         '''-------------------------------------------------------'''
-
-        self.__instrument: MyBondClass | MyShareClass | None = ...
 
         @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onInstrumentTypeChanged(instrument_type: str):
@@ -423,6 +419,67 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
 class GroupBox_CandlesView(QtWidgets.QGroupBox):
     """Панель отображения свечей."""
+    class CandlesModel(QtCore.QAbstractTableModel):
+        def __init__(self, parent: QtCore.QObject | None = ...):
+            self.__columns: tuple[Column, ...] = (
+                Column(header='Открытие',
+                       header_tooltip='Цена открытия за 1 инструмент.',
+                       data_function=lambda candle: candle.open,
+                       display_function=lambda candle: MyQuotation.__str__(candle.open, ndigits=8, delete_decimal_zeros=True)),
+                Column(header='Макс. цена',
+                       header_tooltip='Максимальная цена за 1 инструмент.',
+                       data_function=lambda candle: candle.high,
+                       display_function=lambda candle: MyQuotation.__str__(candle.high, ndigits=8, delete_decimal_zeros=True)),
+                Column(header='Мин. цена',
+                       header_tooltip='Минимальная цена за 1 инструмент.',
+                       data_function=lambda candle: candle.low,
+                       display_function=lambda candle: MyQuotation.__str__(candle.low, ndigits=8, delete_decimal_zeros=True)),
+                Column(header='Закрытие',
+                       header_tooltip='Цена закрытия за 1 инструмент.',
+                       data_function=lambda candle: candle.close,
+                       display_function=lambda candle: MyQuotation.__str__(candle.close, ndigits=8, delete_decimal_zeros=True)),
+                Column(header='Объём',
+                       header_tooltip='Объём торгов в лотах.',
+                       data_function=lambda candle: candle.volume,
+                       display_function=lambda candle: str(candle.volume)),
+                Column(header='Время',
+                       header_tooltip='Время свечи в часовом поясе UTC.',
+                       data_function=lambda candle: candle.time,
+                       display_function=lambda candle: str(candle.time)),
+                Column(header='Завершённость',
+                       header_tooltip='Признак завершённости свечи. False значит, что свеча за текущий интервал ещё сформирована не полностью.',
+                       data_function=lambda candle: candle.is_complete,
+                       display_function=lambda candle: str(candle.is_complete))
+            )
+            self.__candles: list[HistoricCandle] = []
+            super().__init__(parent)
+
+        def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
+            return len(self.__columns)
+
+        def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
+            return len(self.__candles)
+
+        def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
+            column: Column = self.__columns[index.column()]
+            candle: HistoricCandle = self.__candles[index.row()]
+            return column(role, candle)
+
+        def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
+            if orientation == QtCore.Qt.Orientation.Vertical:
+                if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                    return section + 1  # Проставляем номера строк.
+            elif orientation == QtCore.Qt.Orientation.Horizontal:
+                if role == QtCore.Qt.ItemDataRole.DisplayRole:
+                    return self.__columns[section].header
+                elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
+                    return self.__columns[section].header_tooltip
+
+        def setCandles(self, candles: list[HistoricCandle]):
+            self.beginResetModel()
+            self.__candles = candles
+            self.endResetModel()
+
     def __init__(self, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)
 
@@ -468,7 +525,13 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
         '''---------------------------------------------------------'''
 
         self.tableView = QtWidgets.QTableView(self)
+        self.tableView.setModel(self.CandlesModel(self))
         self.verticalLayout_main.addWidget(self.tableView)
+
+    def setCandles(self, candles: list[HistoricCandle]):
+        self.tableView.model().setCandles(candles)
+        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество облигаций.
 
 
 class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
@@ -618,7 +681,45 @@ def getMinInterval(interval: CandleInterval) -> timedelta:
             raise ValueError('Некорректный временной интервал свечей!')
 
 
+class CandleIntervalModel(QtCore.QAbstractListModel):
+    """Модель интервалов свечей."""
+    def __init__(self, parent: QtCore.QObject | None = ...):
+        super().__init__(parent)
+        self.__intervals: tuple[tuple[str, CandleInterval], ...] = (
+            ('Не определён', CandleInterval.CANDLE_INTERVAL_UNSPECIFIED),
+            ('1 минута', CandleInterval.CANDLE_INTERVAL_1_MIN),
+            ('2 минуты', CandleInterval.CANDLE_INTERVAL_2_MIN),
+            ('3 минуты', CandleInterval.CANDLE_INTERVAL_3_MIN),
+            ('5 минут', CandleInterval.CANDLE_INTERVAL_5_MIN),
+            ('10 минут', CandleInterval.CANDLE_INTERVAL_10_MIN),
+            ('15 минут', CandleInterval.CANDLE_INTERVAL_15_MIN),
+            ('30 минут', CandleInterval.CANDLE_INTERVAL_30_MIN),
+            ('1 час', CandleInterval.CANDLE_INTERVAL_HOUR),
+            ('2 часа', CandleInterval.CANDLE_INTERVAL_2_HOUR),
+            ('4 часа', CandleInterval.CANDLE_INTERVAL_4_HOUR),
+            ('1 день', CandleInterval.CANDLE_INTERVAL_DAY),
+            ('1 неделя', CandleInterval.CANDLE_INTERVAL_WEEK),
+            ('1 месяц', CandleInterval.CANDLE_INTERVAL_MONTH)
+        )
+
+    def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
+        return len(self.__intervals)
+
+    def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
+        if role == QtCore.Qt.ItemDataRole.DisplayRole:
+            return QtCore.QVariant(self.__intervals[index.row()][0])
+        elif role == QtCore.Qt.ItemDataRole.UserRole:
+            return QtCore.QVariant(self.__intervals[index.row()][1])
+        else:
+            return QtCore.QVariant()
+
+    def getInterval(self, row: int) -> CandleInterval:
+        return self.__intervals[row][1]
+
+
 class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
+    intervalChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(CandleInterval)  # Сигнал испускается при изменении выбранного интервала.
+
     class CandlesThread(QtCore.QThread):
         """Поток получения исторических свечей."""
         class CandlesConnection(MyConnection):
@@ -629,8 +730,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 """Добавляет свечи в таблицу исторических свечей."""
                 if candles:  # Если список не пуст.
                     '''------------------------Добавляем свечи в таблицу исторических свечей------------------------'''
-                    db: QSqlDatabase = cls.getDatabase()
-                    query = QSqlQuery(db)
+                    db: QtSql.QSqlDatabase = cls.getDatabase()
+                    query = QtSql.QSqlQuery(db)
 
                     sql_command: str = 'INSERT OR IGNORE INTO \"{0}\" (\"instrument_id\", \"interval\", \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\") VALUES '.format(MyConnection.CANDLES_TABLE)
                     candles_count: int = len(candles)
@@ -683,7 +784,6 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 def __releaseSemaphore(semaphore: LimitPerMinuteSemaphore, n: int):
                     semaphore.release(n)
 
-                # self.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
                 self.releaseSemaphore_signal.connect(__releaseSemaphore)  # Освобождаем ресурсы семафора из основного потока.
 
             '''------------Статистические переменные------------'''
@@ -722,6 +822,14 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 """Возвращает True, если поток не сделал ни одного запроса. Иначе возвращает False."""
                 return self.request_count > 0
 
+            def checkPause():
+                """Проверка на необходимость поставить поток на паузу."""
+                self.__mutex.lock()
+                if self.__pause:
+                    printInConsole('Поток приостановлен.')
+                    self.__pause_condition.wait(self.__mutex)
+                self.__mutex.unlock()
+
             if self.semaphore is None:
                 printInConsole('Лимит для метода {0} не найден.'.format(self.receive_candles_method_name))
             else:
@@ -751,13 +859,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                                 printInConsole('Поток прерван.')
                                 break
 
-                            '''--Проверяем необходимость поставить поток на паузу--'''
-                            self.__mutex.lock()
-                            if self.__pause:
-                                printInConsole('Поток приостановлен.')
-                                self.__pause_condition.wait(self.__mutex)
-                            self.__mutex.unlock()
-                            '''----------------------------------------------------'''
+                            checkPause()
 
                             """==============================Выполнение запроса=============================="""
                             self.semaphore.acquire(1)  # Блокирует вызов до тех пор, пока не будет доступно достаточно ресурсов.
@@ -1069,7 +1171,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 self.play_button.setEnabled(True)
                 self.stop_button.setEnabled(True)
             case self.ThreadStatus.PAUSE:
-                assert self.__thread_status is self.ThreadStatus.RUNNING
+                assert self.__thread_status is self.ThreadStatus.RUNNING, 'Поток получения свечей переходит в статус PAUSE из статуса {0} минуя статус RUNNING.'.format(self.__thread_status.name)
                 self.play_button.setEnabled(False)
                 self.stop_button.setEnabled(False)
 
@@ -1092,7 +1194,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 self.play_button.setEnabled(True)
                 self.stop_button.setEnabled(True)
             case self.ThreadStatus.FINISHED:
-                assert self.__thread_status is self.ThreadStatus.RUNNING
+                assert self.__thread_status is self.ThreadStatus.RUNNING, 'Поток получения свечей переходит в статус FINISHED из статуса {0} минуя статус RUNNING.'.format(self.__thread_status.name)
                 self.play_button.setEnabled(False)
                 self.stop_button.setEnabled(False)
 
@@ -1166,42 +1268,6 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.horizontalLayout_interval.addItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.comboBox_interval = QtWidgets.QComboBox(self)
-
-        class CandleIntervalModel(QtCore.QAbstractListModel):
-            """Модель интервалов свечей."""
-            def __init__(self, parent: QtCore.QObject | None = ...):
-                super().__init__(parent)
-                self.__intervals: tuple[tuple[str, CandleInterval], ...] = (
-                    ('Не определён', CandleInterval.CANDLE_INTERVAL_UNSPECIFIED),
-                    ('1 минута', CandleInterval.CANDLE_INTERVAL_1_MIN),
-                    ('2 минуты', CandleInterval.CANDLE_INTERVAL_2_MIN),
-                    ('3 минуты', CandleInterval.CANDLE_INTERVAL_3_MIN),
-                    ('5 минут', CandleInterval.CANDLE_INTERVAL_5_MIN),
-                    ('10 минут', CandleInterval.CANDLE_INTERVAL_10_MIN),
-                    ('15 минут', CandleInterval.CANDLE_INTERVAL_15_MIN),
-                    ('30 минут', CandleInterval.CANDLE_INTERVAL_30_MIN),
-                    ('1 час', CandleInterval.CANDLE_INTERVAL_HOUR),
-                    ('2 часа', CandleInterval.CANDLE_INTERVAL_2_HOUR),
-                    ('4 часа', CandleInterval.CANDLE_INTERVAL_4_HOUR),
-                    ('1 день', CandleInterval.CANDLE_INTERVAL_DAY),
-                    ('1 неделя', CandleInterval.CANDLE_INTERVAL_WEEK),
-                    ('1 месяц', CandleInterval.CANDLE_INTERVAL_MONTH)
-                )
-
-            def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
-                return len(self.__intervals)
-
-            def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
-                if role == QtCore.Qt.ItemDataRole.DisplayRole:
-                    return QtCore.QVariant(self.__intervals[index.row()][0])
-                elif role == QtCore.Qt.ItemDataRole.UserRole:
-                    return QtCore.QVariant(self.__intervals[index.row()][1])
-                else:
-                    return QtCore.QVariant()
-
-            def getInterval(self, row: int) -> CandleInterval:
-                return self.__intervals[row][1]
-
         self.comboBox_interval.setModel(CandleIntervalModel(self.comboBox_interval))
         self.__interval: CandleInterval = self.comboBox_interval.currentData(role=QtCore.Qt.ItemDataRole.UserRole)
 
@@ -1212,10 +1278,10 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                 self.setStatus(self.ThreadStatus.START_NOT_POSSIBLE)
             else:
                 self.setStatus(self.ThreadStatus.START_POSSIBLE)
+            self.intervalChanged.emit(self.__interval)
 
         self.comboBox_interval.currentIndexChanged.connect(onIntervalChanged)
         self.horizontalLayout_interval.addWidget(self.comboBox_interval)
-
         self.horizontalLayout_interval.addItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_interval)
@@ -1280,6 +1346,9 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         self.comboBox_token.currentIndexChanged.connect(onTokenChanged)
 
+    def currentInterval(self) -> CandleInterval:
+        return self.__interval
+
 
 class GroupBox_Chart(QtWidgets.QGroupBox):
     """Панель с диаграммой."""
@@ -1303,6 +1372,9 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
 class CandlesPage(QtWidgets.QWidget):
     """Страница свечей."""
     def __init__(self, parent: QtWidgets.QWidget | None = None):
+        self.__instrument: MyBondClass | MyShareClass | None = None
+        self.__candles: list[HistoricCandle] = []
+
         super().__init__(parent)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -1335,6 +1407,7 @@ class CandlesPage(QtWidgets.QWidget):
         self.verticalLayout_candles.setSpacing(2)
 
         self.groupBox_candles_receiving = GroupBox_CandlesReceiving(self)
+        self.__interval: CandleInterval = self.groupBox_candles_receiving.currentInterval()
         self.groupBox_instrument.bondSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.shareSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.instrumentReset.connect(self.groupBox_candles_receiving.reset)
@@ -1353,6 +1426,72 @@ class CandlesPage(QtWidgets.QWidget):
         self.groupBox_chart = GroupBox_Chart(self)
         self.verticalLayout_main.addWidget(self.groupBox_chart)
         """============================================================"""
+
+        def getCandlesFromDb() -> list[HistoricCandle]:
+            uid: str = self.__instrument.instrument().uid
+            db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+            query = QtSql.QSqlQuery(db)
+            prepare_flag: bool = query.prepare(
+                'SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\" FROM \"{0}\" '
+                'WHERE \"instrument_id\" = :uid and \"interval\" = :interval;'.format(MyConnection.CANDLES_TABLE)
+            )
+            assert prepare_flag, query.lastError().text()
+
+            query.bindValue(':uid', uid)
+            query.bindValue(':interval', self.__interval.name)
+
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+
+            candles: list[HistoricCandle] = []
+            while query.next():
+                def getHistoricCandle() -> HistoricCandle:
+                    """Создаёт и возвращает экземпляр класса HistoricCandle."""
+                    open_: Quotation = MyConnection.convertTextToQuotation(query.value('open'))
+                    high: Quotation = MyConnection.convertTextToQuotation(query.value('high'))
+                    low: Quotation = MyConnection.convertTextToQuotation(query.value('low'))
+                    close: Quotation = MyConnection.convertTextToQuotation(query.value('close'))
+                    volume: int = query.value('volume')
+                    time: datetime = MyConnection.convertTextToDateTime(query.value('time'))
+                    is_complete: bool = MyConnection.convertBlobToBool(query.value('is_complete'))
+                    return HistoricCandle(open=open_, high=high, low=low, close=close, volume=volume, time=time,
+                                          is_complete=is_complete)
+
+                candles.append(getHistoricCandle())
+            return candles
+
+        def onInstrumentChanged(instrument: MyBondClass | MyShareClass):
+            self.__instrument = instrument
+            self.candles = getCandlesFromDb()
+
+        self.groupBox_instrument.bondSelected.connect(onInstrumentChanged)
+        self.groupBox_instrument.shareSelected.connect(onInstrumentChanged)
+
+        @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def onInstrumentReset():
+            self.__instrument = None
+            self.candles = []
+
+        self.groupBox_instrument.instrumentReset.connect(onInstrumentReset)
+
+        @QtCore.pyqtSlot(CandleInterval)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def onIntervalChanged(interval: CandleInterval):
+            self.__interval = interval
+            if self.__instrument is None:
+                assert not self.candles
+            else:
+                self.candles = getCandlesFromDb()
+
+        self.groupBox_candles_receiving.intervalChanged.connect(onIntervalChanged)
+
+    @property
+    def candles(self) -> list[HistoricCandle]:
+        return self.__candles
+
+    @candles.setter
+    def candles(self, candles: list[HistoricCandle]):
+        self.__candles = candles
+        self.groupBox_candles_view.setCandles(self.candles)
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
