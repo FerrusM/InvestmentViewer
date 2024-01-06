@@ -28,33 +28,56 @@ class MyMoneyValue(MoneyValue):
         """Конвертирует MyMoneyValue в Decimal."""
         return quotation_to_decimal(MyMoneyValue.getQuotation(self))
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def __checkOtherType(other):
-        # Проверяем тип.
+        """Проверяет тип other."""
         if not isinstance(other, MoneyValue):
             raise TypeError("Правый операнд должен быть типом MoneyValue, а не {}!".format(type(other)))
 
-    def __checkOther(self, other):
-        """Проверка other."""
-        self.__checkOtherType(other)  # Проверяем тип.
-        # Проверяем валюту.
-        if other.currency != self.currency:
-            raise ValueError("MoneyValue должны иметь одну и ту же валюту: ({0} и {1})!".format(self.currency, other.currency))
-
     def __sub__(self, other: MoneyValue):
         """self - other"""
-        self.__checkOther(other)  # Проверка other.
+        """====================================Проверки===================================="""
+        if isinstance(other, MoneyValue):
+            '''--Костыль, который защищает программу от пустых экземпляров MoneyValue--'''
+            if MyMoneyValue.__isEmpty(other):
+                return self
+            '''------------------------------------------------------------------------'''
+            if other.currency != self.currency:
+                raise ValueError('MoneyValue должны иметь одну и ту же валюту: ({0} и {1})!'.format(self.currency, other.currency))
+        else:
+            raise TypeError('Правый операнд должен являться экземпляром класса MoneyValue, а не {0}!'.format(type(other)))
+        """================================================================================"""
         return MyMoneyValue(self.currency, (self.getQuotation() - MyMoneyValue.getQuotation(other)))
 
     def __iadd__(self, other: MoneyValue) -> MyMoneyValue:
         """self += other"""
-        self.__checkOther(other)  # Проверка other.
+        """====================================Проверки===================================="""
+        if isinstance(other, MoneyValue):
+            '''--Костыль, который защищает программу от пустых экземпляров MoneyValue--'''
+            if MyMoneyValue.__isEmpty(other):
+                return self
+            '''------------------------------------------------------------------------'''
+            if other.currency != self.currency:
+                raise ValueError('MoneyValue должны иметь одну и ту же валюту: ({0} и {1})!'.format(self.currency, other.currency))
+        else:
+            raise TypeError('Правый операнд должен являться экземпляром класса MoneyValue, а не {0}!'.format(type(other)))
+        """================================================================================"""
         self._setQuotation(self.getQuotation() + MyMoneyValue.getQuotation(other))  # Задаёт котировку.
         return self
 
     def __isub__(self, other: MoneyValue) -> MyMoneyValue:
         """self -= other"""
-        self.__checkOther(other)  # Проверка other.
+        """====================================Проверки===================================="""
+        if isinstance(other, MoneyValue):
+            '''--Костыль, который защищает программу от пустых экземпляров MoneyValue--'''
+            if MyMoneyValue.__isEmpty(other):
+                return self
+            '''------------------------------------------------------------------------'''
+            if other.currency != self.currency:
+                raise ValueError('MoneyValue должны иметь одну и ту же валюту: ({0} и {1})!'.format(self.currency, other.currency))
+        else:
+            raise TypeError('Правый операнд должен являться экземпляром класса MoneyValue, а не {0}!'.format(type(other)))
+        """================================================================================"""
         self._setQuotation(self.getQuotation() - MyMoneyValue.getQuotation(other))  # Задаёт котировку.
         return self
 
@@ -67,7 +90,14 @@ class MyMoneyValue(MoneyValue):
 
     def __truediv__(self, other: MoneyValue) -> Decimal:
         """self / other"""
-        self.__checkOther(other)  # Проверка other.
+        # self.__checkOther(other)  # Проверка other.
+        '''------Старый функционал функции self.__checkOther(other)------'''
+        self.__checkOtherType(other)  # Проверяем тип.
+        # Проверяем валюту.
+        if other.currency != self.currency:
+            raise ValueError('MoneyValue должны иметь одну и ту же валюту: ({0} и {1})!'.format(self.currency, other.currency))
+        '''--------------------------------------------------------------'''
+
         return self.getDecimal() / MyMoneyValue.getDecimal(other)
 
     def __lt__(self: MoneyValue, other: MoneyValue):
@@ -83,6 +113,16 @@ class MyMoneyValue(MoneyValue):
 
     def __repr__(self: MoneyValue) -> str:
         return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self).__repr__(), self.currency)
+
+    @staticmethod
+    def __isEmpty(mv: MoneyValue) -> bool:
+        """Возвращает True, если MoneyValue не содержит данных. Иначе возвращает False."""
+        if mv.currency:
+            return False
+        else:
+            mmv: MyMoneyValue = MyMoneyValue(currency=mv.currency, value=Quotation(units=mv.units, nano=mv.nano))
+            assert mmv.getMyQuotation().IsEmpty(), 'Экземпляр класса MoneyValue содержит непустую величину, но пустую строку валюты!'
+            return True  # Строка валюты пуста.
 
 
 def ifCurrenciesAreEqual(*currency_tuple) -> bool:

@@ -16,17 +16,17 @@ DAYS_IN_YEAR: int = 365
 
 class MyCoupon:
     """Класс, объединяющий функции для работы с купонами."""
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def ifCouponHasBeenPaid(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если купон уже выплачен на момент указанной даты, иначе возвращает False."""
         return entered_datetime >= coupon.coupon_end_date  # Сравниваем дату окончания купонного периода с указанной датой.
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def ifCouponIsCurrent(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если указанная дата находится в границах купонного периода."""
         return coupon.coupon_start_date <= entered_datetime <= coupon.coupon_end_date
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def ifRegistryWasFixed(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если фиксация реестра на момент указанной даты была произведена."""
         """
@@ -48,7 +48,7 @@ class MyCoupon:
         """
         return coupon.fix_date <= entered_datetime
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def getCountOfDaysOfAci(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> int:
         """Возвращает количество дней купонного накопления к указанной дате."""
         '''
@@ -58,7 +58,7 @@ class MyCoupon:
         # return (entered_datetime.date() - coupon.coupon_start_date.date()).days  # Дней с начала купонного периода.
         return (entered_datetime.date() - coupon.coupon_start_date.date()).days + 1  # Дней с начала купонного периода.
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def getCouponACI(coupon: Coupon, entered_datetime: datetime = getUtcDateTime(), with_fix: bool = False) -> MyMoneyValue | None:
         """Возвращает НКД купона к указанным дате и времени."""
         if not MyCoupon.ifCouponIsCurrent(coupon, entered_datetime): return None  # Если указанная дата не находится в границах купонного периода.

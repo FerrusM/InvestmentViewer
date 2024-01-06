@@ -32,6 +32,10 @@ class MyQuotation(Quotation):
         """Конвертирует Quotation в Decimal."""
         return quotation_to_decimal(self)
 
+    def getFloat(self: Quotation) -> float:
+        """Конвертирует Quotation во float."""
+        return float(quotation_to_decimal(self))
+
     def IsEmpty(self: Quotation) -> bool:
         """Проверяет значение Quotation на равенство нулю."""
         return self.units == 0 and self.nano == 0

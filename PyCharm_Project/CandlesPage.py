@@ -4,6 +4,7 @@ from enum import Enum
 from PyQt6 import QtWidgets, QtCore, QtCharts, QtGui, QtSql
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
+from tinkoff.invest.utils import candle_interval_to_timedelta
 from Classes import MyConnection, TokenClass, print_slot, Column
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
@@ -645,42 +646,6 @@ def getMaxInterval(interval: CandleInterval) -> timedelta:
             raise ValueError('Некорректный временной интервал свечей!')
 
 
-def getMinInterval(interval: CandleInterval) -> timedelta:
-    """Возвращает временной интервал, соответствующий переданному интервалу."""
-    match interval:
-        case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:
-            raise ValueError('Интервал не определён.')
-        case CandleInterval.CANDLE_INTERVAL_1_MIN:
-            return timedelta(minutes=1)
-        case CandleInterval.CANDLE_INTERVAL_5_MIN:
-            return timedelta(minutes=5)
-        case CandleInterval.CANDLE_INTERVAL_15_MIN:
-            return timedelta(minutes=15)
-        case CandleInterval.CANDLE_INTERVAL_HOUR:
-            return timedelta(hours=1)
-        case CandleInterval.CANDLE_INTERVAL_DAY:
-            return timedelta(days=1)
-        case CandleInterval.CANDLE_INTERVAL_2_MIN:
-            return timedelta(minutes=2)
-        case CandleInterval.CANDLE_INTERVAL_3_MIN:
-            return timedelta(minutes=3)
-        case CandleInterval.CANDLE_INTERVAL_10_MIN:
-            return timedelta(minutes=10)
-        case CandleInterval.CANDLE_INTERVAL_30_MIN:
-            return timedelta(minutes=30)
-        case CandleInterval.CANDLE_INTERVAL_2_HOUR:
-            return timedelta(hours=2)
-        case CandleInterval.CANDLE_INTERVAL_4_HOUR:
-            return timedelta(hours=4)
-        case CandleInterval.CANDLE_INTERVAL_WEEK:
-            return timedelta(weeks=1)
-        case CandleInterval.CANDLE_INTERVAL_MONTH:
-            '''В timedelta нельзя указать один месяц, можно указать 31 дней. Но как быть с более короткими месяцами?'''
-            return timedelta(days=31)
-        case _:
-            raise ValueError('Некорректный временной интервал свечей!')
-
-
 class CandleIntervalModel(QtCore.QAbstractListModel):
     """Модель интервалов свечей."""
     def __init__(self, parent: QtCore.QObject | None = ...):
@@ -847,7 +812,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                     printInConsole('Время первой минутной свечи инструмента {0} пустое. Получение исторических свечей для таких инструментов пока не реализовано.'.format(uid))
                     return
                 else:
-                    min_interval: timedelta = getMinInterval(self._interval)
+                    # min_interval: timedelta = getMinInterval(self._interval)
                     max_interval: timedelta = getMaxInterval(self._interval)
                     request_number: int = 0
 
@@ -912,7 +877,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                     '''--Рассчитываем требуемое количество запросов--'''
                     dt_delta: timedelta = current_dt - dt_from
                     requests_count: int = dt_delta // max_interval
-                    if dt_delta % max_interval > min_interval:
+                    # if dt_delta % max_interval > min_interval:
+                    if dt_delta % max_interval > candle_interval_to_timedelta(self._interval):
                         requests_count += 1
                     '''----------------------------------------------'''
                     self.setProgressBarRange_signal.emit(0, requests_count)  # Задаёт минимум и максимум progressBar'а.
@@ -1353,6 +1319,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 class GroupBox_Chart(QtWidgets.QGroupBox):
     """Панель с диаграммой."""
     def __init__(self, parent: QtWidgets.QWidget | None = ...):
+        self.__candles: list[HistoricCandle] = []
         super().__init__(parent)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -1365,8 +1332,34 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         self.label_title.setText('ГРАФИК')
         self.verticalLayout_main.addWidget(self.label_title)
 
-        self.candlestick_series = QtCharts.QChartView(self)
-        self.verticalLayout_main.addWidget(self.candlestick_series)
+        '''------------------------------График------------------------------'''
+        self.chart_view = QtCharts.QChartView(self)
+
+        self.candlestick_series = QtCharts.QCandlestickSeries()
+        self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
+        self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
+
+        self.chart = QtCharts.QChart()
+        self.chart.addSeries(self.candlestick_series)
+        self.chart.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
+        self.chart.createDefaultAxes()
+
+        self.chart_view.setChart(self.chart)
+        self.verticalLayout_main.addWidget(self.chart_view)
+        '''------------------------------------------------------------------'''
+
+    def setCandles(self, candles: list[HistoricCandle]):
+        self.__candles = candles
+
+        self.candlestick_series.clear()
+
+        for candle in self.__candles:
+            candlestick = QtCharts.QCandlestickSet(open=MyQuotation.getFloat(candle.open),
+                                                   high=MyQuotation.getFloat(candle.high),
+                                                   low=MyQuotation.getFloat(candle.low),
+                                                   close=MyQuotation.getFloat(candle.close),
+                                                   timestamp=candle.time.timestamp(), parent=self)
+            self.candlestick_series.append(candlestick)
 
 
 class CandlesPage(QtWidgets.QWidget):
@@ -1492,6 +1485,7 @@ class CandlesPage(QtWidgets.QWidget):
     def candles(self, candles: list[HistoricCandle]):
         self.__candles = candles
         self.groupBox_candles_view.setCandles(self.candles)
+        self.groupBox_chart.setCandles(self.candles)
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
