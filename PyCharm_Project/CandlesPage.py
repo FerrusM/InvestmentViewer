@@ -1391,7 +1391,7 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         self.chart.addSeries(self.candlestick_series)
         self.chart.setTitle('График')
         self.chart.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
-        self.chart.createDefaultAxes()
+        # self.chart.createDefaultAxes()
 
         # auto axisY = qobject_cast < QValueAxis * > (chart->axes(Qt::Vertical).at(0));
         # axisY->setMax(axisY->max() * 1.01);
@@ -1400,20 +1400,20 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         # axisY = self.chart.axes(QtCore.Qt.Orientation.Vertical, self.candlestick_series)[0]
         # axisY.setMax(axisY)
 
-        # axisY = QtCharts.QValueAxis()
-        # axisY.setRange(100000, 1000000)
-        # # axisY.setTickCount(11)
-        # axisY.setTitleText('Цена')
-        # self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-        # self.candlestick_series.attachAxis(axisY)
+        axisY = QtCharts.QValueAxis()
+        axisY.setRange(0, 110)
+        # axisY.setTickCount(11)
+        axisY.setTitleText('Цена')
+        self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.candlestick_series.attachAxis(axisY)
 
-        # axisX = QtCharts.QDateTimeAxis()
-        # current_dt: datetime = getMoscowDateTime()
-        # min_dt: datetime = current_dt - timedelta(days=31)
-        # axisX.setRange(min_dt, current_dt)
-        # axisX.setTitleText('Дата и время')
-        # self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-        # self.candlestick_series.attachAxis(axisX)
+        axisX = QtCharts.QDateTimeAxis()
+        current_dt: datetime = getMoscowDateTime()
+        min_dt: datetime = current_dt - timedelta(days=31)
+        axisX.setRange(min_dt, current_dt)
+        axisX.setTitleText('Дата и время')
+        self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
+        self.candlestick_series.attachAxis(axisX)
 
         self.chart_view.setChart(self.chart)
         self.verticalLayout_main.addWidget(self.chart_view)
@@ -1422,7 +1422,14 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
     def setCandles(self, candles: list[HistoricCandle]):
         self.__candles = candles
 
-        self.chart.removeAllSeries()
+        '''-------------------------------Удаляем имеющиеся оси-------------------------------'''
+        for axis in self.chart.axes(QtCore.Qt.Orientation.Vertical, self.candlestick_series):
+            self.chart.removeAxis(axis)
+        for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
+            self.chart.removeAxis(axis)
+        '''-----------------------------------------------------------------------------------'''
+
+        self.chart.removeSeries(self.candlestick_series)
         self.candlestick_series = QtCharts.QCandlestickSeries(self.chart_view)
         self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
         self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
@@ -1432,11 +1439,29 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
                                                    high=MyQuotation.getFloat(candle.high),
                                                    low=MyQuotation.getFloat(candle.low),
                                                    close=MyQuotation.getFloat(candle.close),
-                                                   timestamp=candle.time.timestamp(), parent=self)
+                                                   timestamp=(candle.time.timestamp()*1000), parent=self)
             self.candlestick_series.append(candlestick)
 
         self.chart.addSeries(self.candlestick_series)
         self.chart.createDefaultAxes()
+
+        # axisY = QtCharts.QValueAxis()
+        # axisY.setRange(94, 98)
+        # # axisY.setTickCount(11)
+        # axisY.setTitleText('Цена')
+        # self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
+        # self.candlestick_series.attachAxis(axisY)
+
+        for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
+            self.chart.removeAxis(axis)
+
+        axisX = QtCharts.QDateTimeAxis()
+        current_dt: datetime = getMoscowDateTime()
+        min_dt: datetime = current_dt - timedelta(days=90)
+        axisX.setRange(min_dt, current_dt)
+        axisX.setTitleText('Дата и время')
+        self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
+        self.candlestick_series.attachAxis(axisX)
 
 
 class CandlesPage(QtWidgets.QWidget):
