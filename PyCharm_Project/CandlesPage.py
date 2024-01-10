@@ -1434,30 +1434,54 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
         self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
 
-        for candle in self.__candles:
-            candlestick = QtCharts.QCandlestickSet(open=MyQuotation.getFloat(candle.open),
-                                                   high=MyQuotation.getFloat(candle.high),
-                                                   low=MyQuotation.getFloat(candle.low),
-                                                   close=MyQuotation.getFloat(candle.close),
-                                                   timestamp=(candle.time.timestamp()*1000), parent=self)
-            self.candlestick_series.append(candlestick)
+        interval: timedelta = timedelta(days=60)
+        current_dt: datetime = getMoscowDateTime()
+        min_dt: datetime = current_dt - interval
 
-        self.chart.addSeries(self.candlestick_series)
-        self.chart.createDefaultAxes()
+        if self.__candles:
+            min_timestamp: float = min_dt.timestamp()
+            max_timestamp: float = current_dt.timestamp()
+            interval_candles: list[QtCharts.QCandlestickSet] = []
 
-        # axisY = QtCharts.QValueAxis()
-        # axisY.setRange(94, 98)
-        # # axisY.setTickCount(11)
-        # axisY.setTitleText('Цена')
-        # self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-        # self.candlestick_series.attachAxis(axisY)
+            for candle in self.__candles:
+                candlestick = QtCharts.QCandlestickSet(open=MyQuotation.getFloat(candle.open),
+                                                       high=MyQuotation.getFloat(candle.high),
+                                                       low=MyQuotation.getFloat(candle.low),
+                                                       close=MyQuotation.getFloat(candle.close),
+                                                       timestamp=(candle.time.timestamp()*1000), parent=self)
+                self.candlestick_series.append(candlestick)
 
-        for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
-            self.chart.removeAxis(axis)
+                assert candle.low <= candle.open and candle.low <= candle.close and candle.low <= candle.high
+                assert candle.high >= candle.open and candle.high >= candle.close
+                if min_timestamp <= (candlestick.timestamp()/1000) <= max_timestamp:
+                    interval_candles.append(candlestick)
+
+            self.chart.addSeries(self.candlestick_series)
+
+            if interval_candles:
+                '''---Определяем минимальную цену на выбранном отрезке времени---'''
+                min_price: float = min(candle.low() for candle in interval_candles)
+                max_price: float = max(candle.high() for candle in interval_candles)
+                '''--------------------------------------------------------------'''
+
+                axisY = QtCharts.QValueAxis()
+                # axisY.setRange(min_price * 0.99, max_price * 1.01)
+                axisY.setRange(min_price, max_price)
+                # # axisY.setTickCount(11)
+                axisY.setTitleText('Цена')
+                self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
+                self.candlestick_series.attachAxis(axisY)
+            else:
+                self.chart.createDefaultAxes()
+                for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
+                    self.chart.removeAxis(axis)
+        else:
+            self.chart.addSeries(self.candlestick_series)
+            self.chart.createDefaultAxes()
+            for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
+                self.chart.removeAxis(axis)
 
         axisX = QtCharts.QDateTimeAxis()
-        current_dt: datetime = getMoscowDateTime()
-        min_dt: datetime = current_dt - timedelta(days=90)
         axisX.setRange(min_dt, current_dt)
         axisX.setTitleText('Дата и время')
         self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
@@ -1476,19 +1500,24 @@ class CandlesPage(QtWidgets.QWidget):
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         self.verticalLayout_main.setSpacing(2)
 
+        self.splitter = QtWidgets.QSplitter(self)
+        self.splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
+
         """========================Верхняя часть========================"""
-        self.horizontalLayout_top = QtWidgets.QHBoxLayout(self)
-        self.horizontalLayout_top.setContentsMargins(2, 2, 2, 2)
+        self.layoutWidget = QtWidgets.QWidget(self.splitter)
+
+        self.horizontalLayout_top = QtWidgets.QHBoxLayout(self.layoutWidget)
+        self.horizontalLayout_top.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_top.setSpacing(2)
 
         '''-----Выбор инструмента и отображение информации об инструменте-----'''
-        self.verticalLayout_instrument = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_instrument = QtWidgets.QVBoxLayout(self.layoutWidget)
         self.verticalLayout_instrument.setSpacing(2)
 
-        self.groupBox_instrument = GroupBox_InstrumentSelection(self)  # Панель выбора инструмента.
+        self.groupBox_instrument = GroupBox_InstrumentSelection(self.layoutWidget)  # Панель выбора инструмента.
         self.verticalLayout_instrument.addWidget(self.groupBox_instrument)
 
-        self.groupBox_info = GroupBox_InstrumentInfo(self)  # Отображение информации об инструменте.
+        self.groupBox_info = GroupBox_InstrumentInfo(self.layoutWidget)  # Отображение информации об инструменте.
         self.groupBox_instrument.bondSelected.connect(self.groupBox_info.setInstrument)
         self.groupBox_instrument.shareSelected.connect(self.groupBox_info.setInstrument)
         self.groupBox_instrument.instrumentReset.connect(self.groupBox_info.reset)
@@ -1498,29 +1527,31 @@ class CandlesPage(QtWidgets.QWidget):
         '''-------------------------------------------------------------------'''
 
         '''---------------Панели получения и отображения свечей---------------'''
-        self.verticalLayout_candles = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_candles = QtWidgets.QVBoxLayout(self.layoutWidget)
         self.verticalLayout_candles.setSpacing(2)
 
-        self.groupBox_candles_receiving = GroupBox_CandlesReceiving(self)
+        self.groupBox_candles_receiving = GroupBox_CandlesReceiving(self.layoutWidget)
         self.__interval: CandleInterval = self.groupBox_candles_receiving.currentInterval()
         self.groupBox_instrument.bondSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.shareSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.instrumentReset.connect(self.groupBox_candles_receiving.reset)
         self.verticalLayout_candles.addWidget(self.groupBox_candles_receiving)
 
-        self.groupBox_candles_view = GroupBox_CandlesView(self)
+        self.groupBox_candles_view = GroupBox_CandlesView(self.layoutWidget)
         self.verticalLayout_candles.addWidget(self.groupBox_candles_view)
 
         self.horizontalLayout_top.addLayout(self.verticalLayout_candles)
         '''-------------------------------------------------------------------'''
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_top)
+        # self.verticalLayout_main.addLayout(self.horizontalLayout_top)
         """============================================================="""
 
         """========================Нижняя часть========================"""
-        self.groupBox_chart = GroupBox_Chart(self)
-        self.verticalLayout_main.addWidget(self.groupBox_chart)
+        self.groupBox_chart = GroupBox_Chart(self.splitter)
+        # self.verticalLayout_main.addWidget(self.groupBox_chart)
         """============================================================"""
+
+        self.verticalLayout_main.addWidget(self.splitter)
 
         def getCandlesFromDb() -> list[HistoricCandle]:
             uid: str = self.__instrument.instrument().uid
