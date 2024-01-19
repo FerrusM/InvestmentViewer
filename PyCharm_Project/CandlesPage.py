@@ -1,10 +1,11 @@
 from datetime import datetime, timedelta
 import typing
 from enum import Enum
-from PyQt6 import QtWidgets, QtCore, QtCharts, QtGui, QtSql
+from PyQt6 import QtWidgets, QtCore, QtGui, QtSql
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
+from CandlesView import CandlesChartView
 from Classes import MyConnection, TokenClass, print_slot, Column
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
@@ -1318,9 +1319,9 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
 class GroupBox_Chart(QtWidgets.QGroupBox):
     """Панель с диаграммой."""
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         self.__candles: list[HistoricCandle] = []
-        super().__init__(parent)
+        super().__init__(parent=parent)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -1333,47 +1334,6 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.label_title)
 
         # '''------------------------------График------------------------------'''
-        # self.chart_view = QtCharts.QChartView(self)
-        #
-        # self.candlestick_series = QtCharts.QCandlestickSeries(self.chart_view)
-        # # self.candlestick_series.setName('Свечи')
-        # self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
-        # self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
-        #
-        # # self.chart = QtCharts.QChart()
-        # # self.chart.addSeries(self.candlestick_series)
-        # # self.chart.setTitle('График')
-        # # self.chart.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
-        # # self.chart.createDefaultAxes()
-        #
-        #
-        # # self.chart_view.chart().setTitle('График')
-        # self.chart_view.chart().setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
-        # self.chart_view.chart().addSeries(self.candlestick_series)
-        # # self.chart_view.chart().createDefaultAxes()
-        #
-        # # axisY = QtCharts.QValueAxis()
-        # # axisY.setRange(0, 110)
-        # # axisY.setTickCount(11)
-        # # axisY.setTitleText('Цена')
-        # # # # self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-        # # self.chart_view.chart().addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-        # # self.candlestick_series.attachAxis(axisY)
-        # #
-        # # axisX = QtCharts.QDateTimeAxis()
-        # # # axisX.setFormat()
-        # # current_dt: datetime = getMoscowDateTime()
-        # # min_dt: datetime = current_dt - timedelta(days=365)
-        # # axisX.setRange(min_dt, current_dt)
-        # # # axisX.setTickCount(8)
-        # # axisX.setTitleText('Дата и время')
-        # # # self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-        # # self.chart_view.chart().addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-        # # self.candlestick_series.attachAxis(axisX)
-        #
-        # # self.chart_view.setChart(self.chart)
-        # self.verticalLayout_main.addWidget(self.chart_view)
-        #
         # # self.graphics_scene = QtWidgets.QGraphicsScene(self)
         # # self.graphics_scene.setActiveWindow(self.chart)
         # # self.graphics_view = QtWidgets.QGraphicsView(self.graphics_scene, self)
@@ -1381,111 +1341,61 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         # '''------------------------------------------------------------------'''
 
         '''------------------------------График------------------------------'''
-        self.chart_view = QtCharts.QChartView(self)
-
-        self.candlestick_series = QtCharts.QCandlestickSeries(self.chart_view)
-        self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
-        self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
-
-        self.chart = QtCharts.QChart()
-        self.chart.addSeries(self.candlestick_series)
-        self.chart.setTitle('График')
-        self.chart.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
-        # self.chart.createDefaultAxes()
-
-        # auto axisY = qobject_cast < QValueAxis * > (chart->axes(Qt::Vertical).at(0));
-        # axisY->setMax(axisY->max() * 1.01);
-        # axisY->setMin(axisY->min() * 0.99);
+        # self.chart_view = QtCharts.QChartView(self)
         #
-        # axisY = self.chart.axes(QtCore.Qt.Orientation.Vertical, self.candlestick_series)[0]
-        # axisY.setMax(axisY)
-
-        axisY = QtCharts.QValueAxis()
-        axisY.setRange(0, 110)
-        # axisY.setTickCount(11)
-        axisY.setTitleText('Цена')
-        self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-        self.candlestick_series.attachAxis(axisY)
-
-        axisX = QtCharts.QDateTimeAxis()
-        current_dt: datetime = getMoscowDateTime()
-        min_dt: datetime = current_dt - timedelta(days=31)
-        axisX.setRange(min_dt, current_dt)
-        axisX.setTitleText('Дата и время')
-        self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-        self.candlestick_series.attachAxis(axisX)
-
-        self.chart_view.setChart(self.chart)
-        self.verticalLayout_main.addWidget(self.chart_view)
+        # self.candlestick_series = QtCharts.QCandlestickSeries(self.chart_view)
+        # self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
+        # self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
+        #
+        # self.chart = QtCharts.QChart()
+        # self.chart.addSeries(self.candlestick_series)
+        # self.chart.setTitle('График')
+        # self.chart.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
+        # # self.chart.createDefaultAxes()
+        #
+        # # auto axisY = qobject_cast < QValueAxis * > (chart->axes(Qt::Vertical).at(0));
+        # # axisY->setMax(axisY->max() * 1.01);
+        # # axisY->setMin(axisY->min() * 0.99);
+        # #
+        # # axisY = self.chart.axes(QtCore.Qt.Orientation.Vertical, self.candlestick_series)[0]
+        # # axisY.setMax(axisY)
+        #
+        # axisY = QtCharts.QValueAxis()
+        # axisY.setRange(0, 110)
+        # # axisY.setTickCount(11)
+        # axisY.setTitleText('Цена')
+        # self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
+        # self.candlestick_series.attachAxis(axisY)
+        #
+        # axisX = QtCharts.QDateTimeAxis()
+        # current_dt: datetime = getMoscowDateTime()
+        # min_dt: datetime = current_dt - timedelta(days=31)
+        # axisX.setRange(min_dt, current_dt)
+        # axisX.setTitleText('Дата и время')
+        # self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
+        # self.candlestick_series.attachAxis(axisX)
+        #
+        # self.chart_view.setChart(self.chart)
+        # self.verticalLayout_main.addWidget(self.chart_view)
         '''------------------------------------------------------------------'''
 
-    def setCandles(self, candles: list[HistoricCandle]):
+        self.chart_view = CandlesChartView(parent=self)
+
+        # @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        # def slotHorizontScroll(value: int):
+        #     pass
+        #
+        # self.chart_view.horizontalScrollBar().valueChanged.connect(slotHorizontScroll)
+
+        # scrollBar = QtWidgets.QScrollBar(QtCore.Qt.Orientation.Horizontal)
+        # scrollBar.setValue(0)
+
+        self.verticalLayout_main.addWidget(self.chart_view)
+        # self.verticalLayout_main.addWidget(scrollBar)
+
+    def setCandles(self, candles: list[HistoricCandle], interval: CandleInterval):
         self.__candles = candles
-
-        '''-------------------------------Удаляем имеющиеся оси-------------------------------'''
-        for axis in self.chart.axes(QtCore.Qt.Orientation.Vertical, self.candlestick_series):
-            self.chart.removeAxis(axis)
-        for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
-            self.chart.removeAxis(axis)
-        '''-----------------------------------------------------------------------------------'''
-
-        self.chart.removeSeries(self.candlestick_series)
-        self.candlestick_series = QtCharts.QCandlestickSeries(self.chart_view)
-        self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
-        self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
-
-        interval: timedelta = timedelta(days=60)
-        current_dt: datetime = getMoscowDateTime()
-        min_dt: datetime = current_dt - interval
-
-        if self.__candles:
-            min_timestamp: float = min_dt.timestamp()
-            max_timestamp: float = current_dt.timestamp()
-            interval_candles: list[QtCharts.QCandlestickSet] = []
-
-            for candle in self.__candles:
-                candlestick = QtCharts.QCandlestickSet(open=MyQuotation.getFloat(candle.open),
-                                                       high=MyQuotation.getFloat(candle.high),
-                                                       low=MyQuotation.getFloat(candle.low),
-                                                       close=MyQuotation.getFloat(candle.close),
-                                                       timestamp=(candle.time.timestamp()*1000), parent=self)
-                self.candlestick_series.append(candlestick)
-
-                assert candle.low <= candle.open and candle.low <= candle.close and candle.low <= candle.high
-                assert candle.high >= candle.open and candle.high >= candle.close
-                if min_timestamp <= (candlestick.timestamp()/1000) <= max_timestamp:
-                    interval_candles.append(candlestick)
-
-            self.chart.addSeries(self.candlestick_series)
-
-            if interval_candles:
-                '''---Определяем минимальную цену на выбранном отрезке времени---'''
-                min_price: float = min(candle.low() for candle in interval_candles)
-                max_price: float = max(candle.high() for candle in interval_candles)
-                '''--------------------------------------------------------------'''
-
-                axisY = QtCharts.QValueAxis()
-                # axisY.setRange(min_price * 0.99, max_price * 1.01)
-                axisY.setRange(min_price, max_price)
-                # # axisY.setTickCount(11)
-                axisY.setTitleText('Цена')
-                self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-                self.candlestick_series.attachAxis(axisY)
-            else:
-                self.chart.createDefaultAxes()
-                for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
-                    self.chart.removeAxis(axis)
-        else:
-            self.chart.addSeries(self.candlestick_series)
-            self.chart.createDefaultAxes()
-            for axis in self.chart.axes(QtCore.Qt.Orientation.Horizontal, self.candlestick_series):
-                self.chart.removeAxis(axis)
-
-        axisX = QtCharts.QDateTimeAxis()
-        axisX.setRange(min_dt, current_dt)
-        axisX.setTitleText('Дата и время')
-        self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-        self.candlestick_series.attachAxis(axisX)
+        self.chart_view.setCandles(self.__candles, interval)
 
 
 class CandlesPage(QtWidgets.QWidget):
@@ -1618,7 +1528,7 @@ class CandlesPage(QtWidgets.QWidget):
     def candles(self, candles: list[HistoricCandle]):
         self.__candles = candles
         self.groupBox_candles_view.setCandles(self.candles)
-        self.groupBox_chart.setCandles(self.candles)
+        self.groupBox_chart.setCandles(self.candles, self.__interval)
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""
