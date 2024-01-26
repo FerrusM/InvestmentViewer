@@ -5,12 +5,13 @@ from PyQt6 import QtWidgets, QtCore, QtGui, QtSql
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
-from CandlesView import CandlesChartView
+from CandlesView import CandlesChartView, CandlesSceneView
 from Classes import MyConnection, TokenClass, print_slot, Column
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
 from MyDateTime import getUtcDateTime, getMoscowDateTime, ifDateTimeIsEmpty
+from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation
 from MyRequests import getCandles, MyResponse, RequestTryClass
 from MyShareClass import MyShareClass
@@ -560,15 +561,20 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
             self.setText(None)
 
         def __reportBond(self, bond: MyBondClass):
-            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
-                'Облигация',
-                bond.bond.name,
-                bond.bond.uid,
-                bond.bond.figi,
-                bond.bond.isin,
-                bond.bond.first_1min_candle_date,
-                bond.bond.first_1day_candle_date
-            )
+            text: str = \
+                'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
+                'Первая дневная свеча: {6}\nАмортизация: {7}\nНоминал: {8}\nПервоначальный номинал: {9}'.format(
+                    'Облигация',
+                    bond.bond.name,
+                    bond.bond.uid,
+                    bond.bond.figi,
+                    bond.bond.isin,
+                    bond.bond.first_1min_candle_date,
+                    bond.bond.first_1day_candle_date,
+                    bond.bond.amortization_flag,
+                    MyMoneyValue.__str__(bond.bond.nominal, delete_decimal_zeros=True),
+                    MyMoneyValue.__str__(bond.bond.initial_nominal, delete_decimal_zeros=True)
+                )
             self.setText(text)
 
         def __reportShare(self, share: MyShareClass):
@@ -1320,7 +1326,6 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 class GroupBox_Chart(QtWidgets.QGroupBox):
     """Панель с диаграммой."""
     def __init__(self, parent: QtWidgets.QWidget | None = None):
-        self.__candles: list[HistoricCandle] = []
         super().__init__(parent=parent)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -1333,69 +1338,23 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         self.label_title.setText('ГРАФИК')
         self.verticalLayout_main.addWidget(self.label_title)
 
-        # '''------------------------------График------------------------------'''
-        # # self.graphics_scene = QtWidgets.QGraphicsScene(self)
-        # # self.graphics_scene.setActiveWindow(self.chart)
-        # # self.graphics_view = QtWidgets.QGraphicsView(self.graphics_scene, self)
-        # # self.verticalLayout_main.addWidget(self.graphics_view)
-        # '''------------------------------------------------------------------'''
-
-        '''------------------------------График------------------------------'''
-        # self.chart_view = QtCharts.QChartView(self)
-        #
-        # self.candlestick_series = QtCharts.QCandlestickSeries(self.chart_view)
-        # self.candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
-        # self.candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
-        #
-        # self.chart = QtCharts.QChart()
-        # self.chart.addSeries(self.candlestick_series)
-        # self.chart.setTitle('График')
-        # self.chart.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
-        # # self.chart.createDefaultAxes()
-        #
-        # # auto axisY = qobject_cast < QValueAxis * > (chart->axes(Qt::Vertical).at(0));
-        # # axisY->setMax(axisY->max() * 1.01);
-        # # axisY->setMin(axisY->min() * 0.99);
-        # #
-        # # axisY = self.chart.axes(QtCore.Qt.Orientation.Vertical, self.candlestick_series)[0]
-        # # axisY.setMax(axisY)
-        #
-        # axisY = QtCharts.QValueAxis()
-        # axisY.setRange(0, 110)
-        # # axisY.setTickCount(11)
-        # axisY.setTitleText('Цена')
-        # self.chart.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-        # self.candlestick_series.attachAxis(axisY)
-        #
-        # axisX = QtCharts.QDateTimeAxis()
-        # current_dt: datetime = getMoscowDateTime()
-        # min_dt: datetime = current_dt - timedelta(days=31)
-        # axisX.setRange(min_dt, current_dt)
-        # axisX.setTitleText('Дата и время')
-        # self.chart.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-        # self.candlestick_series.attachAxis(axisX)
-        #
-        # self.chart_view.setChart(self.chart)
+        '''------------------QGraphicsScene------------------'''
+        # self.chart_view = CandlesSceneView(parent=self)
         # self.verticalLayout_main.addWidget(self.chart_view)
-        '''------------------------------------------------------------------'''
+        '''--------------------------------------------------'''
 
+        '''---------------------QChartView---------------------'''
         self.chart_view = CandlesChartView(parent=self)
-
-        # @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        # def slotHorizontScroll(value: int):
-        #     pass
-        #
-        # self.chart_view.horizontalScrollBar().valueChanged.connect(slotHorizontScroll)
 
         # scrollBar = QtWidgets.QScrollBar(QtCore.Qt.Orientation.Horizontal)
         # scrollBar.setValue(0)
 
         self.verticalLayout_main.addWidget(self.chart_view)
         # self.verticalLayout_main.addWidget(scrollBar)
+        '''----------------------------------------------------'''
 
     def setCandles(self, candles: list[HistoricCandle], interval: CandleInterval):
-        self.__candles = candles
-        self.chart_view.setCandles(self.__candles, interval)
+        self.chart_view.setCandles(candles, interval)
 
 
 class CandlesPage(QtWidgets.QWidget):
@@ -1527,8 +1486,31 @@ class CandlesPage(QtWidgets.QWidget):
     @candles.setter
     def candles(self, candles: list[HistoricCandle]):
         self.__candles = candles
-        self.groupBox_candles_view.setCandles(self.candles)
-        self.groupBox_chart.setCandles(self.candles, self.__interval)
+
+        if type(self.__instrument) == MyBondClass:
+            '''------------------------Вычисляем цену для облигаций------------------------'''
+            def convertPointsToPriceInCandle(candle: HistoricCandle) -> HistoricCandle:
+                nominal: MyMoneyValue = MoneyValueToMyMoneyValue(self.__instrument.bond.nominal)
+                nom_quot: MyQuotation = nominal.getMyQuotation()
+
+                def convertPointsToPrice(value: Quotation) -> MyQuotation:
+                    return nom_quot * value / 100
+
+                return HistoricCandle(open=convertPointsToPrice(candle.open),
+                                      high=convertPointsToPrice(candle.high),
+                                      low=convertPointsToPrice(candle.low),
+                                      close=convertPointsToPrice(candle.close),
+                                      volume=candle.volume,
+                                      time=candle.time,
+                                      is_complete=candle.is_complete)
+
+            bond_candles: list[HistoricCandle] = [convertPointsToPriceInCandle(cnd) for cnd in self.candles]
+            '''----------------------------------------------------------------------------'''
+            self.groupBox_candles_view.setCandles(bond_candles)
+            self.groupBox_chart.setCandles(bond_candles, self.__interval)
+        else:
+            self.groupBox_candles_view.setCandles(self.candles)
+            self.groupBox_chart.setCandles(self.candles, self.__interval)
 
     def setTokensModel(self, token_list_model: TokenListModel):
         """Устанавливает модель токенов для ComboBox'а."""

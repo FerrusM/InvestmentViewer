@@ -40,12 +40,30 @@ class MyQuotation(Quotation):
         """Проверяет значение Quotation на равенство нулю."""
         return self.units == 0 and self.nano == 0
 
-    def __mul__(self, other: int | float | Decimal) -> MyQuotation:
+    def __mul__(self, other: int | float | Decimal | Quotation) -> MyQuotation:
         """self * other"""
-        # Проверяем тип.
-        if not isinstance(other, int | float | Decimal):
-            raise ValueError('Quotation можно умножать только на int, float, Decimal и их наследников, а передано {0}!'.format(type(other)))
-        value: Decimal = self.getDecimal() * Decimal(other)
+        if isinstance(other, Quotation):
+            other_decimal: Decimal = MyQuotation.getDecimal(other)
+        elif isinstance(other, int | float):
+            other_decimal: Decimal = Decimal(other)
+        elif isinstance(other, Decimal):
+            other_decimal: Decimal = other
+        else:
+            raise TypeError('Класс {0} можно умножать только на int, float, Decimal, Quotation и их наследников, а передано {0}!'.format(self.__name__, type(other)))
+        value: Decimal = self.getDecimal() * other_decimal
+        return MyQuotation(decimal_to_quotation(value))
+
+    def __truediv__(self, other: int | float | Decimal | Quotation) -> MyQuotation:
+        """self / other"""
+        if isinstance(other, Quotation):
+            other_decimal: Decimal = MyQuotation.getDecimal(other)
+        elif isinstance(other, int | float):
+            other_decimal: Decimal = Decimal(other)
+        elif isinstance(other, Decimal):
+            other_decimal: Decimal = other
+        else:
+            raise TypeError('Класс {0} можно делить только на int, float, Decimal, Quotation и их наследников, а передано {1}!'.format(self.__name__, type(other)))
+        value: Decimal = self.getDecimal() / other_decimal
         return MyQuotation(decimal_to_quotation(value))
 
     def __str__(self: Quotation, ndigits: int = -1, delete_decimal_zeros: bool = False) -> str:
