@@ -112,8 +112,7 @@ class MyMoneyValue(MoneyValue):
         return '{0} {1}'.format(MyQuotation.__str__(MyMoneyValue.getQuotation(self), ndigits, delete_decimal_zeros), self.currency)
 
     def __repr__(self: MoneyValue) -> str:
-        # return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self).__repr__(), self.currency)
-        return super().__repr__()
+        return '{0} {1}'.format(MyMoneyValue.getMyQuotation(self).__repr__(), self.currency)
 
     @staticmethod
     def __isEmpty(mv: MoneyValue) -> bool:

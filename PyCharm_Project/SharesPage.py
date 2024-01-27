@@ -676,7 +676,7 @@ class SharesPage(QtWidgets.QWidget):
             assert shares_response.request_occurred, 'Запрос акций не был произведён.'
             if shares_response.ifDataSuccessfullyReceived():  # Если список акций был получен.
                 shares: list[Share] = shares_response.response_data  # Извлекаем список акций.
-                MainConnection.addShares(shares)  # Добавляем акции в таблицу акций.
+                MainConnection.addShares(token.token, instrument_status, shares)  # Добавляем акции в таблицу акций.
                 self.shares = shares
                 filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(shares)  # Отфильтрованный список акций.
 
@@ -715,7 +715,7 @@ class SharesPage(QtWidgets.QWidget):
 
         if shares_response.ifDataSuccessfullyReceived():  # Если список акций был получен.
             shares: list[Share] = shares_response.response_data  # Получаем список акций.
-            MainConnection.addShares(shares)  # Добавляем акции в таблицу акций.
+            MainConnection.addShares(token.token, instrument_status, shares)  # Добавляем акции в таблицу акций.
             self.shares = shares
             filtered_shares: list[Share] = self.groupBox_filters.getFilteredSharesList(shares)  # Отфильтрованный список акций.
             '''-----------------Обновляет отображение количеств акций в моделях-----------------'''

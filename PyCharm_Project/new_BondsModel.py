@@ -389,50 +389,52 @@ class BondsModel(QAbstractTableModel):
         """Обновляет данные модели в соответствии с переданными параметрами запроса к БД."""
         self.beginResetModel()  # Начинаем операцию сброса модели.
 
-        '''------------------Параметры запроса к БД------------------'''
+        '''------------Параметры запроса к БД------------'''
         self.__token = token
         self.__instrument_status = instrument_status
         self.__sql_condition = sql_condition
-        '''----------------------------------------------------------'''
+        '''----------------------------------------------'''
 
         if token is None:
             self._bonds = []
         else:
             '''---------------------------Создание запроса к БД---------------------------'''
             bonds_select: str = '''
-            SELECT {0}."figi", {0}."ticker", {0}."class_code", {0}."isin", {0}."lot", {0}."currency", {0}."klong", 
-            {0}."kshort", {0}."dlong", {0}."dshort", {0}."dlong_min", {0}."dshort_min", {0}."short_enabled_flag", 
-            {0}."name", {0}."exchange", {0}."coupon_quantity_per_year", {0}."maturity_date", {0}."nominal", 
-            {0}."initial_nominal", {0}."state_reg_date", {0}."placement_date", {0}."placement_price", {0}."aci_value", 
-            {0}."country_of_risk", {0}."country_of_risk_name", {0}."sector", {0}."issue_kind", {0}."issue_size", 
-            {0}."issue_size_plan", {0}."trading_status", {0}."otc_flag", {0}."buy_available_flag", 
-            {0}."sell_available_flag", {0}."floating_coupon_flag", {0}."perpetual_flag", {0}."amortization_flag", 
-            {0}."min_price_increment", {0}."api_trade_available_flag", {0}."uid", {0}."real_exchange", 
-            {0}."position_uid", {0}."for_iis_flag", {0}."for_qual_investor_flag", {0}."weekend_flag", 
-            {0}."blocked_tca_flag", {0}."subordinated_flag", {0}."liquidity_flag", {0}."first_1min_candle_date", 
-            {0}."first_1day_candle_date", {0}."risk_level"
-            FROM "BondsStatus", {0}
-            WHERE "BondsStatus"."token" = :token AND "BondsStatus"."status" = :status AND
-            "BondsStatus"."uid" = {0}."uid"{1}'''.format(
+            SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", {0}.\"lot\", {0}.\"currency\",
+            {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", {0}.\"dlong_min\", {0}.\"dshort_min\",
+            {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", {0}.\"coupon_quantity_per_year\",
+            {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", {0}.\"state_reg_date\",
+            {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", {0}.\"country_of_risk\",
+            {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", {0}.\"issue_size\",
+            {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", {0}.\"buy_available_flag\",
+            {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", {0}.\"perpetual_flag\",
+            {0}.\"amortization_flag\", {0}.\"min_price_increment\", {0}.\"api_trade_available_flag\", {0}.\"uid\",
+            {0}.\"real_exchange\", {0}.\"position_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\",
+            {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
+            {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\"
+            FROM {1}, {0}
+            WHERE {1}.\"token\" = :token AND {1}.\"status\" = :status AND {1}.\"uid\" = {0}.\"uid\"{2}'''.format(
                 '\"{0}\"'.format(MyConnection.BONDS_TABLE),
+                '\"{0}\"'.format(MyConnection.INSTRUMENT_STATUS_TABLE),
                 '' if sql_condition is None else ' AND {0}'.format(sql_condition)
             )
 
             sql_command: str = '''
-            SELECT {1}."figi", {1}."ticker", {1}."class_code", {1}."isin", {1}."lot", {1}."currency", {1}."klong", 
-            {1}."kshort", {1}."dlong", {1}."dshort", {1}."dlong_min", {1}."dshort_min", {1}."short_enabled_flag", 
-            {1}."name", {1}."exchange", {1}."coupon_quantity_per_year", {1}."maturity_date", {1}."nominal", 
-            {1}."initial_nominal", {1}."state_reg_date", {1}."placement_date", {1}."placement_price", {1}."aci_value", 
-            {1}."country_of_risk", {1}."country_of_risk_name", {1}."sector", {1}."issue_kind", {1}."issue_size", 
-            {1}."issue_size_plan", {1}."trading_status", {1}."otc_flag", {1}."buy_available_flag", 
-            {1}."sell_available_flag", {1}."floating_coupon_flag", {1}."perpetual_flag", {1}."amortization_flag", 
-            {1}."min_price_increment", {1}."api_trade_available_flag", {1}."uid", {1}."real_exchange", 
-            {1}."position_uid", {1}."for_iis_flag", {1}."for_qual_investor_flag", {1}."weekend_flag", 
-            {1}."blocked_tca_flag", {1}."subordinated_flag", {1}."liquidity_flag", {1}."first_1min_candle_date", 
-            {1}."first_1day_candle_date", {1}."risk_level", 
-            {2}."figi" AS "lp_figi", {2}."price" AS "lp_price", {2}."time" AS "lp_time", 
-            {2}."instrument_uid" AS "lp_instrument_uid"
-            FROM ({0}) AS {1} INNER JOIN {2} ON {1}."uid" = {2}."instrument_uid" 
+            SELECT {1}.\"figi\", {1}.\"ticker\", {1}.\"class_code\", {1}.\"isin\", {1}.\"lot\", {1}.\"currency\", 
+            {1}.\"klong\", {1}.\"kshort\", {1}.\"dlong\", {1}.\"dshort\", {1}.\"dlong_min\", {1}.\"dshort_min\", 
+            {1}.\"short_enabled_flag\", {1}.\"name\", {1}.\"exchange\", {1}.\"coupon_quantity_per_year\", 
+            {1}.\"maturity_date\", {1}.\"nominal\", {1}.\"initial_nominal\", {1}.\"state_reg_date\", 
+            {1}.\"placement_date\", {1}.\"placement_price\", {1}.\"aci_value\", {1}.\"country_of_risk\", 
+            {1}.\"country_of_risk_name\", {1}.\"sector\", {1}.\"issue_kind\", {1}.\"issue_size\", 
+            {1}.\"issue_size_plan\", {1}.\"trading_status\", {1}.\"otc_flag\", {1}.\"buy_available_flag\", 
+            {1}.\"sell_available_flag\", {1}.\"floating_coupon_flag\", {1}.\"perpetual_flag\", 
+            {1}.\"amortization_flag\", {1}.\"min_price_increment\", {1}.\"api_trade_available_flag\", {1}.\"uid\", 
+            {1}.\"real_exchange\", {1}.\"position_uid\", {1}.\"for_iis_flag\", {1}.\"for_qual_investor_flag\", 
+            {1}.\"weekend_flag\", {1}.\"blocked_tca_flag\", {1}.\"subordinated_flag\", {1}.\"liquidity_flag\", 
+            {1}.\"first_1min_candle_date\", {1}.\"first_1day_candle_date\", {1}.\"risk_level\", 
+            {2}.\"figi\" AS \"lp_figi\", {2}.\"price\" AS \"lp_price\", {2}.\"time\" AS \"lp_time\", 
+            {2}.\"instrument_uid\" AS \"lp_instrument_uid\"
+            FROM ({0}) AS {1} INNER JOIN {2} ON {1}.\"uid\" = {2}.\"instrument_uid\" 
             ;'''.format(
                 bonds_select,
                 '\"B\"',
@@ -550,12 +552,10 @@ class BondsModel(QAbstractTableModel):
                     def checkCoupons(figi: str) -> bool | None:
                         """Выполняет запрос к таблице BondsFinancialInstrumentGlobalIdentifiers и возвращает результат."""
                         check_coupons_sql_command: str = '''
-                        SELECT {0}."coupons"
+                        SELECT {0}.\"coupons\"
                         FROM {0}
-                        WHERE {0}."figi" = :figi
-                        ;'''.format(
-                            '\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE),
-                        )
+                        WHERE {0}.\"figi\" = :figi
+                        ;'''.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE))
                         check_coupons_query = QSqlQuery(db)
                         check_coupons_prepare_flag: bool = check_coupons_query.prepare(check_coupons_sql_command)
                         assert check_coupons_prepare_flag, check_coupons_query.lastError().text()
@@ -592,13 +592,11 @@ class BondsModel(QAbstractTableModel):
                         return None
                     elif value:
                         coupons_sql_command: str = '''
-                        SELECT "figi", "coupon_date", "coupon_number", "fix_date", "pay_one_bond", "coupon_type", 
-                        "coupon_start_date", "coupon_end_date", "coupon_period"
+                        SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", \"pay_one_bond\", 
+                        \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"
                         FROM {0}
-                        WHERE {0}."figi" = :bond_figi
-                        ;'''.format(
-                            '\"{0}\"'.format(MyConnection.COUPONS_TABLE),
-                        )
+                        WHERE {0}.\"figi\" = :bond_figi
+                        ;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
                         coupons_query = QSqlQuery(db)
                         coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
                         assert coupons_prepare_flag, coupons_query.lastError().text()

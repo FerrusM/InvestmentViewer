@@ -161,23 +161,30 @@ def reportTradingStatus(trading_status: int) -> str:
 class MyConnection(ABC):
     """Абстрактный класс, хранящий общий функционал соединений с БД."""
 
-    '''---------Названия таблиц БД---------'''
+    '''---------------Названия таблиц БД---------------'''
     TOKENS_TABLE: str = 'Tokens'
     ACCOUNTS_TABLE: str = 'Accounts'
     BONDS_TABLE: str = 'Bonds'
     LAST_PRICES_TABLE: str = 'LastPrices'
     COUPONS_TABLE: str = 'Coupons'
     BONDS_FIGI_TABLE: str = 'BondsFinancialInstrumentGlobalIdentifiers'
+    SHARES_FIGI_TABLE: str = 'SharesFinancialInstrumentGlobalIdentifiers'
     CANDLES_TABLE: str = 'HistoricCandles'
     SHARES_TABLE: str = 'Shares'
     STREAM_LIMITS_TABLE: str = 'StreamLimits'
     UNARY_LIMITS_TABLE: str = 'UnaryLimits'
     INSTRUMENT_UIDS_TABLE: str = 'InstrumentUniqueIdentifiers'
+    INSTRUMENT_STATUS_TABLE: str = 'InstrumentsStatus'
+    TARGET_ITEMS_TABLE: str = 'TargetItems'
+    CONSENSUS_ITEMS_TABLE: str = 'ConsensusItems'
 
     LAST_PRICES_VIEW: str = 'LastPricesView'
 
+    SHARES_TRIGGER_BEFORE_INSERT: str = 'Shares_before_insert_trigger'
+    BONDS_TRIGGER_BEFORE_INSERT: str = 'Bonds_before_insert_trigger'
     CANDLES_TRIGGER_BEFORE_INSERT: str = 'Candles_before_insert_trigger'
-    '''------------------------------------'''
+    INSTRUMENT_UIDS_BEFORE_UPDATE_TRIGGER: str = 'InstrumentUniqueIdentifiers_before_update_trigger'
+    '''------------------------------------------------'''
 
     SQLITE_DRIVER: str = 'QSQLITE'
     assert QSqlDatabase.isDriverAvailable(SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(SQLITE_DRIVER)

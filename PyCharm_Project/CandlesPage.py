@@ -528,6 +528,10 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
         '''---------------------------------------------------------'''
 
         self.tableView = QtWidgets.QTableView(self)
+        self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tableView.setSortingEnabled(True)
         self.tableView.setModel(self.CandlesModel(self))
         self.verticalLayout_main.addWidget(self.tableView)
 
