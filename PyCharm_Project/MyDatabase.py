@@ -665,7 +665,7 @@ class MainConnection(MyConnection):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
 
-    @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
+    @classmethod
     def deleteToken(cls, token: str):
         """Удаляет токен и все связанные с ним данные."""
         db: QSqlDatabase = cls.getDatabase()
@@ -818,10 +818,6 @@ class MainConnection(MyConnection):
 
                 """===============Добавляем облигации в таблицу запросов инструментов==============="""
                 '''--------------Удаляем облигации из таблицы запросов инструментов--------------'''
-                # instruments_status_delete_sql_command: str = '''
-                # DELETE FROM \"{0}\" WHERE \"token\" = :token AND \"status\" = :status;
-                # '''.format(MyConnection.INSTRUMENT_STATUS_TABLE)
-
                 bonds_uids_select: str = '''
                 SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\'
                 '''.format(MyConnection.INSTRUMENT_UIDS_TABLE, 'bond')
@@ -979,10 +975,6 @@ class MainConnection(MyConnection):
                 instruments_status_delete_sql_command: str = '''
                 DELETE FROM \"{0}\" WHERE \"token\" = :token AND \"status\" = :status AND \"uid\" in ({1});
                 '''.format(MyConnection.INSTRUMENT_STATUS_TABLE, shares_uids_select)
-
-                # instruments_status_delete_sql_command: str = '''
-                # DELETE FROM \"{0}\" WHERE \"token\" = :token AND \"status\" = :status;
-                # '''.format(MyConnection.INSTRUMENT_STATUS_TABLE)
 
                 instruments_status_delete_query = QSqlQuery(db)
                 instruments_status_delete_prepare_flag: bool = instruments_status_delete_query.prepare(instruments_status_delete_sql_command)

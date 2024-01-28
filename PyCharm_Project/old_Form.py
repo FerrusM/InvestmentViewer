@@ -2,6 +2,7 @@ from PyQt6 import QtCore, QtWidgets
 from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from CandlesPage import CandlesPage
+from ForecastsPage import ForecastsPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
 from SharesPage import SharesPage
@@ -11,7 +12,7 @@ from new_BondsPage import new_BondsPage
 
 
 class Ui_MainWindow(object):
-    def setupUi(self, main_window: QtWidgets.QMainWindow):
+    def setupUi(self, main_window: QtWidgets.QMainWindow, token_model: TokenModel, token_list_model: TokenListModel):
         main_window.setObjectName('InvestmentWindow')
         main_window.resize(1200, 800)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -35,36 +36,48 @@ class Ui_MainWindow(object):
 
         """------------------------------Страница "Токены"------------------------------"""
         self.tab_tokens: TokensPage = TokensPage('tab_tokens')
+        self.tab_tokens.setModel(token_model)
         self.tabWidget.addTab(self.tab_tokens, _translate('MainWindow', 'Токены'))
         """-----------------------------------------------------------------------------"""
 
         """------------------------------Страница "Лимиты"------------------------------"""
         self.tab_limits: LimitsPage = LimitsPage('tab_limits')
+        self.tab_limits.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_limits, _translate('MainWindow', 'Лимиты'))
         """-----------------------------------------------------------------------------"""
 
         """------------------------------Страница "Акции"------------------------------"""
         self.tab_shares: SharesPage = SharesPage('tab_shares')
+        self.tab_shares.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_shares, _translate('MainWindow', 'Акции'))
         """----------------------------------------------------------------------------"""
 
         """-----------------------------Страница "Облигации"-----------------------------"""
         self.tab_bonds: BondsPage = BondsPage('tab_bonds')
+        self.tab_bonds.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_bonds, _translate('MainWindow', 'Облигации'))
         """------------------------------------------------------------------------------"""
 
         """-----------------------------Страница "Облигации"-----------------------------"""
         self.new_tab_bonds: new_BondsPage = new_BondsPage('new_tab_bonds')
+        self.new_tab_bonds.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.new_tab_bonds, _translate('MainWindow', 'new_Облигации'))
         """------------------------------------------------------------------------------"""
 
+        '''------------------------------Страница "Прогнозы"------------------------------'''
+        tab_forecasts: ForecastsPage = ForecastsPage(tokens_model=token_list_model)
+        self.tabWidget.addTab(tab_forecasts, 'Прогнозы')
+        '''-------------------------------------------------------------------------------'''
+
         '''-------------------------------Страница "Свечи"-------------------------------'''
         self.tab_candles = CandlesPage(main_window)
+        self.tab_candles.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_candles, _translate('MainWindow', 'Свечи'))
         '''------------------------------------------------------------------------------'''
 
         """------------------------------Страница "Активы"------------------------------"""
         self.tab_assets: AssetsPage = AssetsPage('tab_assets')
+        self.tab_assets.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_assets, _translate('MainWindow', 'Активы'))
         """-----------------------------------------------------------------------------"""
 
@@ -88,23 +101,28 @@ class InvestmentForm(QtWidgets.QMainWindow, Ui_MainWindow):
 
         self.__database: MainConnection = MainConnection()  # Открываем соединение с базой данных.
 
-        self.setupUi(self)  # Инициализация дизайна.
+        token_model: TokenModel = TokenModel(self)  # Модель токенов.
 
-        """---------------------Модель токенов---------------------"""
-        token_model: TokenModel = TokenModel(self)
-        """--------------------------------------------------------"""
-
-        """---------------------Модель доступа---------------------"""
-        self.tab_tokens.setModel(token_model)
-        """--------------------------------------------------------"""
-
-        """---Подключаем ComboBox'ы для отображения токенов к модели---"""
         token_list_model: TokenListModel = TokenListModel()
         token_list_model.setSourceModel(token_model)
-        self.tab_limits.setTokensModel(token_list_model)
-        self.tab_shares.setTokensModel(token_list_model)
-        self.tab_bonds.setTokensModel(token_list_model)
-        self.new_tab_bonds.setTokensModel(token_list_model)
-        self.tab_assets.setTokensModel(token_list_model)
-        self.tab_candles.setTokensModel(token_list_model)
-        """------------------------------------------------------------"""
+
+        self.setupUi(main_window=self, token_model=token_model, token_list_model=token_list_model)  # Инициализация дизайна.
+
+        # """---------------------Модель токенов---------------------"""
+        # token_model: TokenModel = TokenModel(self)
+        # """--------------------------------------------------------"""
+
+        # """---------------------Модель доступа---------------------"""
+        # self.tab_tokens.setModel(token_model)
+        # """--------------------------------------------------------"""
+
+        # """---Подключаем ComboBox'ы для отображения токенов к модели---"""
+        # token_list_model: TokenListModel = TokenListModel()
+        # token_list_model.setSourceModel(token_model)
+        # self.tab_limits.setTokensModel(token_list_model)
+        # self.tab_shares.setTokensModel(token_list_model)
+        # self.tab_bonds.setTokensModel(token_list_model)
+        # self.new_tab_bonds.setTokensModel(token_list_model)
+        # self.tab_assets.setTokensModel(token_list_model)
+        # self.tab_candles.setTokensModel(token_list_model)
+        # """------------------------------------------------------------"""
