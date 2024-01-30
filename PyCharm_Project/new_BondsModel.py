@@ -442,205 +442,212 @@ class BondsModel(QAbstractTableModel):
             )
 
             db: QSqlDatabase = MainConnection.getDatabase()
-            query = QSqlQuery(db)
-            prepare_flag: bool = query.prepare(sql_command)
-            assert prepare_flag, query.lastError().text()
+            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+            if transaction_flag:
+                query = QSqlQuery(db)
+                prepare_flag: bool = query.prepare(sql_command)
+                assert prepare_flag, query.lastError().text()
 
-            query.bindValue(':token', token.token)
-            query.bindValue(':status', instrument_status.name)
+                query.bindValue(':token', token.token)
+                query.bindValue(':status', instrument_status.name)
 
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''---------------------------------------------------------------------------'''
+                exec_flag: bool = query.exec()
+                assert exec_flag, query.lastError().text()
+                '''---------------------------------------------------------------------------'''
 
-            '''------------------------Извлекаем список облигаций------------------------'''
-            self._bonds = []
-            while query.next():
-                def getBond() -> Bond:
-                    """Создаёт и возвращает экземпляр класса Bond."""
-                    figi: str = query.value('figi')
-                    ticker: str = query.value('ticker')
-                    class_code: str = query.value('class_code')
-                    isin: str = query.value('isin')
-                    lot: int = query.value('lot')
-                    currency: str = query.value('currency')
-                    klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
-                    kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
-                    dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
-                    dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
-                    dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
-                    dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
-                    short_enabled_flag: bool = bool(query.value('short_enabled_flag'))
-                    name: str = query.value('name')
-                    exchange: str = query.value('exchange')
-                    coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
-                    maturity_date: datetime = MyConnection.convertTextToDateTime(query.value('maturity_date'))
-                    nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
-                    initial_nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('initial_nominal'))
-                    state_reg_date: datetime = MyConnection.convertTextToDateTime(query.value('state_reg_date'))
-                    placement_date: datetime = MyConnection.convertTextToDateTime(query.value('placement_date'))
-                    placement_price: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('placement_price'))
-                    aci_value: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('aci_value'))
-                    country_of_risk: str = query.value('country_of_risk')
-                    country_of_risk_name: str = query.value('country_of_risk_name')
-                    sector: str = query.value('sector')
-                    issue_kind: str = query.value('issue_kind')
-                    issue_size: int = query.value('issue_size')
-                    issue_size_plan: int = query.value('issue_size_plan')
-                    trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
-                    otc_flag: bool = bool(query.value('otc_flag'))
-                    buy_available_flag: bool = bool(query.value('buy_available_flag'))
-                    sell_available_flag: bool = bool(query.value('sell_available_flag'))
-                    floating_coupon_flag: bool = bool(query.value('floating_coupon_flag'))
-                    perpetual_flag: bool = bool(query.value('perpetual_flag'))
-                    amortization_flag: bool = bool(query.value('amortization_flag'))
-                    min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
-                    api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
-                    uid: str = query.value('uid')
-                    real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
-                    position_uid: str = query.value('position_uid')
-                    for_iis_flag: bool = bool(query.value('for_iis_flag'))
-                    for_qual_investor_flag: bool = bool(query.value('for_qual_investor_flag'))
-                    weekend_flag: bool = bool(query.value('weekend_flag'))
-                    blocked_tca_flag: bool = bool(query.value('blocked_tca_flag'))
-                    subordinated_flag: bool = bool(query.value('subordinated_flag'))
-                    liquidity_flag: bool = bool(query.value('liquidity_flag'))
-                    first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
-                    first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
-                    risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
-                    return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency,
-                                klong=klong,
-                                kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
-                                short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
-                                coupon_quantity_per_year=coupon_quantity_per_year, maturity_date=maturity_date,
-                                nominal=nominal,
-                                initial_nominal=initial_nominal, state_reg_date=state_reg_date,
-                                placement_date=placement_date,
-                                placement_price=placement_price, aci_value=aci_value, country_of_risk=country_of_risk,
-                                country_of_risk_name=country_of_risk_name, sector=sector, issue_kind=issue_kind,
-                                issue_size=issue_size, issue_size_plan=issue_size_plan, trading_status=trading_status,
-                                otc_flag=otc_flag, buy_available_flag=buy_available_flag,
-                                sell_available_flag=sell_available_flag,
-                                floating_coupon_flag=floating_coupon_flag, perpetual_flag=perpetual_flag,
-                                amortization_flag=amortization_flag, min_price_increment=min_price_increment,
-                                api_trade_available_flag=api_trade_available_flag, uid=uid, real_exchange=real_exchange,
-                                position_uid=position_uid, for_iis_flag=for_iis_flag,
-                                for_qual_investor_flag=for_qual_investor_flag,
-                                weekend_flag=weekend_flag, blocked_tca_flag=blocked_tca_flag,
-                                subordinated_flag=subordinated_flag,
-                                liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
-                                first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
+                '''------------------------Извлекаем список облигаций------------------------'''
+                self._bonds = []
+                while query.next():
+                    def getBond() -> Bond:
+                        """Создаёт и возвращает экземпляр класса Bond."""
+                        figi: str = query.value('figi')
+                        ticker: str = query.value('ticker')
+                        class_code: str = query.value('class_code')
+                        isin: str = query.value('isin')
+                        lot: int = query.value('lot')
+                        currency: str = query.value('currency')
+                        klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
+                        kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
+                        dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
+                        dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
+                        dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
+                        dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
+                        short_enabled_flag: bool = bool(query.value('short_enabled_flag'))
+                        name: str = query.value('name')
+                        exchange: str = query.value('exchange')
+                        coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
+                        maturity_date: datetime = MyConnection.convertTextToDateTime(query.value('maturity_date'))
+                        nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
+                        initial_nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('initial_nominal'))
+                        state_reg_date: datetime = MyConnection.convertTextToDateTime(query.value('state_reg_date'))
+                        placement_date: datetime = MyConnection.convertTextToDateTime(query.value('placement_date'))
+                        placement_price: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('placement_price'))
+                        aci_value: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('aci_value'))
+                        country_of_risk: str = query.value('country_of_risk')
+                        country_of_risk_name: str = query.value('country_of_risk_name')
+                        sector: str = query.value('sector')
+                        issue_kind: str = query.value('issue_kind')
+                        issue_size: int = query.value('issue_size')
+                        issue_size_plan: int = query.value('issue_size_plan')
+                        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
+                        otc_flag: bool = bool(query.value('otc_flag'))
+                        buy_available_flag: bool = bool(query.value('buy_available_flag'))
+                        sell_available_flag: bool = bool(query.value('sell_available_flag'))
+                        floating_coupon_flag: bool = bool(query.value('floating_coupon_flag'))
+                        perpetual_flag: bool = bool(query.value('perpetual_flag'))
+                        amortization_flag: bool = bool(query.value('amortization_flag'))
+                        min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
+                        api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
+                        uid: str = query.value('uid')
+                        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
+                        position_uid: str = query.value('position_uid')
+                        for_iis_flag: bool = bool(query.value('for_iis_flag'))
+                        for_qual_investor_flag: bool = bool(query.value('for_qual_investor_flag'))
+                        weekend_flag: bool = bool(query.value('weekend_flag'))
+                        blocked_tca_flag: bool = bool(query.value('blocked_tca_flag'))
+                        subordinated_flag: bool = bool(query.value('subordinated_flag'))
+                        liquidity_flag: bool = bool(query.value('liquidity_flag'))
+                        first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
+                        first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
+                        risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
+                        return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency,
+                                    klong=klong,
+                                    kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
+                                    short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
+                                    coupon_quantity_per_year=coupon_quantity_per_year, maturity_date=maturity_date,
+                                    nominal=nominal,
+                                    initial_nominal=initial_nominal, state_reg_date=state_reg_date,
+                                    placement_date=placement_date,
+                                    placement_price=placement_price, aci_value=aci_value, country_of_risk=country_of_risk,
+                                    country_of_risk_name=country_of_risk_name, sector=sector, issue_kind=issue_kind,
+                                    issue_size=issue_size, issue_size_plan=issue_size_plan, trading_status=trading_status,
+                                    otc_flag=otc_flag, buy_available_flag=buy_available_flag,
+                                    sell_available_flag=sell_available_flag,
+                                    floating_coupon_flag=floating_coupon_flag, perpetual_flag=perpetual_flag,
+                                    amortization_flag=amortization_flag, min_price_increment=min_price_increment,
+                                    api_trade_available_flag=api_trade_available_flag, uid=uid, real_exchange=real_exchange,
+                                    position_uid=position_uid, for_iis_flag=for_iis_flag,
+                                    for_qual_investor_flag=for_qual_investor_flag,
+                                    weekend_flag=weekend_flag, blocked_tca_flag=blocked_tca_flag,
+                                    subordinated_flag=subordinated_flag,
+                                    liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
+                                    first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
 
-                bond: Bond = getBond()
+                    bond: Bond = getBond()
 
-                def getLastPrice() -> LastPrice | None:
-                    """Создаёт и возвращает экземпляр класса LastPrice."""
-                    figi: str = query.value('lp_figi')
-                    price_str: str = query.value('lp_price')
-                    time_str: str = query.value('lp_time')
-                    instrument_uid: str = query.value('lp_instrument_uid')
+                    def getLastPrice() -> LastPrice | None:
+                        """Создаёт и возвращает экземпляр класса LastPrice."""
+                        figi: str = query.value('lp_figi')
+                        price_str: str = query.value('lp_price')
+                        time_str: str = query.value('lp_time')
+                        instrument_uid: str = query.value('lp_instrument_uid')
 
-                    if figi or price_str or time_str or instrument_uid:
-                        assert figi == bond.figi, 'Figi-идентификатор LastPrice (\'{0}\') не совпадает с figi облигации (\'{1}\')!'.format(figi, bond.figi)
-                        price: Quotation = MyConnection.convertTextToQuotation(price_str)
-                        time: datetime = MyConnection.convertTextToDateTime(time_str)
-                        return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
-                    else:  # Если last_price отсутствует.
-                        return None
-
-                def getCoupons(bond_figi: str) -> list[Coupon] | None:
-                    def checkCoupons(figi: str) -> bool | None:
-                        """Выполняет запрос к таблице BondsFinancialInstrumentGlobalIdentifiers и возвращает результат."""
-                        check_coupons_sql_command: str = '''
-                        SELECT {0}.\"coupons\"
-                        FROM {0}
-                        WHERE {0}.\"figi\" = :figi
-                        ;'''.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE))
-                        check_coupons_query = QSqlQuery(db)
-                        check_coupons_prepare_flag: bool = check_coupons_query.prepare(check_coupons_sql_command)
-                        assert check_coupons_prepare_flag, check_coupons_query.lastError().text()
-
-                        check_coupons_query.bindValue(':figi', figi)
-
-                        check_coupons_exec_flag: bool = check_coupons_query.exec()
-                        assert check_coupons_exec_flag, check_coupons_query.lastError().text()
-
-                        '''------Здесь нужна проверка, что получено только одно значение------'''
-                        # coupons_count: int = check_coupons_query.size()
-                        # assert coupons_count == 1, 'Запрос к БД должен был вернуть одно значение, а вернул {0} для figi=\'{1}\'!'.format(coupons_count, bond_figi)
-                        # u: int = 0
-                        # while check_coupons_query.next():
-                        #     u += 1
-                        '''-------------------------------------------------------------------'''
-
-                        next_flag: bool = check_coupons_query.next()
-                        assert next_flag
-                        coupons_value: str = check_coupons_query.value('coupons')
-
-                        if coupons_value:
-                            if coupons_value == 'Yes':
-                                return True
-                            elif coupons_value == 'No':
-                                return False
-                            else:
-                                raise ValueError('Некорректное значение столбца \"currency\" в таблице {0}!'.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE)))
-                        else:
+                        if figi or price_str or time_str or instrument_uid:
+                            assert figi == bond.figi, 'Figi-идентификатор LastPrice (\'{0}\') не совпадает с figi облигации (\'{1}\')!'.format(figi, bond.figi)
+                            price: Quotation = MyConnection.convertTextToQuotation(price_str)
+                            time: datetime = MyConnection.convertTextToDateTime(time_str)
+                            return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
+                        else:  # Если last_price отсутствует.
                             return None
 
-                    value: bool | None = checkCoupons(bond_figi)
-                    if value is None:
-                        return None
-                    elif value:
-                        coupons_sql_command: str = '''
-                        SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", \"pay_one_bond\", 
-                        \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"
-                        FROM {0}
-                        WHERE {0}.\"figi\" = :bond_figi
-                        ;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
-                        coupons_query = QSqlQuery(db)
-                        coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
-                        assert coupons_prepare_flag, coupons_query.lastError().text()
+                    def getCoupons(bond_figi: str) -> list[Coupon] | None:
+                        def checkCoupons(figi: str) -> bool | None:
+                            """Выполняет запрос к таблице BondsFinancialInstrumentGlobalIdentifiers и возвращает результат."""
+                            check_coupons_sql_command: str = '''
+                            SELECT {0}.\"coupons\"
+                            FROM {0}
+                            WHERE {0}.\"figi\" = :figi
+                            ;'''.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE))
+                            check_coupons_query = QSqlQuery(db)
+                            check_coupons_prepare_flag: bool = check_coupons_query.prepare(check_coupons_sql_command)
+                            assert check_coupons_prepare_flag, check_coupons_query.lastError().text()
 
-                        coupons_query.bindValue(':bond_figi', bond_figi)
+                            check_coupons_query.bindValue(':figi', figi)
 
-                        coupons_exec_flag: bool = coupons_query.exec()
-                        assert coupons_exec_flag, coupons_query.lastError().text()
+                            check_coupons_exec_flag: bool = check_coupons_query.exec()
+                            assert check_coupons_exec_flag, check_coupons_query.lastError().text()
 
-                        '''---------------------Извлекаем купоны из SQL-запроса---------------------'''
-                        coupons_list: list[Coupon] = []
-                        while coupons_query.next():
-                            def getCoupon() -> Coupon:
-                                figi: str = coupons_query.value('figi')
-                                coupon_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_date'))
-                                coupon_number: int = coupons_query.value('coupon_number')
-                                fix_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('fix_date'))
-                                pay_one_bond: MoneyValue = MyConnection.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
-                                coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
-                                coupon_start_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_start_date'))
-                                coupon_end_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_end_date'))
-                                coupon_period: int = coupons_query.value('coupon_period')
-                                return Coupon(figi=figi, coupon_date=coupon_date, coupon_number=coupon_number,
-                                              fix_date=fix_date, pay_one_bond=pay_one_bond, coupon_type=coupon_type,
-                                              coupon_start_date=coupon_start_date, coupon_end_date=coupon_end_date,
-                                              coupon_period=coupon_period)
+                            '''------Здесь нужна проверка, что получено только одно значение------'''
+                            # coupons_count: int = check_coupons_query.size()
+                            # assert coupons_count == 1, 'Запрос к БД должен был вернуть одно значение, а вернул {0} для figi=\'{1}\'!'.format(coupons_count, bond_figi)
+                            # u: int = 0
+                            # while check_coupons_query.next():
+                            #     u += 1
+                            '''-------------------------------------------------------------------'''
 
-                            coupon: Coupon = getCoupon()
-                            coupons_list.append(coupon)
-                        '''-------------------------------------------------------------------------'''
-                        assert len(coupons_list) > 0, 'Столбец \"currency\" в таблице {0} имеет значение \'Yes\' для figi = \'{2}\', но таблица {1} не содержит купонов с этим figi!'.format(
-                            '\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE),
-                            '\"{0}\"'.format(MyConnection.COUPONS_TABLE),
-                            bond_figi
-                        )
-                        return coupons_list
-                    else:
-                        return []
+                            next_flag: bool = check_coupons_query.next()
+                            assert next_flag
+                            coupons_value: str = check_coupons_query.value('coupons')
 
-                last_price: LastPrice | None = getLastPrice()
-                coupons: list[Coupon] | None = getCoupons(bond.figi)
-                bond_class: MyBondClass = MyBondClass(bond, last_price, coupons)
-                self._bonds.append(bond_class)
-            '''--------------------------------------------------------------------------'''
+                            if coupons_value:
+                                if coupons_value == 'Yes':
+                                    return True
+                                elif coupons_value == 'No':
+                                    return False
+                                else:
+                                    raise ValueError('Некорректное значение столбца \"currency\" в таблице {0}!'.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE)))
+                            else:
+                                return None
+
+                        value: bool | None = checkCoupons(bond_figi)
+                        if value is None:
+                            return None
+                        elif value:
+                            coupons_sql_command: str = '''
+                            SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", \"pay_one_bond\", 
+                            \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"
+                            FROM {0}
+                            WHERE {0}.\"figi\" = :bond_figi
+                            ;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
+                            coupons_query = QSqlQuery(db)
+                            coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
+                            assert coupons_prepare_flag, coupons_query.lastError().text()
+
+                            coupons_query.bindValue(':bond_figi', bond_figi)
+
+                            coupons_exec_flag: bool = coupons_query.exec()
+                            assert coupons_exec_flag, coupons_query.lastError().text()
+
+                            '''---------------------Извлекаем купоны из SQL-запроса---------------------'''
+                            coupons_list: list[Coupon] = []
+                            while coupons_query.next():
+                                def getCoupon() -> Coupon:
+                                    figi: str = coupons_query.value('figi')
+                                    coupon_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_date'))
+                                    coupon_number: int = coupons_query.value('coupon_number')
+                                    fix_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('fix_date'))
+                                    pay_one_bond: MoneyValue = MyConnection.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
+                                    coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
+                                    coupon_start_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_start_date'))
+                                    coupon_end_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_end_date'))
+                                    coupon_period: int = coupons_query.value('coupon_period')
+                                    return Coupon(figi=figi, coupon_date=coupon_date, coupon_number=coupon_number,
+                                                  fix_date=fix_date, pay_one_bond=pay_one_bond, coupon_type=coupon_type,
+                                                  coupon_start_date=coupon_start_date, coupon_end_date=coupon_end_date,
+                                                  coupon_period=coupon_period)
+
+                                coupon: Coupon = getCoupon()
+                                coupons_list.append(coupon)
+                            '''-------------------------------------------------------------------------'''
+                            assert len(coupons_list) > 0, 'Столбец \"currency\" в таблице {0} имеет значение \'Yes\' для figi = \'{2}\', но таблица {1} не содержит купонов с этим figi!'.format(
+                                '\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE),
+                                '\"{0}\"'.format(MyConnection.COUPONS_TABLE),
+                                bond_figi
+                            )
+                            return coupons_list
+                        else:
+                            return []
+
+                    last_price: LastPrice | None = getLastPrice()
+                    coupons: list[Coupon] | None = getCoupons(bond.figi)
+                    bond_class: MyBondClass = MyBondClass(bond, last_price, coupons)
+                    self._bonds.append(bond_class)
+                '''--------------------------------------------------------------------------'''
+
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+            else:
+                assert transaction_flag, db.lastError().text()
 
         self.endResetModel()  # Завершаем операцию сброса модели.
 

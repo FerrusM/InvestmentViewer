@@ -21,46 +21,49 @@ class DividendsThread(QThread):
         def setDividends(cls, figi: str, dividends: list[Dividend]):
             """Обновляет купоны с переданным figi в таблице купонов."""
             db: QSqlDatabase = cls.getDatabase()
+            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+            if transaction_flag:
+                def setDividendsColumnValue(value: str):
+                    """Заполняет столбец dividends значением."""
+                    dividends_query = QSqlQuery(db)
+                    dividends_prepare_flag: bool = dividends_query.prepare(
+                        'UPDATE \"{0}\" SET \"dividends\" = :dividends WHERE \"figi\" = :dividend_figi;'.format(
+                            MyConnection.SHARES_FIGI_TABLE
+                        )
+                    )
+                    assert dividends_prepare_flag, dividends_query.lastError().text()
+                    dividends_query.bindValue(':dividends', value)
+                    dividends_query.bindValue(':dividend_figi', figi)
+                    dividends_exec_flag: bool = dividends_query.exec()
+                    assert dividends_exec_flag, dividends_query.lastError().text()
 
-            def setDividendsColumnValue(value: str):
-                """Заполняет столбец dividends значением."""
-                dividends_query = QSqlQuery(db)
-                dividends_query.prepare('''
-                UPDATE "SharesFinancialInstrumentGlobalIdentifiers" SET "dividends" = :dividends WHERE "figi" = :dividend_figi;
-                ''')
-                dividends_query.bindValue(':dividends', value)
-                dividends_query.bindValue(':dividend_figi', figi)
-                dividends_exec_flag: bool = dividends_query.exec()
-                assert dividends_exec_flag, dividends_query.lastError().text()
-
-            if dividends:  # Если список дивидендов не пуст.
-                transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-                assert transaction_flag, db.lastError().text()
-
-                if transaction_flag:
+                if dividends:  # Если список дивидендов не пуст.
                     '''----Удаляет из таблицы дивидендов все дивиденды, имеющие переданный figi----'''
                     delete_dividends_query = QSqlQuery(db)
-                    delete_dividends_query.prepare('''DELETE FROM "Dividends" WHERE "figi" = :figi;''')
+                    delete_dividends_prepare_flag: bool = delete_dividends_query.prepare(
+                        'DELETE FROM \"{0}\" WHERE \"figi\" = :figi;'.format(MyConnection.DIVIDENDS_TABLE)
+                    )
+                    assert delete_dividends_prepare_flag, delete_dividends_query.lastError().text()
                     delete_dividends_query.bindValue(':figi', figi)
                     delete_dividends_exec_flag: bool = delete_dividends_query.exec()
                     assert delete_dividends_exec_flag, delete_dividends_query.lastError().text()
                     '''----------------------------------------------------------------------------'''
 
                     '''-------------------------Добавляет дивиденды в таблицу дивидендов-------------------------'''
+                    sql_command: str = '''
+                    INSERT INTO \"{0}\" (
+                    \"figi\", \"dividend_net\", \"payment_date\", \"declared_date\", \"last_buy_date\", 
+                    \"dividend_type\", \"record_date\", \"regularity\", \"close_price\", \"yield_value\", \"created_at\"
+                    ) VALUES (
+                    :figi, :dividend_net, :payment_date, :declared_date, :last_buy_date, :dividend_type, 
+                    :record_date, :regularity, :close_price, :yield_value, :created_at
+                    );'''.format(MyConnection.DIVIDENDS_TABLE)
+
                     for dividend in dividends:
                         add_dividends_query = QSqlQuery(db)
-                        sql_command: str = '''
-                        INSERT INTO "Dividends" (
-                        "figi", "dividend_net", "payment_date", "declared_date", "last_buy_date", "dividend_type", 
-                        "record_date", "regularity", "close_price", "yield_value", "created_at"
-                        ) VALUES (
-                        :figi, :dividend_net, :payment_date, :declared_date, :last_buy_date, :dividend_type, 
-                        :record_date, :regularity, :close_price, :yield_value, :created_at
-                        );
-                        '''
 
-                        prepare_flag: bool = add_dividends_query.prepare(sql_command)
-                        assert prepare_flag, add_dividends_query.lastError().text()
+                        add_dividends_prepare_flag: bool = add_dividends_query.prepare(sql_command)
+                        assert add_dividends_prepare_flag, add_dividends_query.lastError().text()
 
                         add_dividends_query.bindValue(':figi', figi)
                         add_dividends_query.bindValue(':dividend_net', MyMoneyValue.__repr__(dividend.dividend_net))
@@ -79,11 +82,13 @@ class DividendsThread(QThread):
                     '''------------------------------------------------------------------------------------------'''
 
                     setDividendsColumnValue('Yes')  # Заполняем столбец dividends значением.
+                else:
+                    setDividendsColumnValue('No')  # Заполняем столбец dividends значением.
 
-                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                    assert commit_flag
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
             else:
-                setDividendsColumnValue('No')  # Заполняем столбец dividends значением.
+                assert transaction_flag, db.lastError().text()
 
 
     receive_dividends_method_name: str = 'GetDividends'

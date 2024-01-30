@@ -171,6 +171,7 @@ class MyConnection(ABC):
     SHARES_FIGI_TABLE: str = 'SharesFinancialInstrumentGlobalIdentifiers'
     CANDLES_TABLE: str = 'HistoricCandles'
     SHARES_TABLE: str = 'Shares'
+    DIVIDENDS_TABLE: str = 'Dividends'
     STREAM_LIMITS_TABLE: str = 'StreamLimits'
     UNARY_LIMITS_TABLE: str = 'UnaryLimits'
     INSTRUMENT_UIDS_TABLE: str = 'InstrumentUniqueIdentifiers'
@@ -196,7 +197,11 @@ class MyConnection(ABC):
     def _getSQLiteLimitVariableNumber(database_name: str):
         """Получает и возвращает лимит на количество переменных в одном запросе."""
         from sqlite3 import connect, Connection, SQLITE_LIMIT_VARIABLE_NUMBER
-        connection = connect(database_name)  # Создаем подключение к базе данных (файл DATABASE_NAME будет создан).
+        connection: Connection = connect(database_name)  # Создаем подключение к базе данных (файл DATABASE_NAME будет создан).
+
+        # sqlite3_update_hook()
+        # connection.set
+
         limit: int = connection.getlimit(SQLITE_LIMIT_VARIABLE_NUMBER)
         connection.close()
         return limit
