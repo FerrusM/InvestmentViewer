@@ -167,7 +167,6 @@ class MyConnection(ABC):
     BONDS_TABLE: str = 'Bonds'
     LAST_PRICES_TABLE: str = 'LastPrices'
     COUPONS_TABLE: str = 'Coupons'
-    BONDS_FIGI_TABLE: str = 'BondsFinancialInstrumentGlobalIdentifiers'
     SHARES_FIGI_TABLE: str = 'SharesFinancialInstrumentGlobalIdentifiers'
     CANDLES_TABLE: str = 'HistoricCandles'
     SHARES_TABLE: str = 'Shares'

@@ -1,24 +1,25 @@
 from __future__ import annotations
 from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
-    InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset, AssetFull, HistoricCandle, CandleInterval
+    InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset, AssetFull, HistoricCandle, \
+    CandleInterval, Coupon
 
 
 class RequestTryClass:
     """Класс для контроля количества попыток получения ответа на запрос."""
     def __init__(self, max_request_try_count: int = -1):
-        self.request_try_count: int = 0  # Количество произведённых попыток запроса.
-        self.max_request_try_count: int = max_request_try_count  # Максимальное количество попыток запроса.
+        self.__request_try_count: int = 0  # Количество произведённых попыток запроса.
+        self.__max_request_try_count: int = max_request_try_count  # Максимальное количество попыток запроса.
 
     def __iadd__(self, other: int) -> RequestTryClass:
         """self += other"""
-        self.request_try_count += other
+        self.__request_try_count += other
         return self
 
     def __bool__(self) -> bool:
         """Возвращает True, если количество произведённых попыток запроса меньше максимального, иначе возвращает False.
         Если максимальное количество попыток запроса меньше нуля, то всегда возвращает True."""
-        return True if self.max_request_try_count < 0 else self.request_try_count < self.max_request_try_count
+        return True if self.__max_request_try_count < 0 else self.__request_try_count < self.__max_request_try_count
 
 
 class MyResponse:
@@ -161,7 +162,7 @@ def getBonds(token: str, instrument_status: InstrumentStatus) -> MyResponse:
     return MyResponse('bonds()', request_occurred, bonds_list, exception_flag, exception, request_error_flag, request_error)
 
 
-def getLastPrices(token: str, instrument_uid: list[str] | None) -> MyResponse:
+def getLastPrices(token: str, instrument_uid: list[str] | None = None) -> MyResponse:
     """Получает и возвращает список цен последних сделок."""
     last_prices: list[LastPrice] = []
     request_occurred: bool = False  # Флаг произведённого запроса.
@@ -183,6 +184,30 @@ def getLastPrices(token: str, instrument_uid: list[str] | None) -> MyResponse:
             request_error_flag = False  # Флаг наличия RequestError.
         request_occurred = True  # Флаг произведённого запроса.
     return MyResponse('get_last_prices()', request_occurred, last_prices, exception_flag, exception, request_error_flag, request_error)
+
+
+def getCoupons(token: str, figi: str = "", from_: datetime | None = None, to: datetime | None = None, instrument_id: str = "") -> MyResponse:
+    """Получает и возвращает список купонов облигации."""
+    coupons: list[Coupon] = []
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            coupons = client.instruments.get_bond_coupons(figi=figi, from_=from_, to=to, instrument_id=instrument_id).events
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse('get_bond_coupons()', request_occurred, coupons, exception_flag, exception, request_error_flag, request_error)
 
 
 def getDividends(token: str, figi: str = "", from_: datetime | None = None, to: datetime | None = None) -> MyResponse:

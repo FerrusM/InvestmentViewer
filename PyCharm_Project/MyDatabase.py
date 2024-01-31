@@ -112,7 +112,7 @@ class MainConnection(MyConnection):
                 SELECT 
                     CASE 
                         WHEN \"NEW\".\"instrument_type\" != \"OLD\".\"instrument_type\"
-                            THEN RAISE(FAIL, 'Таблица {1} уже содержит такой же uid, но для другого типа инструмента.')
+                            THEN RAISE(FAIL, 'Таблица {1} уже содержит такой же uid, но для другого типа инструмента!')
                     END;
             END;
             '''.format(MyConnection.INSTRUMENT_UIDS_BEFORE_UPDATE_TRIGGER, MyConnection.INSTRUMENT_UIDS_TABLE)
@@ -122,18 +122,6 @@ class MainConnection(MyConnection):
             instr_bef_up_trigger_exec_flag: bool = instr_bef_up_trigger_query.exec()
             assert instr_bef_up_trigger_exec_flag, instr_bef_up_trigger_query.lastError().text()
             '''-------------------------------------------------------------------------'''
-
-            '''----Создание таблицы ассоциаций figi-идентификаторов облигаций----'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "BondsFinancialInstrumentGlobalIdentifiers" (
-            "figi" TEXT NOT NULL,
-            "coupons" TEXT CHECK("coupons" = 'Yes' OR "coupons" = 'No'),
-            PRIMARY KEY ("figi")
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''------------------------------------------------------------------'''
 
             '''------------------Создание таблицы облигаций------------------'''
             bonds_query_str: str = '''
@@ -188,10 +176,10 @@ class MainConnection(MyConnection):
             \"first_1min_candle_date\" TEXT NOT NULL,
             \"first_1day_candle_date\" TEXT NOT NULL,
             \"risk_level\" INTEGER NOT NULL,
+            \"coupons\" TEXT CHECK(\"coupons\" = \'Yes\' OR \"coupons\" = \'No\'),
             UNIQUE (\"uid\"),
-            FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE,
-            FOREIGN KEY (\"figi\") REFERENCES \"{2}\"(\"figi\") ON DELETE CASCADE
-            );'''.format(MyConnection.BONDS_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE, MyConnection.BONDS_FIGI_TABLE)
+            FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(MyConnection.BONDS_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
             bonds_query = QSqlQuery(db)
             bonds_prepare_flag: bool = bonds_query.prepare(bonds_query_str)
             assert bonds_prepare_flag, bonds_query.lastError().text()
@@ -204,14 +192,12 @@ class MainConnection(MyConnection):
             CREATE TRIGGER IF NOT EXISTS \"{0}\" BEFORE INSERT ON \"{1}\"
             BEGIN             
                 INSERT INTO \"{2}\"(\"uid\", \"instrument_type\") VALUES (\"NEW\".\"uid\", \'{3}\') ON CONFLICT(\"uid\") DO UPDATE SET \"instrument_type\" = \'{3}\';
-                INSERT OR IGNORE INTO \"{4}\"(\"figi\") VALUES (\"NEW\".\"figi\");
             END;
             '''.format(
                 MyConnection.BONDS_TRIGGER_BEFORE_INSERT,
                 MyConnection.BONDS_TABLE,
                 MyConnection.INSTRUMENT_UIDS_TABLE,
-                'bond',
-                MyConnection.BONDS_FIGI_TABLE
+                'bond'
             )
             bonds_bef_ins_trigger_query = QSqlQuery(db)
             bonds_bef_ins_trigger_prepare_flag: bool = bonds_bef_ins_trigger_query.prepare(bonds_bef_ins_trigger_query_str)
@@ -221,49 +207,41 @@ class MainConnection(MyConnection):
             '''-----------------------------------------------------------------'''
 
             '''-------------------Создание таблицы купонов-------------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Coupons" (
-            figi TEXT NOT NULL,
-            coupon_date TEXT NOT NULL,
-            coupon_number INTEGER NOT NULL,
-            fix_date TEXT NOT NULL,
-            pay_one_bond TEXT NOT NULL,
-            coupon_type INTEGER NOT NULL,
-            coupon_start_date TEXT NOT NULL,
-            coupon_end_date TEXT NOT NULL,
-            coupon_period INTEGER NOT NULL,
-            UNIQUE (figi, coupon_number),
-            FOREIGN KEY (figi) REFERENCES "BondsFinancialInstrumentGlobalIdentifiers"("figi") ON DELETE CASCADE
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            coupons_query_str: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"instrument_uid\" TEXT NOT NULL,
+            \"figi\" TEXT NOT NULL,
+            \"coupon_date\" TEXT NOT NULL,
+            \"coupon_number\" INTEGER NOT NULL,
+            \"fix_date\" TEXT NOT NULL,
+            \"pay_one_bond\" TEXT NOT NULL,
+            \"coupon_type\" INTEGER NOT NULL,
+            \"coupon_start_date\" TEXT NOT NULL,
+            \"coupon_end_date\" TEXT NOT NULL,
+            \"coupon_period\" INTEGER NOT NULL,
+            UNIQUE (\"instrument_uid\", \"coupon_number\"),
+            FOREIGN KEY (\"instrument_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(MyConnection.COUPONS_TABLE, MyConnection.BONDS_TABLE)
+            coupons_query = QSqlQuery(db)
+            coupons_prepare_flag: bool = coupons_query.prepare(coupons_query_str)
+            assert coupons_prepare_flag, coupons_query.lastError().text()
+            coupons_exec_flag: bool = coupons_query.exec()
+            assert coupons_exec_flag, coupons_query.lastError().text()
             '''--------------------------------------------------------------'''
 
-            '''---------------Триггер перед обновлением облигации---------------'''
-            bonds_before_update_trigger_query = QSqlQuery(db)
-            bonds_before_update_trigger_query.prepare('''
-            CREATE TRIGGER IF NOT EXISTS Bonds_before_update_trigger BEFORE UPDATE ON "Bonds"
-            BEGIN
-                DELETE FROM "Coupons" WHERE "figi" = "OLD"."figi" AND "NEW"."figi" != "OLD"."figi";
-                UPDATE "BondsFinancialInstrumentGlobalIdentifiers" SET "coupons" = NULL WHERE "figi" = "OLD"."figi" AND "NEW"."figi" != "OLD"."figi";
-            END;
-            ''')
-            bonds_before_update_trigger_exec_flag: bool = bonds_before_update_trigger_query.exec()
-            assert bonds_before_update_trigger_exec_flag, bonds_before_update_trigger_query.lastError().text()
-            '''-----------------------------------------------------------------'''
-
-            '''------Создание таблицы ассоциаций figi-идентификаторов акций------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "SharesFinancialInstrumentGlobalIdentifiers" (
-            "figi" TEXT NOT NULL,
-            "dividends" TEXT CHECK("dividends" = 'Yes' OR "dividends" = 'No'),
-            PRIMARY KEY ("figi")
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''------------------------------------------------------------------'''
+            '''---------Создание таблицы ассоциаций figi-идентификаторов акций---------'''
+            shares_figi_query_str: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"figi\" TEXT NOT NULL,
+            \"dividends\" TEXT CHECK(\"dividends\" = \'Yes\' OR \"dividends\" = \'No\'),
+            PRIMARY KEY (\"figi\")
+            );'''.format(MyConnection.SHARES_FIGI_TABLE)
+            shares_figi_query = QSqlQuery(db)
+            shares_figi_prepare_flag: bool = shares_figi_query.prepare(shares_figi_query_str)
+            assert shares_figi_prepare_flag, shares_figi_query.lastError().text()
+            shares_figi_exec_flag: bool = shares_figi_query.exec()
+            assert shares_figi_exec_flag, shares_figi_query.lastError().text()
+            '''------------------------------------------------------------------------'''
 
             '''--------------------Создание таблицы акций--------------------'''
             shares_query_str: str = '''
@@ -341,25 +319,27 @@ class MainConnection(MyConnection):
             '''-----------------------------------------------------------------------'''
 
             '''-------------------Создание таблицы дивидендов-------------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Dividends" (
-            figi TEXT NOT NULL,
-            dividend_net TEXT NOT NULL,
-            payment_date TEXT NOT NULL,
-            declared_date TEXT NOT NULL,
-            last_buy_date TEXT NOT NULL,
-            dividend_type TEXT NOT NULL,
-            record_date TEXT NOT NULL,
-            regularity TEXT NOT NULL,
-            close_price TEXT NOT NULL,
-            yield_value TEXT NOT NULL,
-            created_at TEXT NOT NULL,
-            UNIQUE (figi, dividend_net, payment_date, declared_date, last_buy_date, dividend_type, record_date, regularity, close_price, yield_value, created_at),
-            FOREIGN KEY ("figi") REFERENCES "SharesFinancialInstrumentGlobalIdentifiers"("figi") ON DELETE CASCADE
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            dividends_query_str: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"figi\" TEXT NOT NULL,
+            \"dividend_net\" TEXT NOT NULL,
+            \"payment_date\" TEXT NOT NULL,
+            \"declared_date\" TEXT NOT NULL,
+            \"last_buy_date\" TEXT NOT NULL,
+            \"dividend_type\" TEXT NOT NULL,
+            \"record_date\" TEXT NOT NULL,
+            \"regularity\" TEXT NOT NULL,
+            \"close_price\" TEXT NOT NULL,
+            \"yield_value\" TEXT NOT NULL,
+            \"created_at\" TEXT NOT NULL,
+            UNIQUE (\"figi\", \"dividend_net\", \"payment_date\", \"declared_date\", \"last_buy_date\", \"dividend_type\", \"record_date\", \"regularity\", \"close_price\", \"yield_value\", \"created_at\"),
+            FOREIGN KEY (\"figi\") REFERENCES \"{1}\"(\"figi\") ON DELETE CASCADE
+            );'''.format(MyConnection.DIVIDENDS_TABLE, MyConnection.SHARES_FIGI_TABLE)
+            dividends_query = QSqlQuery(db)
+            dividends_prepare_flag: bool = dividends_query.prepare(dividends_query_str)
+            assert dividends_prepare_flag, dividends_query.lastError().text()
+            dividends_exec_flag: bool = dividends_query.exec()
+            assert dividends_exec_flag, dividends_query.lastError().text()
             '''-----------------------------------------------------------------'''
 
             '''--------------------Триггер перед обновлением акции--------------------'''
@@ -393,15 +373,14 @@ class MainConnection(MyConnection):
             '''--------------------------------------------------------------'''
 
             '''---------------Создание представления последних цен---------------'''
+            last_prices_view_query_str: str = '''
+            CREATE VIEW IF NOT EXISTS \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") AS
+            SELECT {1}.\"figi\" AS \"figi\", {1}.\"price\" AS \"price\", MAX({1}.\"time\") AS \"time\", {1}.\"instrument_uid\" AS \"instrument_uid\" 
+            FROM {1} GROUP BY {1}.\"instrument_uid\"
+            ;'''.format(MyConnection.LAST_PRICES_VIEW, '\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
             last_prices_view_query = QSqlQuery(db)
-            last_prices_view_query.prepare('''
-            CREATE VIEW IF NOT EXISTS {0} ("figi", "price", "time", "instrument_uid") AS
-            SELECT {1}."figi" AS "figi", {1}."price" AS "price", MAX({1}."time") AS "time", {1}."instrument_uid" AS "instrument_uid" 
-            FROM {1} GROUP BY {1}."instrument_uid"
-            ;'''.format(
-                '\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW),
-                '\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE)
-            ))
+            last_prices_view_prepare_flag: bool = last_prices_view_query.prepare(last_prices_view_query_str)
+            assert last_prices_view_prepare_flag, last_prices_view_query.lastError().text()
             last_prices_view_exec_flag: bool = last_prices_view_query.exec()
             assert last_prices_view_exec_flag, last_prices_view_query.lastError().text()
             '''------------------------------------------------------------------'''

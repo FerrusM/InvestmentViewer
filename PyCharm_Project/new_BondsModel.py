@@ -398,7 +398,7 @@ class BondsModel(QAbstractTableModel):
         if token is None:
             self._bonds = []
         else:
-            '''---------------------------Создание запроса к БД---------------------------'''
+            '''---------------------------------------Создание запроса к БД---------------------------------------'''
             bonds_select: str = '''
             SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", {0}.\"lot\", {0}.\"currency\",
             {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", {0}.\"dlong_min\", {0}.\"dshort_min\",
@@ -411,7 +411,7 @@ class BondsModel(QAbstractTableModel):
             {0}.\"amortization_flag\", {0}.\"min_price_increment\", {0}.\"api_trade_available_flag\", {0}.\"uid\",
             {0}.\"real_exchange\", {0}.\"position_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\",
             {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
-            {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\"
+            {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\", {0}.\"coupons\"
             FROM {1}, {0}
             WHERE {1}.\"token\" = :token AND {1}.\"status\" = :status AND {1}.\"uid\" = {0}.\"uid\"{2}'''.format(
                 '\"{0}\"'.format(MyConnection.BONDS_TABLE),
@@ -431,7 +431,7 @@ class BondsModel(QAbstractTableModel):
             {1}.\"amortization_flag\", {1}.\"min_price_increment\", {1}.\"api_trade_available_flag\", {1}.\"uid\", 
             {1}.\"real_exchange\", {1}.\"position_uid\", {1}.\"for_iis_flag\", {1}.\"for_qual_investor_flag\", 
             {1}.\"weekend_flag\", {1}.\"blocked_tca_flag\", {1}.\"subordinated_flag\", {1}.\"liquidity_flag\", 
-            {1}.\"first_1min_candle_date\", {1}.\"first_1day_candle_date\", {1}.\"risk_level\", 
+            {1}.\"first_1min_candle_date\", {1}.\"first_1day_candle_date\", {1}.\"risk_level\", {1}.\"coupons\",
             {2}.\"figi\" AS \"lp_figi\", {2}.\"price\" AS \"lp_price\", {2}.\"time\" AS \"lp_time\", 
             {2}.\"instrument_uid\" AS \"lp_instrument_uid\"
             FROM ({0}) AS {1} INNER JOIN {2} ON {1}.\"uid\" = {2}.\"instrument_uid\" 
@@ -440,6 +440,7 @@ class BondsModel(QAbstractTableModel):
                 '\"B\"',
                 '\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW)
             )
+            '''---------------------------------------------------------------------------------------------------'''
 
             db: QSqlDatabase = MainConnection.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
@@ -447,13 +448,10 @@ class BondsModel(QAbstractTableModel):
                 query = QSqlQuery(db)
                 prepare_flag: bool = query.prepare(sql_command)
                 assert prepare_flag, query.lastError().text()
-
                 query.bindValue(':token', token.token)
                 query.bindValue(':status', instrument_status.name)
-
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
-                '''---------------------------------------------------------------------------'''
 
                 '''------------------------Извлекаем список облигаций------------------------'''
                 self._bonds = []
@@ -535,6 +533,64 @@ class BondsModel(QAbstractTableModel):
 
                     bond: Bond = getBond()
 
+                    coupons_value: str = query.value('coupons')
+
+                    coupons: list[Coupon] | None
+                    if coupons_value:
+                        if coupons_value == 'Yes':
+                            def getCoupons(bond_figi: str) -> list[Coupon]:
+                                """Извлекает купоны из таблицы купонов."""
+                                coupons_sql_command: str = '''
+                                SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", \"pay_one_bond\", 
+                                \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"
+                                FROM {0} WHERE {0}.\"instrument_uid\" = :bond_uid
+                                ;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
+                                coupons_query = QSqlQuery(db)
+                                coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
+                                assert coupons_prepare_flag, coupons_query.lastError().text()
+                                coupons_query.bindValue(':bond_uid', bond.uid)
+                                coupons_exec_flag: bool = coupons_query.exec()
+                                assert coupons_exec_flag, coupons_query.lastError().text()
+
+                                '''---------------Извлекаем купоны из SQL-запроса---------------'''
+                                coupons_list: list[Coupon] = []
+                                while coupons_query.next():
+                                    def getCoupon() -> Coupon:
+                                        figi: str = coupons_query.value('figi')
+                                        coupon_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_date'))
+                                        coupon_number: int = coupons_query.value('coupon_number')
+                                        fix_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('fix_date'))
+                                        pay_one_bond: MoneyValue = MyConnection.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
+                                        coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
+                                        coupon_start_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_start_date'))
+                                        coupon_end_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_end_date'))
+                                        coupon_period: int = coupons_query.value('coupon_period')
+                                        return Coupon(figi=figi, coupon_date=coupon_date, coupon_number=coupon_number,
+                                                      fix_date=fix_date, pay_one_bond=pay_one_bond,
+                                                      coupon_type=coupon_type,
+                                                      coupon_start_date=coupon_start_date,
+                                                      coupon_end_date=coupon_end_date,
+                                                      coupon_period=coupon_period)
+
+                                    coupon: Coupon = getCoupon()
+                                    coupons_list.append(coupon)
+
+                                assert len(coupons_list) > 0, 'Столбец \"coupons\" в таблице {0} имеет значение \'Yes\' для uid = \'{2}\', но таблица {1} не содержит купонов с этим uid!'.format(
+                                    '\"{0}\"'.format(MyConnection.BONDS_TABLE),
+                                    '\"{0}\"'.format(MyConnection.COUPONS_TABLE),
+                                    bond_figi
+                                )
+                                '''-------------------------------------------------------------'''
+                                return coupons_list
+
+                            coupons = getCoupons(bond.uid)
+                        elif coupons_value == 'No':
+                            coupons = []
+                        else:
+                            raise ValueError('Некорректное значение столбца \"coupons\" в таблице \"{0}\"!'.format(MyConnection.BONDS_TABLE))
+                    else:
+                        coupons = None
+
                     def getLastPrice() -> LastPrice | None:
                         """Создаёт и возвращает экземпляр класса LastPrice."""
                         figi: str = query.value('lp_figi')
@@ -550,96 +606,7 @@ class BondsModel(QAbstractTableModel):
                         else:  # Если last_price отсутствует.
                             return None
 
-                    def getCoupons(bond_figi: str) -> list[Coupon] | None:
-                        def checkCoupons(figi: str) -> bool | None:
-                            """Выполняет запрос к таблице BondsFinancialInstrumentGlobalIdentifiers и возвращает результат."""
-                            check_coupons_sql_command: str = '''
-                            SELECT {0}.\"coupons\"
-                            FROM {0}
-                            WHERE {0}.\"figi\" = :figi
-                            ;'''.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE))
-                            check_coupons_query = QSqlQuery(db)
-                            check_coupons_prepare_flag: bool = check_coupons_query.prepare(check_coupons_sql_command)
-                            assert check_coupons_prepare_flag, check_coupons_query.lastError().text()
-
-                            check_coupons_query.bindValue(':figi', figi)
-
-                            check_coupons_exec_flag: bool = check_coupons_query.exec()
-                            assert check_coupons_exec_flag, check_coupons_query.lastError().text()
-
-                            '''------Здесь нужна проверка, что получено только одно значение------'''
-                            # coupons_count: int = check_coupons_query.size()
-                            # assert coupons_count == 1, 'Запрос к БД должен был вернуть одно значение, а вернул {0} для figi=\'{1}\'!'.format(coupons_count, bond_figi)
-                            # u: int = 0
-                            # while check_coupons_query.next():
-                            #     u += 1
-                            '''-------------------------------------------------------------------'''
-
-                            next_flag: bool = check_coupons_query.next()
-                            assert next_flag
-                            coupons_value: str = check_coupons_query.value('coupons')
-
-                            if coupons_value:
-                                if coupons_value == 'Yes':
-                                    return True
-                                elif coupons_value == 'No':
-                                    return False
-                                else:
-                                    raise ValueError('Некорректное значение столбца \"currency\" в таблице {0}!'.format('\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE)))
-                            else:
-                                return None
-
-                        value: bool | None = checkCoupons(bond_figi)
-                        if value is None:
-                            return None
-                        elif value:
-                            coupons_sql_command: str = '''
-                            SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", \"pay_one_bond\", 
-                            \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"
-                            FROM {0}
-                            WHERE {0}.\"figi\" = :bond_figi
-                            ;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
-                            coupons_query = QSqlQuery(db)
-                            coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
-                            assert coupons_prepare_flag, coupons_query.lastError().text()
-
-                            coupons_query.bindValue(':bond_figi', bond_figi)
-
-                            coupons_exec_flag: bool = coupons_query.exec()
-                            assert coupons_exec_flag, coupons_query.lastError().text()
-
-                            '''---------------------Извлекаем купоны из SQL-запроса---------------------'''
-                            coupons_list: list[Coupon] = []
-                            while coupons_query.next():
-                                def getCoupon() -> Coupon:
-                                    figi: str = coupons_query.value('figi')
-                                    coupon_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_date'))
-                                    coupon_number: int = coupons_query.value('coupon_number')
-                                    fix_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('fix_date'))
-                                    pay_one_bond: MoneyValue = MyConnection.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
-                                    coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
-                                    coupon_start_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_start_date'))
-                                    coupon_end_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_end_date'))
-                                    coupon_period: int = coupons_query.value('coupon_period')
-                                    return Coupon(figi=figi, coupon_date=coupon_date, coupon_number=coupon_number,
-                                                  fix_date=fix_date, pay_one_bond=pay_one_bond, coupon_type=coupon_type,
-                                                  coupon_start_date=coupon_start_date, coupon_end_date=coupon_end_date,
-                                                  coupon_period=coupon_period)
-
-                                coupon: Coupon = getCoupon()
-                                coupons_list.append(coupon)
-                            '''-------------------------------------------------------------------------'''
-                            assert len(coupons_list) > 0, 'Столбец \"currency\" в таблице {0} имеет значение \'Yes\' для figi = \'{2}\', но таблица {1} не содержит купонов с этим figi!'.format(
-                                '\"{0}\"'.format(MyConnection.BONDS_FIGI_TABLE),
-                                '\"{0}\"'.format(MyConnection.COUPONS_TABLE),
-                                bond_figi
-                            )
-                            return coupons_list
-                        else:
-                            return []
-
                     last_price: LastPrice | None = getLastPrice()
-                    coupons: list[Coupon] | None = getCoupons(bond.figi)
                     bond_class: MyBondClass = MyBondClass(bond, last_price, coupons)
                     self._bonds.append(bond_class)
                 '''--------------------------------------------------------------------------'''
