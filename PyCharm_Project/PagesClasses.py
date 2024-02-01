@@ -3,7 +3,7 @@ from datetime import datetime, date, timezone
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
-from Classes import TokenClass
+from Classes import TokenClass, partition
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
@@ -751,6 +751,16 @@ class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
         super().reset()  # Сбрасывает progressBar.
 
 
+def zipWithLastPrices3000(token: TokenClass, class_list: list[Share] | list[Bond]) -> list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]]:
+    """Возвращает список пар акций и последних цен или облигаций и последних цен.
+    Функция предусматривает ограничение на количество единоразово запрашиваемых последних цен инструментов (до 3000)."""
+    class_list_parts: list[list[Share]] | list[list[Bond]] = partition(class_list, 3000)  # quantity of instruments can't be more than 3000
+    result_list_parts: list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]] = []
+    for class_list_part in class_list_parts:
+        result_list_parts.extend(zipWithLastPrices(token, class_list_part))
+    return result_list_parts
+
+
 def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -> list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]]:
     """Возвращает список пар акций и последних цен или облигаций и последних цен."""
     '''
@@ -763,7 +773,7 @@ def zipWithLastPrices(token: TokenClass, class_list: list[Share] | list[Bond]) -
         last_prices_response: MyResponse = MyResponse()
         while current_try_count and not last_prices_response.ifDataSuccessfullyReceived():
             last_prices_response = getLastPrices(token.token, [cls.uid for cls in class_list])
-            assert last_prices_response.request_occurred, 'Запрос последних цен облигаций не был произведён.'
+            assert last_prices_response.request_occurred, 'Запрос последних цен не был произведён!'
             current_try_count += 1
 
         if last_prices_response.ifDataSuccessfullyReceived():  # Если список последних цен был получен.

@@ -13,7 +13,7 @@ from MyBondClass import MyBondClass, MyBond
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 
 
@@ -760,7 +760,7 @@ class BondsPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
                 '''---------------------------------------------------------------------------------'''
-                bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
+                bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices3000(token, filtered_bonds)]
                 self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
                 self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
                 if bond_class_list:  # Если список не пуст.
@@ -838,7 +838,7 @@ class BondsPage(QtWidgets.QWidget):
                 self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
                 self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
                 '''---------------------------------------------------------------------------------'''
-                bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
+                bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices3000(token, filtered_bonds)]
                 self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
                 self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
                 if bond_class_list:  # Если список не пуст.
@@ -875,7 +875,7 @@ class BondsPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(len(bonds))  # Количество полученных облигаций.
             self.groupBox_filters.setCount(len(filtered_bonds))  # Количество отобранных облигаций.
             '''---------------------------------------------------------------------------------'''
-            bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices(token, filtered_bonds)]
+            bond_class_list: list[MyBondClass] = [MyBondClass(bond, lp) for (bond, lp) in zipWithLastPrices3000(token, filtered_bonds)]
             self.groupBox_view.setBonds(bond_class_list)  # Передаём в исходную модель данные.
             self.groupBox_coupons.setData(None)  # Сбрасываем модель купонов.
             if bond_class_list:  # Если список не пуст.

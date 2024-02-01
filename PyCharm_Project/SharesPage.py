@@ -10,7 +10,7 @@ from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getShares, RequestTryClass
 from MyShareClass import MyShareClass
-from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving
 from SharesModel import SharesProxyModel, SharesModel
 from TokenModel import TokenListModel
 
@@ -611,7 +611,7 @@ class SharesPage(QtWidgets.QWidget):
                 self.groupBox_filters.setCount(len(filtered_shares))  # Количество отобранных акций.
                 '''---------------------------------------------------------------------------------'''
 
-                share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices(token, filtered_shares)]
+                share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices3000(token, filtered_shares)]
                 self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
                 self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
                 if share_class_list:  # Если список не пуст.
@@ -685,7 +685,7 @@ class SharesPage(QtWidgets.QWidget):
                 self.groupBox_filters.setCount(len(filtered_shares))  # Количество отобранных акций.
                 '''---------------------------------------------------------------------------------'''
 
-                share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices(token, filtered_shares)]
+                share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices3000(token, filtered_shares)]
                 self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
                 self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
                 if share_class_list:  # Если список не пуст.
@@ -722,7 +722,7 @@ class SharesPage(QtWidgets.QWidget):
             self.groupBox_request.setCount(len(shares))  # Количество полученных акций.
             self.groupBox_filters.setCount(len(filtered_shares))  # Количество отобранных акций.
             '''---------------------------------------------------------------------------------'''
-            share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices(token, filtered_shares)]
+            share_class_list: list[MyShareClass] = [MyShareClass(share, lp) for (share, lp) in zipWithLastPrices3000(token, filtered_shares)]
             self.groupBox_view.setShares(share_class_list)  # Передаём в исходную модель данные.
             self.groupBox_dividends.setData(None)  # Сбрасываем модель дивидендов.
             if share_class_list:  # Если список не пуст.

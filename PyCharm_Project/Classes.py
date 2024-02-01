@@ -9,6 +9,14 @@ from MyDateTime import getUtcDateTime
 from MyMoneyValue import MyMoneyValue
 
 
+def partition(array: list, length: int) -> list[list]:
+    """Разбивает список на части длиной до length элементов и возвращает полученный список списков."""
+    def __splitIntoParts():
+        for i in range(0, len(array), length):
+            yield array[i:(i + length)]
+    return list(__splitIntoParts())
+
+
 @pyqtSlot(str)
 def print_slot(text: str):
     """По моим наблюдениям, функция print с добавленным декоратором pyqtSlot работает быстрее.
