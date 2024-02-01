@@ -734,7 +734,7 @@ class SharesPage(QtWidgets.QWidget):
         """Запускает поток получения дивидендов."""
         assert self.dividends_thread is None, 'Поток заполнения дивидендов должен быть завершён!'
 
-        self.dividends_thread = DividendsThread(parent=self, token_class=token, share_class_list=share_class_list)
+        self.dividends_thread = DividendsThread(token_class=token, share_class_list=share_class_list, parent=self)
         """---------------------Подключаем сигналы потока к слотам---------------------"""
         self.dividends_thread.printText_signal.connect(print)  # Сигнал для отображения сообщений в консоли.
 

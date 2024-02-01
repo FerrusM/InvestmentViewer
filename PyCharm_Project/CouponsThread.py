@@ -1,6 +1,5 @@
 from datetime import datetime
-from PyQt6.QtCore import QThread, pyqtSignal
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6 import QtCore, QtSql
 from tinkoff.invest import Coupon, RequestError
 from Classes import TokenClass, MyConnection
 from LimitClasses import LimitPerMinuteSemaphore
@@ -10,7 +9,7 @@ from MyMoneyValue import MyMoneyValue
 from MyRequests import getCoupons, MyResponse, RequestTryClass
 
 
-class CouponsThread(QThread):
+class CouponsThread(QtCore.QThread):
     """Поток получения купонов."""
     class DatabaseConnection(MyConnection):
         CONNECTION_NAME: str = 'InvestmentViewer_CouponsThread'
@@ -18,13 +17,13 @@ class CouponsThread(QThread):
         @classmethod
         def setCoupons(cls, uid: str, coupons: list[Coupon]):
             """Обновляет купоны с переданным figi в таблице купонов."""
-            db: QSqlDatabase = cls.getDatabase()
+            db: QtSql.QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
             if transaction_flag:
                 def setCouponsColumnValue(value: str):
                     """Заполняет столбец coupons значением."""
                     update_coupons_query_str: str = 'UPDATE \"{0}\" SET \"coupons\" = :coupons WHERE \"uid\" = :uid;'.format(MyConnection.BONDS_TABLE)
-                    coupons_query = QSqlQuery(db)
+                    coupons_query = QtSql.QSqlQuery(db)
                     coupons_prepare_flag: bool = coupons_query.prepare(update_coupons_query_str)
                     assert coupons_prepare_flag, coupons_query.lastError().text()
                     coupons_query.bindValue(':coupons', value)
@@ -33,15 +32,15 @@ class CouponsThread(QThread):
                     assert coupons_exec_flag, coupons_query.lastError().text()
 
                 if coupons:  # Если список купонов не пуст.
-                    '''----Удаляет из таблицы купонов все купоны, имеющие переданный figi----'''
+                    '''----Удаляет из таблицы купонов все купоны, имеющие переданный uid----'''
                     delete_coupons_query_str: str = 'DELETE FROM \"{0}\" WHERE \"instrument_uid\" = :uid;'.format(MyConnection.COUPONS_TABLE)
-                    delete_coupons_query = QSqlQuery(db)
+                    delete_coupons_query = QtSql.QSqlQuery(db)
                     delete_coupons_prepare_flag: bool = delete_coupons_query.prepare(delete_coupons_query_str)
                     assert delete_coupons_prepare_flag, delete_coupons_query.lastError().text()
                     delete_coupons_query.bindValue(':uid', uid)
                     delete_coupons_exec_flag: bool = delete_coupons_query.exec()
                     assert delete_coupons_exec_flag, delete_coupons_query.lastError().text()
-                    '''----------------------------------------------------------------------'''
+                    '''---------------------------------------------------------------------'''
 
                     '''---------------------------Добавляет купоны в таблицу купонов---------------------------'''
                     add_coupons_sql_command: str = '''INSERT INTO \"{0}\" (\"instrument_uid\", \"figi\", 
@@ -51,17 +50,17 @@ class CouponsThread(QThread):
                     )
                     for i in range(len(coupons)):
                         if i > 0: add_coupons_sql_command += ', '  # Если добавляемый купон не первый.
-                        add_coupons_sql_command += '''(:uid{0}, :figi{0}, :coupon_date{0}, :coupon_number{0}, 
+                        add_coupons_sql_command += '''(:bond_uid{0}, :figi{0}, :coupon_date{0}, :coupon_number{0}, 
                         :fix_date{0}, :pay_one_bond{0}, :coupon_type{0}, :coupon_start_date{0}, :coupon_end_date{0}, 
                         :coupon_period{0})'''.format(i)
                     add_coupons_sql_command += ';'
 
-                    add_coupons_query = QSqlQuery(db)
+                    add_coupons_query = QtSql.QSqlQuery(db)
                     add_coupons_prepare_flag: bool = add_coupons_query.prepare(add_coupons_sql_command)
                     assert add_coupons_prepare_flag, add_coupons_query.lastError().text()
 
                     for i, coupon in enumerate(coupons):
-                        add_coupons_query.bindValue(':uid{0}'.format(i), uid)
+                        add_coupons_query.bindValue(':bond_uid{0}'.format(i), uid)
                         add_coupons_query.bindValue(':figi{0}'.format(i), coupon.figi)
                         add_coupons_query.bindValue(':coupon_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_date, sep='T'))
                         add_coupons_query.bindValue(':coupon_number{0}'.format(i), coupon.coupon_number)
@@ -88,25 +87,25 @@ class CouponsThread(QThread):
     receive_coupons_method_name: str = 'GetBondCoupons'
 
     """------------------------Сигналы------------------------"""
-    printText_signal: pyqtSignal = pyqtSignal(str)  # Сигнал для отображения сообщений в консоли.
+    printText_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал для отображения сообщений в консоли.
     """-------------------------------------------------------"""
 
     """-----------------Сигналы progressBar'а-----------------"""
     # Сигнал для установления минимума и максимума progressBar'а заполнения купонов.
-    setProgressBarRange_signal: pyqtSignal = pyqtSignal(int, int)
-    setProgressBarValue_signal: pyqtSignal = pyqtSignal(int)  # Сигнал для изменения прогресса в progressBar'е.
+    setProgressBarRange_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(int, int)
+    setProgressBarValue_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(int)  # Сигнал для изменения прогресса в progressBar'е.
     """-------------------------------------------------------"""
 
     """---------------------Сигналы ошибок---------------------"""
-    showRequestError_signal: pyqtSignal = pyqtSignal(str, RequestError)  # Сигнал для отображения исключения RequestError.
-    showException_signal: pyqtSignal = pyqtSignal(str, Exception)  # Сигнал для отображения исключения.
-    clearStatusBar_signal: pyqtSignal = pyqtSignal()  # Сигнал выключения отображения ошибки.
+    showRequestError_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str, RequestError)  # Сигнал для отображения исключения RequestError.
+    showException_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str, Exception)  # Сигнал для отображения исключения.
+    clearStatusBar_signal: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал выключения отображения ошибки.
     """--------------------------------------------------------"""
 
-    releaseSemaphore_signal: pyqtSignal = pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
+    releaseSemaphore_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
 
-    def __init__(self, token_class: TokenClass, bond_class_list: list[MyBondClass]):
-        super().__init__()
+    def __init__(self, token_class: TokenClass, bond_class_list: list[MyBondClass], parent: QtCore.QObject | None = None):
+        super().__init__(parent=parent)
         self.token: TokenClass = token_class
         self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_coupons_method_name)
         self.bonds: list[MyBondClass] = bond_class_list
@@ -129,11 +128,10 @@ class CouponsThread(QThread):
         if self.semaphore is None:
             printInConsole('Лимит для метода {0} не найден.'.format(self.receive_coupons_method_name))
         else:
-            self.DatabaseConnection.open()  # Открываем соединение с БД.
-
             bonds_count: int = len(self.bonds)  # Количество облигаций.
             self.setProgressBarRange_signal.emit(0, bonds_count)  # Задаёт минимум и максимум progressBar'а заполнения купонов.
 
+            self.DatabaseConnection.open()  # Открываем соединение с БД.
             for i, bond_class in enumerate(self.bonds):
                 if self.isInterruptionRequested():
                     printInConsole('Поток прерван.')

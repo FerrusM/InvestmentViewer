@@ -229,20 +229,6 @@ class MainConnection(MyConnection):
             assert coupons_exec_flag, coupons_query.lastError().text()
             '''--------------------------------------------------------------'''
 
-            '''---------Создание таблицы ассоциаций figi-идентификаторов акций---------'''
-            shares_figi_query_str: str = '''
-            CREATE TABLE IF NOT EXISTS \"{0}\" (
-            \"figi\" TEXT NOT NULL,
-            \"dividends\" TEXT CHECK(\"dividends\" = \'Yes\' OR \"dividends\" = \'No\'),
-            PRIMARY KEY (\"figi\")
-            );'''.format(MyConnection.SHARES_FIGI_TABLE)
-            shares_figi_query = QSqlQuery(db)
-            shares_figi_prepare_flag: bool = shares_figi_query.prepare(shares_figi_query_str)
-            assert shares_figi_prepare_flag, shares_figi_query.lastError().text()
-            shares_figi_exec_flag: bool = shares_figi_query.exec()
-            assert shares_figi_exec_flag, shares_figi_query.lastError().text()
-            '''------------------------------------------------------------------------'''
-
             '''--------------------Создание таблицы акций--------------------'''
             shares_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
@@ -286,10 +272,10 @@ class MainConnection(MyConnection):
             \"liquidity_flag\" BLOB NOT NULL,
             \"first_1min_candle_date\" TEXT NOT NULL,
             \"first_1day_candle_date\" TEXT NOT NULL,
+            \"dividends\" TEXT CHECK(\"dividends\" = \'Yes\' OR \"dividends\" = \'No\'),
             UNIQUE (\"uid\"),
-            FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE,
-            FOREIGN KEY (\"figi\") REFERENCES \"{2}\"(\"figi\") ON DELETE CASCADE
-            );'''.format(MyConnection.SHARES_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE, MyConnection.SHARES_FIGI_TABLE)
+            FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(MyConnection.SHARES_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
             shares_query = QSqlQuery(db)
             shares_prepare_flag: bool = shares_query.prepare(shares_query_str)
             assert shares_prepare_flag, shares_query.lastError().text()
@@ -302,14 +288,12 @@ class MainConnection(MyConnection):
             CREATE TRIGGER IF NOT EXISTS \"{0}\" BEFORE INSERT ON \"{1}\"
             BEGIN             
                 INSERT INTO \"{2}\"(\"uid\", \"instrument_type\") VALUES (\"NEW\".\"uid\", \'{3}\') ON CONFLICT(\"uid\") DO UPDATE SET \"instrument_type\" = \'{3}\';
-                INSERT OR IGNORE INTO \"{4}\"(\"figi\") VALUES (\"NEW\".\"figi\");
             END;
             '''.format(
                 MyConnection.SHARES_TRIGGER_BEFORE_INSERT,
                 MyConnection.SHARES_TABLE,
                 MyConnection.INSTRUMENT_UIDS_TABLE,
-                'share',
-                MyConnection.SHARES_FIGI_TABLE
+                'share'
             )
             shares_bef_ins_trigger_query = QSqlQuery(db)
             shares_bef_ins_trigger_prepare_flag: bool = shares_bef_ins_trigger_query.prepare(shares_bef_ins_trigger_query_str)
@@ -321,7 +305,7 @@ class MainConnection(MyConnection):
             '''-------------------Создание таблицы дивидендов-------------------'''
             dividends_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
-            \"figi\" TEXT NOT NULL,
+            \"instrument_uid\" TEXT NOT NULL,
             \"dividend_net\" TEXT NOT NULL,
             \"payment_date\" TEXT NOT NULL,
             \"declared_date\" TEXT NOT NULL,
@@ -332,28 +316,15 @@ class MainConnection(MyConnection):
             \"close_price\" TEXT NOT NULL,
             \"yield_value\" TEXT NOT NULL,
             \"created_at\" TEXT NOT NULL,
-            UNIQUE (\"figi\", \"dividend_net\", \"payment_date\", \"declared_date\", \"last_buy_date\", \"dividend_type\", \"record_date\", \"regularity\", \"close_price\", \"yield_value\", \"created_at\"),
-            FOREIGN KEY (\"figi\") REFERENCES \"{1}\"(\"figi\") ON DELETE CASCADE
-            );'''.format(MyConnection.DIVIDENDS_TABLE, MyConnection.SHARES_FIGI_TABLE)
+            UNIQUE (\"instrument_uid\", \"dividend_net\", \"payment_date\", \"declared_date\", \"last_buy_date\", \"dividend_type\", \"record_date\", \"regularity\", \"close_price\", \"yield_value\", \"created_at\"),
+            FOREIGN KEY (\"instrument_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(MyConnection.DIVIDENDS_TABLE, MyConnection.SHARES_TABLE)
             dividends_query = QSqlQuery(db)
             dividends_prepare_flag: bool = dividends_query.prepare(dividends_query_str)
             assert dividends_prepare_flag, dividends_query.lastError().text()
             dividends_exec_flag: bool = dividends_query.exec()
             assert dividends_exec_flag, dividends_query.lastError().text()
             '''-----------------------------------------------------------------'''
-
-            '''--------------------Триггер перед обновлением акции--------------------'''
-            shares_before_update_trigger_query = QSqlQuery(db)
-            shares_before_update_trigger_query.prepare('''
-            CREATE TRIGGER IF NOT EXISTS "Shares_before_update_trigger" BEFORE UPDATE ON "Shares"
-            BEGIN
-                DELETE FROM "Dividends" WHERE "figi" = "OLD"."figi" AND "NEW"."figi" != "OLD"."figi";
-                UPDATE "SharesFinancialInstrumentGlobalIdentifiers" SET "dividends" = NULL WHERE "figi" = "OLD"."figi" AND "NEW"."figi" != "OLD"."figi";
-            END;
-            ''')
-            shares_before_update_trigger_exec_flag: bool = shares_before_update_trigger_query.exec()
-            assert shares_before_update_trigger_exec_flag, shares_before_update_trigger_query.lastError().text()
-            '''-----------------------------------------------------------------------'''
 
             '''----------------Создание таблицы последних цен----------------'''
             last_prices_query_str: str = '''

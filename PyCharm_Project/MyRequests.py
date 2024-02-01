@@ -210,7 +210,7 @@ def getCoupons(token: str, figi: str = "", from_: datetime | None = None, to: da
     return MyResponse('get_bond_coupons()', request_occurred, coupons, exception_flag, exception, request_error_flag, request_error)
 
 
-def getDividends(token: str, figi: str = "", from_: datetime | None = None, to: datetime | None = None) -> MyResponse:
+def getDividends(token: str, figi: str = "", from_: datetime | None = None, to: datetime | None = None, instrument_id: str = "") -> MyResponse:
     """Получает и возвращает список дивидендов."""
     dividends: list[Dividend] = []
     request_occurred: bool = False  # Флаг произведённого запроса.
@@ -220,7 +220,7 @@ def getDividends(token: str, figi: str = "", from_: datetime | None = None, to: 
     request_error: RequestError | None = None  # RequestError.
     with Client(token) as client:
         try:
-            dividends = client.instruments.get_dividends(figi=figi, from_=from_, to=to).dividends
+            dividends = client.instruments.get_dividends(figi=figi, from_=from_, to=to, instrument_id=instrument_id).dividends
         except RequestError as error:
             request_error_flag = True  # Флаг наличия RequestError.
             request_error = error  # RequestError.
