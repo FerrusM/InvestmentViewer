@@ -173,6 +173,7 @@ class MyConnection(ABC):
     TOKENS_TABLE: str = 'Tokens'
     ACCOUNTS_TABLE: str = 'Accounts'
     BONDS_TABLE: str = 'Bonds'
+    BRANDS_TABLE: str = 'Brands'
     LAST_PRICES_TABLE: str = 'LastPrices'
     COUPONS_TABLE: str = 'Coupons'
     CANDLES_TABLE: str = 'HistoricCandles'
@@ -184,9 +185,15 @@ class MyConnection(ABC):
     INSTRUMENT_STATUS_TABLE: str = 'InstrumentsStatus'
     TARGET_ITEMS_TABLE: str = 'TargetItems'
     CONSENSUS_ITEMS_TABLE: str = 'ConsensusItems'
+    ASSETS_TABLE: str = 'Assets'
+    INSTRUMENT_LINKS_TABLE: str = 'InstrumentLinks'
+    ASSET_INSTRUMENTS_TABLE: str = 'AssetInstruments'
+    ASSET_SECURITIES_TABLE: str = 'AssetSecurities'
+    ASSET_CURRENCIES_TABLE: str = 'AssetCurrencies'
 
     LAST_PRICES_VIEW: str = 'LastPricesView'
 
+    ASSETS_BEFORE_UPDATE_TRIGGER: str = 'Assets_on_update_trigger'
     SHARES_TRIGGER_BEFORE_INSERT: str = 'Shares_before_insert_trigger'
     BONDS_TRIGGER_BEFORE_INSERT: str = 'Bonds_before_insert_trigger'
     CANDLES_TRIGGER_BEFORE_INSERT: str = 'Candles_before_insert_trigger'

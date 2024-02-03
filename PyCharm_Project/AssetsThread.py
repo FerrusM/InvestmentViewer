@@ -1,7 +1,8 @@
 from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from tinkoff.invest import Asset, AssetFull, Brand
+from tinkoff.invest import Asset, AssetFull, Brand, AssetCurrency, AssetType, AssetInstrument, InstrumentLink, \
+    AssetSecurity
 from Classes import TokenClass, MyConnection
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
@@ -32,68 +33,126 @@ class AssetsThread(QThread):
         @classmethod
         def insertBrand(cls, brand: Brand):
             """Добавляет брэнд в таблицу брэндов."""
+            insert_brands_sql_command: str = '''
+            INSERT INTO \"{0}\" (\"uid\", \"name\", \"description\", \"info\", \"company\", \"sector\", 
+            \"country_of_risk\", \"country_of_risk_name\") VALUES (:uid, :name, :description, :info, :company, :sector, 
+            :country_of_risk, :country_of_risk_name) ON CONFLICT (\"uid\") DO UPDATE SET \"name\" = {1}.\"name\", 
+            \"description\" = {1}.\"description\", \"info\" = {1}.\"info\", \"company\" = {1}.\"company\", 
+            \"sector\" = {1}.\"sector\", \"country_of_risk\" = {1}.\"country_of_risk\", \"country_of_risk_name\" = 
+            {1}.\"country_of_risk_name\";'''.format(MyConnection.BRANDS_TABLE, '\"excluded\"')
             db: QSqlDatabase = cls.getDatabase()
-            query = QSqlQuery(db)
-            query.prepare('''
-            INSERT INTO "Brands" (uid, name, description, info, company, sector, country_of_risk, country_of_risk_name) 
-            VALUES (:uid, :name, :description, :info, :company, :sector, :country_of_risk, :country_of_risk_name)
-            ON CONFLICT (uid) DO UPDATE SET name = excluded.name, description = excluded.description, 
-            info = excluded.info, company = excluded.company, sector = excluded.sector, 
-            country_of_risk = excluded.country_of_risk, country_of_risk_name = excluded.country_of_risk_name;
-            ''')
-            query.bindValue(':uid', brand.uid)
-            query.bindValue(':name', brand.name)
-            query.bindValue(':description', brand.description)
-            query.bindValue(':info', brand.info)
-            query.bindValue(':company', brand.company)
-            query.bindValue(':sector', brand.sector)
-            query.bindValue(':country_of_risk', brand.country_of_risk)
-            query.bindValue(':country_of_risk_name', brand.country_of_risk_name)
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            insert_brands_query = QSqlQuery(db)
+            insert_brands_prepare_flag: bool = insert_brands_query.prepare(insert_brands_sql_command)
+            assert insert_brands_prepare_flag, insert_brands_query.lastError().text()
+            insert_brands_query.bindValue(':uid', brand.uid)
+            insert_brands_query.bindValue(':name', brand.name)
+            insert_brands_query.bindValue(':description', brand.description)
+            insert_brands_query.bindValue(':info', brand.info)
+            insert_brands_query.bindValue(':company', brand.company)
+            insert_brands_query.bindValue(':sector', brand.sector)
+            insert_brands_query.bindValue(':country_of_risk', brand.country_of_risk)
+            insert_brands_query.bindValue(':country_of_risk_name', brand.country_of_risk_name)
+            insert_brands_exec_flag: bool = insert_brands_query.exec()
+            assert insert_brands_exec_flag, insert_brands_query.lastError().text()
+
+        @classmethod
+        def insertAssetCurrency(cls, asset_uid: str, asset_currency: AssetCurrency):
+            """Добавляет валюту в таблицу валют активов."""
+            insert_asset_currency_sql_command: str = '''INSERT INTO \"{0}\" (\"asset_uid\", \"base_currency\") 
+            VALUES (:asset_uid, :asset_currency) ON CONFLICT(\"asset_uid\") DO UPDATE SET 
+            \"base_currency\" = {1}.\"base_currency\";'''.format(MyConnection.ASSET_CURRENCIES_TABLE, '\"excluded\"')
+            db: QSqlDatabase = cls.getDatabase()
+            insert_asset_currency_query = QSqlQuery(db)
+            insert_asset_currency_prepare_flag: bool = insert_asset_currency_query.prepare(insert_asset_currency_sql_command)
+            assert insert_asset_currency_prepare_flag, insert_asset_currency_query.lastError().text()
+            insert_asset_currency_query.bindValue(':asset_uid', asset_uid)
+            insert_asset_currency_query.bindValue(':asset_currency', asset_currency.base_currency)
+            insert_asset_currency_exec_flag: bool = insert_asset_currency_query.exec()
+            assert insert_asset_currency_exec_flag, insert_asset_currency_query.lastError().text()
 
         @classmethod
         def insertAssetFull(cls, assetfull: AssetFull):
             """Добавляет AssetFull в таблицу активов."""
+            insert_asset_sql_command: str = '''
+            INSERT INTO \"{0}\" (\"uid\", \"type\", \"name\", \"name_brief\", \"description\", \"deleted_at\", 
+            \"required_tests\", \"gos_reg_code\", \"cfi\", \"code_nsd\", \"status\", \"brand_uid\", \"updated_at\", 
+            \"br_code\", \"br_code_name\") VALUES (:uid, :type, :name, :name_brief, :description, :deleted_at, 
+            :required_tests, :gos_reg_code, :cfi, :code_nsd, :status, :brand_uid, :updated_at, :br_code, :br_code_name)
+            ON CONFLICT(\"uid\") DO UPDATE SET \"type\" = {1}.\"type\", \"name\" = {1}.\"name\", 
+            \"name_brief\" = {1}.\"name_brief\", \"description\" = {1}.\"description\", 
+            \"deleted_at\" = {1}.\"deleted_at\", \"required_tests\" = {1}.\"required_tests\", 
+            \"gos_reg_code\" = {1}.\"gos_reg_code\", \"cfi\" = {1}.\"cfi\", \"code_nsd\" = {1}.\"code_nsd\",
+            \"status\" = {1}.\"status\", \"brand_uid\" = {1}.\"brand_uid\", \"updated_at\" = {1}.\"updated_at\", 
+            \"br_code\" = {1}.\"br_code\", \"br_code_name\" = {1}.\"br_code_name\";
+            '''.format(MyConnection.ASSETS_TABLE, '\"excluded\"')
             db: QSqlDatabase = cls.getDatabase()
-
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            assert transaction_flag, db.lastError().text()
-
             if transaction_flag:
                 cls.insertBrand(assetfull.brand)  # Добавляем брэнд в таблицу брэндов.
 
-                query = QSqlQuery(db)
-                query.prepare('''
-                INSERT INTO "Assets" ("uid", "type", "name", "name_brief", "description", "deleted_at", "required_tests", "gos_reg_code", "cfi", "code_nsd", "status", "brand_uid", "updated_at", "br_code", "br_code_name") 
-                VALUES (:uid, :type, :name, :name_brief, :description, :deleted_at, :required_tests, :gos_reg_code, :cfi, :code_nsd, :status, :brand_uid, :updated_at, :br_code, :br_code_name)
-                ON CONFLICT("uid") DO UPDATE SET "type" = "excluded"."type", "name" = "excluded"."name", "name_brief" = "excluded"."name_brief", "description" = "excluded"."description", 
-                "deleted_at" = "excluded"."deleted_at", "required_tests" = "excluded"."required_tests", "gos_reg_code" = "excluded"."gos_reg_code", "cfi" = "excluded"."cfi", "code_nsd" = "excluded"."code_nsd",
-                "status" = "excluded"."status", "brand_uid" = "excluded"."brand_uid", "updated_at" = "excluded"."updated_at", "br_code" = "excluded"."br_code", "br_code_name" = "excluded"."br_code_name";
-                ''')
-                query.bindValue(':uid', assetfull.uid)
-                query.bindValue(':type', int(assetfull.type))
-                query.bindValue(':name', assetfull.name)
-                query.bindValue(':name_brief', assetfull.name_brief)
-                query.bindValue(':description', assetfull.description)
-                query.bindValue(':deleted_at', MyConnection.convertDateTimeToText(assetfull.deleted_at))
-                query.bindValue(':required_tests', MyConnection.convertStrListToStr(assetfull.required_tests))
-                query.bindValue(':gos_reg_code', assetfull.gos_reg_code)
-                query.bindValue(':cfi', assetfull.cfi)
-                query.bindValue(':code_nsd', assetfull.code_nsd)
-                query.bindValue(':status', assetfull.status)
-                query.bindValue(':brand_uid', assetfull.brand.uid)
-                query.bindValue(':updated_at', MyConnection.convertDateTimeToText(dt=assetfull.updated_at, timespec='microseconds'))
-                query.bindValue(':br_code', assetfull.br_code)
-                query.bindValue(':br_code_name', assetfull.br_code_name)
-                exec_flag: bool = query.exec()
-                assert exec_flag, query.lastError().text()
+                '''------------------Добавляем AssetFull в таблицу активов------------------'''
+                insert_asset_query = QSqlQuery(db)
+                insert_asset_prepare_flag: bool = insert_asset_query.prepare(insert_asset_sql_command)
+                assert insert_asset_prepare_flag, insert_asset_query.lastError().text()
+
+                insert_asset_query.bindValue(':uid', assetfull.uid)
+                insert_asset_query.bindValue(':type', assetfull.type.name)
+                insert_asset_query.bindValue(':name', assetfull.name)
+                insert_asset_query.bindValue(':name_brief', assetfull.name_brief)
+                insert_asset_query.bindValue(':description', assetfull.description)
+                insert_asset_query.bindValue(':deleted_at', MyConnection.convertDateTimeToText(assetfull.deleted_at))
+                insert_asset_query.bindValue(':required_tests', MyConnection.convertStrListToStr(assetfull.required_tests))
+                insert_asset_query.bindValue(':gos_reg_code', assetfull.gos_reg_code)
+                insert_asset_query.bindValue(':cfi', assetfull.cfi)
+                insert_asset_query.bindValue(':code_nsd', assetfull.code_nsd)
+                insert_asset_query.bindValue(':status', assetfull.status)
+                insert_asset_query.bindValue(':brand_uid', assetfull.brand.uid)
+                insert_asset_query.bindValue(':updated_at', MyConnection.convertDateTimeToText(dt=assetfull.updated_at, timespec='microseconds'))
+                insert_asset_query.bindValue(':br_code', assetfull.br_code)
+                insert_asset_query.bindValue(':br_code_name', assetfull.br_code_name)
+
+                insert_asset_exec_flag: bool = insert_asset_query.exec()
+                assert insert_asset_exec_flag, insert_asset_query.lastError().text()
+                '''-------------------------------------------------------------------------'''
+
+                '''---Если тип актива соответствует валюте, то добавляем валюту в таблицу валют активов---'''
+                if assetfull.type is AssetType.ASSET_TYPE_CURRENCY:
+                    cls.insertAssetCurrency(assetfull.uid, assetfull.currency)  # Добавляем валюту в таблицу валют активов.
+                else:
+                    assert assetfull.currency is None, 'Если тип актива не соответствует валюте, то поле \"currency\" должно иметь значение None, а получено {0}!'.format(assetfull.currency)
+                '''---------------------------------------------------------------------------------------'''
+
+                '''--Если тип актива соответствует ценной бумаге, то добавляем ценную бумагу в таблицу ценных бумаг--'''
+                if assetfull.type is AssetType.ASSET_TYPE_SECURITY:
+                    def insertAssetSecurity(asset_uid: str, security: AssetSecurity):
+                        """Добавляет ценную бумагу в таблицу ценных бумаг активов."""
+                        insert_asset_security_sql_command: str = '''
+                        INSERT INTO \"{0}\" (\"asset_uid\", \"isin\", \"type\", \"instrument_kind\") VALUES 
+                        (:asset_uid, :isin, :type, :instrument_kind) ON CONFLICT(\"asset_uid\") DO UPDATE SET 
+                        \"isin\" = {1}.\"isin\", \"type\" = {1}.\"type\", \"instrument_kind\" = {1}.\"instrument_kind\"
+                        ;'''.format(MyConnection.ASSET_SECURITIES_TABLE, '\"excluded\"')
+                        insert_asset_security_query = QSqlQuery(db)
+                        insert_asset_security_prepare_flag: bool = insert_asset_security_query.prepare(insert_asset_security_sql_command)
+                        assert insert_asset_security_prepare_flag, insert_asset_security_query.lastError().text()
+                        insert_asset_security_query.bindValue(':asset_uid', asset_uid)
+                        insert_asset_security_query.bindValue(':isin', security.isin)
+                        insert_asset_security_query.bindValue(':type', security.type)
+                        insert_asset_security_query.bindValue(':instrument_kind', security.instrument_kind.name)
+                        insert_asset_security_exec_flag: bool = insert_asset_security_query.exec()
+                        assert insert_asset_security_exec_flag, insert_asset_security_query.lastError().text()
+
+                    insertAssetSecurity(assetfull.uid, assetfull.security)
+                else:
+                    assert assetfull.security is None, 'Если тип актива не соответствует ценной бумаге, то поле \"security\" должно иметь значение None, а получено {0}!'.format(assetfull.security)
+                '''--------------------------------------------------------------------------------------------------'''
 
                 for instrument in assetfull.instruments:
                     MainConnection.addAssetInstrument(db, assetfull.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
+            else:
+                assert transaction_flag, db.lastError().text()
 
     receive_assetfulls_method_name: str = 'GetAssetBy'
 

@@ -1,5 +1,6 @@
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
-from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus
+from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
+    InstrumentType
 from Classes import TokenClass, MyConnection, partition
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
@@ -394,95 +395,183 @@ class MainConnection(MyConnection):
             # '''--------------------------------------------------------------------'''
 
             '''-------------------Создание таблицы брэндов-------------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Brands" (
-            "uid" TEXT NOT NULL,
-            "name" TEXT NOT NULL,
-            "description" TEXT NOT NULL,
-            "info" TEXT NOT NULL,
-            "company" TEXT NOT NULL,
-            "sector" TEXT NOT NULL,
-            "country_of_risk" TEXT NOT NULL,
-            "country_of_risk_name" TEXT NOT NULL,         
-            PRIMARY KEY ("uid")
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            brands_sql_command: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"uid\" TEXT NOT NULL,
+            \"name\" TEXT NOT NULL,
+            \"description\" TEXT NOT NULL,
+            \"info\" TEXT NOT NULL,
+            \"company\" TEXT NOT NULL,
+            \"sector\" TEXT NOT NULL,
+            \"country_of_risk\" TEXT NOT NULL,
+            \"country_of_risk_name\" TEXT NOT NULL,         
+            PRIMARY KEY (\"uid\")
+            );'''.format(MyConnection.BRANDS_TABLE)
+            brands_query = QSqlQuery(db)
+            brands_prepare_flag: bool = brands_query.prepare(brands_sql_command)
+            assert brands_prepare_flag, brands_query.lastError().text()
+            brands_exec_flag: bool = brands_query.exec()
+            assert brands_exec_flag, brands_query.lastError().text()
             '''--------------------------------------------------------------'''
 
             '''-------------------Создание таблицы активов-------------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "Assets" (
-            uid TEXT NOT NULL PRIMARY KEY,
-            type INTEGER NOT NULL,
-            name TEXT NOT NULL,
-            name_brief TEXT, 
-            description TEXT,
-            deleted_at TEXT,
-            required_tests TEXT,
-            currency,
-            security,
-            gos_reg_code TEXT,
-            cfi TEXT,
-            code_nsd TEXT,
-            status TEXT,
-            brand_uid TEXT,
-            updated_at TEXT,
-            br_code TEXT,
-            br_code_name TEXT,
-            FOREIGN KEY ("brand_uid") REFERENCES "Brands"("uid")
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            assets_sql_command: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"uid\" TEXT NOT NULL PRIMARY KEY,
+            \"type\" TEXT NOT NULL CHECK(\"type\" = \'ASSET_TYPE_UNSPECIFIED\' OR \"type\" = \'ASSET_TYPE_CURRENCY\' OR \"type\" = \'ASSET_TYPE_COMMODITY\' OR \"type\" = \'ASSET_TYPE_INDEX\' OR \"type\" = \'ASSET_TYPE_SECURITY\'),
+            \"name\" TEXT NOT NULL,
+            \"name_brief\" TEXT, 
+            \"description\" TEXT,
+            \"deleted_at\" TEXT,
+            \"required_tests\" TEXT,
+            \"security\",
+            \"gos_reg_code\" TEXT,
+            \"cfi\" TEXT,
+            \"code_nsd\" TEXT,
+            \"status\" TEXT,
+            \"brand_uid\" TEXT,
+            \"updated_at\" TEXT,
+            \"br_code\" TEXT,
+            \"br_code_name\" TEXT,
+            FOREIGN KEY (\"brand_uid\") REFERENCES \"{1}\"(\"uid\")
+            );'''.format(MyConnection.ASSETS_TABLE, MyConnection.BRANDS_TABLE)
+            assets_query = QSqlQuery(db)
+            assets_prepare_flag: bool = assets_query.prepare(assets_sql_command)
+            assert assets_prepare_flag, assets_query.lastError().text()
+            assets_exec_flag: bool = assets_query.exec()
+            assert assets_exec_flag, assets_query.lastError().text()
             '''--------------------------------------------------------------'''
 
             '''--------------Создание таблицы AssetInstruments--------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "AssetInstruments" (
-            asset_uid TEXT NOT NULL,
-            uid TEXT NOT NULL,
-            figi TEXT NOT NULL,
-            instrument_type TEXT NOT NULL,
-            ticker TEXT NOT NULL,
-            class_code TEXT NOT NULL,
-            instrument_kind INTEGER NOT NULL,
-            position_uid TEXT NOT NULL,
-            CONSTRAINT assert_instrument_pk PRIMARY KEY(asset_uid, uid),
-            FOREIGN KEY (asset_uid) REFERENCES Assets(uid) ON DELETE CASCADE
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
+            instrument_kind_column_name: str = '\"instrument_kind\"'
+            instrument_kind_keys = InstrumentType.__members__.keys()
+            instrument_kind_check_str: str = ''
+            if len(instrument_kind_keys) > 0:
+                instrument_kind_check_str += ' CHECK('
+                for i, key in enumerate(instrument_kind_keys):
+                    if i > 0: instrument_kind_check_str += ' OR '
+                    instrument_kind_check_str += '{0} = \'{1}\''.format(instrument_kind_column_name, key)
+                instrument_kind_check_str += ')'
+
+            asset_instruments_sql_command: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"asset_uid\" TEXT NOT NULL,
+            \"uid\" TEXT NOT NULL,
+            \"figi\" TEXT NOT NULL,
+            \"instrument_type\" TEXT NOT NULL,
+            \"ticker\" TEXT NOT NULL,
+            \"class_code\" TEXT NOT NULL,
+            {2} TEXT NOT NULL{3},
+            \"position_uid\" TEXT NOT NULL,
+            CONSTRAINT \"asset_instrument_pk\" PRIMARY KEY(\"asset_uid\", \"uid\"),
+            FOREIGN KEY (\"asset_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(
+                MyConnection.ASSET_INSTRUMENTS_TABLE,
+                MyConnection.ASSETS_TABLE,
+                instrument_kind_column_name,
+                instrument_kind_check_str
+            )
+            asset_instruments_query = QSqlQuery(db)
+            asset_instruments_prepare_flag: bool = asset_instruments_query.prepare(asset_instruments_sql_command)
+            assert asset_instruments_prepare_flag, asset_instruments_query.lastError().text()
+            asset_instruments_exec_flag: bool = asset_instruments_query.exec()
+            assert asset_instruments_exec_flag, asset_instruments_query.lastError().text()
             '''-------------------------------------------------------------'''
 
-            '''--------------Создание таблицы InstrumentLinks--------------'''
-            query = QSqlQuery(db)
-            query.prepare('''
-            CREATE TABLE IF NOT EXISTS "InstrumentLinks" (
-            "asset_uid" TEXT NOT NULL,
-            "uid" TEXT NOT NULL,
-            "type" TEXT NOT NULL,
-            "instrument_uid" TEXT NOT NULL,
-            UNIQUE ("asset_uid", "uid", "type", "instrument_uid"),
-            FOREIGN KEY ("asset_uid", "uid") REFERENCES "AssetInstruments"("asset_uid", "uid") ON DELETE CASCADE
-            );''')
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-            '''------------------------------------------------------------'''
+            '''----------------Создание таблицы InstrumentLinks----------------'''
+            instrument_links_query_str: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"asset_uid\" TEXT NOT NULL,
+            \"asset_instrument_uid\" TEXT NOT NULL,
+            \"type\" TEXT NOT NULL,
+            \"linked_instrument_uid\" TEXT NOT NULL,
+            UNIQUE (\"asset_uid\", \"asset_instrument_uid\", \"type\", \"linked_instrument_uid\"),
+            FOREIGN KEY (\"asset_uid\", \"asset_instrument_uid\") REFERENCES \"{1}\"(\"asset_uid\", \"uid\") ON DELETE CASCADE
+            );'''.format(MyConnection.INSTRUMENT_LINKS_TABLE, MyConnection.ASSET_INSTRUMENTS_TABLE)
+            instrument_links_query = QSqlQuery(db)
+            instrument_links_prepare_flag: bool = instrument_links_query.prepare(instrument_links_query_str)
+            assert instrument_links_prepare_flag, instrument_links_query.lastError().text()
+            instrument_links_exec_flag: bool = instrument_links_query.exec()
+            assert instrument_links_exec_flag, instrument_links_query.lastError().text()
+            '''----------------------------------------------------------------'''
+
+            '''------------------Создание таблицы AssetCurrencies------------------'''
+            asset_currencies_sql_command: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"asset_uid\" TEXT NOT NULL,
+            \"base_currency\" TEXT NOT NULL,
+            UNIQUE (\"asset_uid\"),
+            FOREIGN KEY (\"asset_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(MyConnection.ASSET_CURRENCIES_TABLE, MyConnection.ASSETS_TABLE)
+            asset_currencies_query = QSqlQuery(db)
+            asset_currencies_prepare_flag: bool = asset_currencies_query.prepare(asset_currencies_sql_command)
+            assert asset_currencies_prepare_flag, asset_currencies_query.lastError().text()
+            asset_currencies_exec_flag: bool = asset_currencies_query.exec()
+            assert asset_currencies_exec_flag, asset_currencies_query.lastError().text()
+            '''--------------------------------------------------------------------'''
 
             '''-----------Добавление триггера перед обновлением актива-----------'''
+            # '''
+            # SELECT
+            # CASE
+            #     WHEN \"NEW\".\"type\" != \"OLD\".\"type\" AND \"OLD\".\"type\" = \'{3}\'
+            #         THEN DELETE FROM \"{4}\" WHERE \"asset_uid\" = \"OLD\".\"uid\"
+            # END;
+            # '''
+
+            # '''
+            # DELETE FROM \"{4}\" WHERE \"asset_uid\" = \"OLD\".\"uid\" AND \"OLD\".\"uid\" IN (SELECT
+            #     CASE
+            #         WHEN \"NEW\".\"type\" != \"OLD\".\"type\" AND \"OLD\".\"type\" = \'{3}\'
+            #             THEN \"OLD\".\"uid\"
+            #     END);
+            # '''
+
+            assets_on_update_trigger_query_str: str = '''
+            CREATE TRIGGER IF NOT EXISTS \"{0}\" BEFORE UPDATE ON \"{1}\"
+            BEGIN 
+                DELETE FROM \"{4}\" WHERE \"asset_uid\" = \"OLD\".\"uid\" AND \"OLD\".\"uid\" IN (SELECT
+                    CASE
+                        WHEN \"NEW\".\"type\" != \"OLD\".\"type\" AND \"OLD\".\"type\" = \'{3}\'
+                            THEN \"OLD\".\"uid\"
+                    END);
+                  
+                DELETE FROM \"{2}\" WHERE \"asset_uid\" = \"OLD\".\"uid\";
+            END;'''.format(
+                MyConnection.ASSETS_BEFORE_UPDATE_TRIGGER,
+                MyConnection.ASSETS_TABLE,
+                MyConnection.ASSET_INSTRUMENTS_TABLE,
+                AssetType.ASSET_TYPE_CURRENCY.name,
+                MyConnection.ASSET_CURRENCIES_TABLE
+            )
             assets_on_update_trigger_query = QSqlQuery(db)
-            assets_on_update_trigger_query.prepare('''
-            CREATE TRIGGER IF NOT EXISTS "Assets_on_update_trigger" BEFORE UPDATE ON "Assets"
-            BEGIN               
-                DELETE FROM "AssetInstruments" WHERE "asset_uid" = "OLD"."uid";
-            END;
-            ''')
+            assets_on_update_trigger_prepare_flag: bool = assets_on_update_trigger_query.prepare(assets_on_update_trigger_query_str)
+            assert assets_on_update_trigger_prepare_flag, assets_on_update_trigger_query.lastError().text()
             assets_on_update_trigger_exec_flag: bool = assets_on_update_trigger_query.exec()
             assert assets_on_update_trigger_exec_flag, assets_on_update_trigger_query.lastError().text()
             '''------------------------------------------------------------------'''
+
+            '''--------------------Создание таблицы AssetSecurities--------------------'''
+            asset_securities_sql_command: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"asset_uid\" TEXT NOT NULL,
+            \"isin\" TEXT NOT NULL,
+            \"type\" TEXT NOT NULL,
+            {1} TEXT NOT NULL{2},
+            UNIQUE (\"asset_uid\"),
+            FOREIGN KEY (\"asset_uid\") REFERENCES \"{3}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(
+                MyConnection.ASSET_SECURITIES_TABLE,
+                instrument_kind_column_name,
+                instrument_kind_check_str,
+                MyConnection.ASSETS_TABLE
+            )
+            asset_securities_query = QSqlQuery(db)
+            asset_securities_prepare_flag: bool = asset_securities_query.prepare(asset_securities_sql_command)
+            assert asset_securities_prepare_flag, asset_securities_query.lastError().text()
+            asset_securities_exec_flag: bool = asset_securities_query.exec()
+            assert asset_securities_exec_flag, asset_securities_query.lastError().text()
+            '''------------------------------------------------------------------------'''
 
             '''--------------------Создание таблицы запросов инструментов--------------------'''
             instruments_status_query_str: str = '''
@@ -806,8 +895,7 @@ class MainConnection(MyConnection):
     def addShares(cls, token: str, instrument_status: InstrumentStatus, shares: list[Share]):
         """Добавляет акции в таблицу акций."""
         if shares:  # Если список акций не пуст.
-            sql_command: str = '''
-            INSERT INTO \"{0}\" (
+            sql_command: str = '''INSERT INTO \"{0}\" (
             \"figi\", \"ticker\", \"class_code\", \"isin\", \"lot\", \"currency\", \"klong\", \"kshort\", 
             \"dlong\", \"dshort\", \"dlong_min\", \"dshort_min\", \"short_enabled_flag\", \"name\", 
             \"exchange\", \"ipo_date\", \"issue_size\", \"country_of_risk\", \"country_of_risk_name\", 
@@ -825,43 +913,32 @@ class MainConnection(MyConnection):
             :for_qual_investor_flag, :weekend_flag, :blocked_tca_flag, :liquidity_flag, 
             :first_1min_candle_date, :first_1day_candle_date 
             ) ON CONFLICT(\"uid\") DO 
-            UPDATE SET \"figi\" = \"excluded\".\"figi\", \"ticker\" = \"excluded\".\"ticker\", 
-            \"class_code\" = \"excluded\".\"class_code\", \"isin\" = \"excluded\".\"isin\", 
-            \"lot\" = \"excluded\".\"lot\", \"currency\" = \"excluded\".\"currency\", 
-            \"klong\" = \"excluded\".\"klong\", \"kshort\" = \"excluded\".\"kshort\", 
-            \"dlong\" = \"excluded\".\"dlong\", \"dshort\" = \"excluded\".\"dshort\", 
-            \"dlong_min\" = \"excluded\".\"dlong_min\", \"dshort_min\" = \"excluded\".\"dshort_min\", 
-            \"short_enabled_flag\" = \"excluded\".\"short_enabled_flag\", \"name\" = \"excluded\".\"name\", 
-            \"exchange\" = \"excluded\".\"exchange\", \"exchange\" = \"excluded\".\"exchange\", 
-            \"ipo_date\" = \"excluded\".\"ipo_date\", \"issue_size\" = \"excluded\".\"issue_size\", 
-            \"country_of_risk\" = \"excluded\".\"country_of_risk\", 
-            \"country_of_risk_name\" = \"excluded\".\"country_of_risk_name\", 
-            \"sector\" = \"excluded\".\"sector\", \"issue_size_plan\" = \"excluded\".\"issue_size_plan\", 
-            \"nominal\" = \"excluded\".\"nominal\", \"trading_status\" = \"excluded\".\"trading_status\", 
-            \"otc_flag\" = \"excluded\".\"otc_flag\", 
-            \"buy_available_flag\" = \"excluded\".\"buy_available_flag\", 
-            \"sell_available_flag\" = \"excluded\".\"sell_available_flag\", 
-            \"div_yield_flag\" = \"excluded\".\"div_yield_flag\", \"share_type\" = \"excluded\".\"share_type\", 
-            \"min_price_increment\" = \"excluded\".\"min_price_increment\", 
-            \"api_trade_available_flag\" = \"excluded\".\"api_trade_available_flag\", 
-            \"real_exchange\" = \"excluded\".\"real_exchange\", 
-            \"position_uid\" = \"excluded\".\"position_uid\", \"for_iis_flag\" = \"excluded\".\"for_iis_flag\", 
-            \"for_qual_investor_flag\" = \"excluded\".\"for_qual_investor_flag\", 
-            \"weekend_flag\" = \"excluded\".\"weekend_flag\", 
-            \"blocked_tca_flag\" = \"excluded\".\"blocked_tca_flag\", 
-            \"liquidity_flag\" = \"excluded\".\"liquidity_flag\", 
-            \"first_1min_candle_date\" = \"excluded\".\"first_1min_candle_date\", 
-            \"first_1day_candle_date\" = \"excluded\".\"first_1day_candle_date\";
-            '''.format(MyConnection.SHARES_TABLE)
+            UPDATE SET \"figi\" = {1}.\"figi\", \"ticker\" = {1}.\"ticker\", \"class_code\" = {1}.\"class_code\", 
+            \"isin\" = {1}.\"isin\", \"lot\" = {1}.\"lot\", \"currency\" = {1}.\"currency\", \"klong\" = {1}.\"klong\", 
+            \"kshort\" = {1}.\"kshort\", \"dlong\" = {1}.\"dlong\", \"dshort\" = {1}.\"dshort\", 
+            \"dlong_min\" = {1}.\"dlong_min\", \"dshort_min\" = {1}.\"dshort_min\", 
+            \"short_enabled_flag\" = {1}.\"short_enabled_flag\", \"name\" = {1}.\"name\", 
+            \"exchange\" = {1}.\"exchange\", \"exchange\" = {1}.\"exchange\", \"ipo_date\" = {1}.\"ipo_date\", 
+            \"issue_size\" = {1}.\"issue_size\", \"country_of_risk\" = {1}.\"country_of_risk\", 
+            \"country_of_risk_name\" = {1}.\"country_of_risk_name\", \"sector\" = {1}.\"sector\", 
+            \"issue_size_plan\" = {1}.\"issue_size_plan\", \"nominal\" = {1}.\"nominal\", 
+            \"trading_status\" = {1}.\"trading_status\", \"otc_flag\" = {1}.\"otc_flag\", 
+            \"buy_available_flag\" = {1}.\"buy_available_flag\", \"sell_available_flag\" = {1}.\"sell_available_flag\", 
+            \"div_yield_flag\" = {1}.\"div_yield_flag\", \"share_type\" = {1}.\"share_type\", 
+            \"min_price_increment\" = {1}.\"min_price_increment\", 
+            \"api_trade_available_flag\" = {1}.\"api_trade_available_flag\", \"real_exchange\" = {1}.\"real_exchange\", 
+            \"position_uid\" = {1}.\"position_uid\", \"for_iis_flag\" = {1}.\"for_iis_flag\", 
+            \"for_qual_investor_flag\" = {1}.\"for_qual_investor_flag\", \"weekend_flag\" = {1}.\"weekend_flag\", 
+            \"blocked_tca_flag\" = {1}.\"blocked_tca_flag\", \"liquidity_flag\" = {1}.\"liquidity_flag\", 
+            \"first_1min_candle_date\" = {1}.\"first_1min_candle_date\", 
+            \"first_1day_candle_date\" = {1}.\"first_1day_candle_date\";
+            '''.format(MyConnection.SHARES_TABLE, '\"excluded\"')
 
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            assert transaction_flag, db.lastError().text()
-
             if transaction_flag:
                 for share in shares:
                     query = QSqlQuery(db)
-
                     prepare_flag: bool = query.prepare(sql_command)
                     assert prepare_flag, query.lastError().text()
 
@@ -951,26 +1028,27 @@ class MainConnection(MyConnection):
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
+            else:
+                assert transaction_flag, db.lastError().text()
+
 
     @classmethod
     def addLastPrices(cls, last_prices: list[LastPrice]):
         """Добавляет последние цены в таблицу последних цен."""
         if last_prices:  # Если список последних цен не пуст.
+            '''---------------------Создание SQL-строки---------------------'''
+            sql_command_middle: str = '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'
+            sql_command: str = 'INSERT INTO \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") VALUES '.format(MyConnection.LAST_PRICES_TABLE)
+            for i in range(len(last_prices)):
+                if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
+                sql_command += sql_command_middle.format(i)
+            sql_command += ' ON CONFLICT(\"time\", \"instrument_uid\") DO UPDATE SET \"figi\" = \"excluded\".\"figi\", \"price\" = \"excluded\".\"price\";'
+            '''-------------------------------------------------------------'''
+
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            assert transaction_flag, db.lastError().text()
-
             if transaction_flag:
                 query = QSqlQuery(db)
-                sql_command: str = '''INSERT INTO "LastPrices" ("figi", "price", "time", "instrument_uid") VALUES '''
-                lp_count: int = len(last_prices)  # Количество последних цен.
-                for i in range(lp_count):
-                    if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
-                    sql_command += '''(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'''.format(i)
-
-                sql_command += ''' ON CONFLICT("time", "instrument_uid") DO 
-                               UPDATE SET "figi" = "excluded"."figi", "price" = "excluded"."price";'''
-
                 prepare_flag: bool = query.prepare(sql_command)
                 assert prepare_flag, query.lastError().text()
 
@@ -985,38 +1063,44 @@ class MainConnection(MyConnection):
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
+            else:
+                assert transaction_flag, db.lastError().text()
 
     @staticmethod
     def addAssetInstrument(db: QSqlDatabase, asset_uid: str, instrument: AssetInstrument):
         """Добавляет идентификаторы инструмента актива в таблицу идентификаторов инструментов активов."""
+
         def addInstrumentLinks(instrument_uid: str, links: list[InstrumentLink]):
             """Добавляет связанные инструменты в таблицу связей инструментов."""
             if links:  # Если список связанных инструментов не пуст.
-                insert_link_query = QSqlQuery(db)
-                insert_link_sql_command: str = '''INSERT INTO "InstrumentLinks" ("asset_uid", "uid", "type", "instrument_uid") VALUES '''
-                links_count: int = len(links)  # Количество связей.
-                for j in range(links_count):
+                '''---------------------Создание SQL-запроса---------------------'''
+                insert_link_sql_command: str = 'INSERT INTO \"{0}\" (\"asset_uid\", \"asset_instrument_uid\", \"type\", \"linked_instrument_uid\") VALUES '.format(MyConnection.INSTRUMENT_LINKS_TABLE)
+                for j in range(len(links)):
                     if j > 0: insert_link_sql_command += ', '  # Если добавляемая связь не первая.
-                    insert_link_sql_command += '''(:asset_uid{0}, :uid{0}, :type{0}, :instrument_uid{0})'''.format(j)
+                    insert_link_sql_command += '(:asset_uid{0}, :asset_instrument_uid{0}, :type{0}, :linked_instrument_uid{0})'.format(j)
                 insert_link_sql_command += ';'
+                '''--------------------------------------------------------------'''
 
+                insert_link_query = QSqlQuery(db)
                 insert_link_prepare_flag: bool = insert_link_query.prepare(insert_link_sql_command)
                 assert insert_link_prepare_flag, insert_link_query.lastError().text()
 
                 for j, link in enumerate(links):
                     insert_link_query.bindValue(':asset_uid{0}'.format(j), asset_uid)
-                    insert_link_query.bindValue(':uid{0}'.format(j), instrument_uid)
+                    insert_link_query.bindValue(':asset_instrument_uid{0}'.format(j), instrument_uid)
                     insert_link_query.bindValue(':type{0}'.format(j), link.type)
-                    insert_link_query.bindValue(':instrument_uid{0}'.format(j), link.instrument_uid)
+                    insert_link_query.bindValue(':linked_instrument_uid{0}'.format(j), link.instrument_uid)
 
                 insert_link_exec_flag: bool = insert_link_query.exec()
-                assert insert_link_exec_flag, '\n{0}\n{1}\nasset_uid: {2}, instrument_uid: {3}\n'.format(insert_link_query.lastError().text(), insert_link_query.lastQuery(), asset_uid, instrument_uid)
+                assert insert_link_exec_flag, insert_link_query.lastError().text()
+
+        insert_ai_query_str: str = '''INSERT INTO \"{0}\" (\"asset_uid\", \"uid\", \"figi\", \"instrument_type\", 
+            \"ticker\", \"class_code\", \"instrument_kind\", \"position_uid\") VALUES (:asset_uid, :uid, :figi, 
+            :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);
+            '''.format(MyConnection.ASSET_INSTRUMENTS_TABLE)
 
         insert_ai_query = QSqlQuery(db)
-        insert_ai_prepare_flag: bool = insert_ai_query.prepare('''
-        INSERT INTO "AssetInstruments" ("asset_uid", "uid", "figi", "instrument_type", "ticker", "class_code", "instrument_kind", "position_uid") VALUES
-        (:asset_uid, :uid, :figi, :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);
-        ''')
+        insert_ai_prepare_flag: bool = insert_ai_query.prepare(insert_ai_query_str)
         assert insert_ai_prepare_flag, insert_ai_query.lastError().text()
 
         insert_ai_query.bindValue(':asset_uid', asset_uid)
@@ -1025,7 +1109,7 @@ class MainConnection(MyConnection):
         insert_ai_query.bindValue(':instrument_type', instrument.instrument_type)
         insert_ai_query.bindValue(':ticker', instrument.ticker)
         insert_ai_query.bindValue(':class_code', instrument.class_code)
-        insert_ai_query.bindValue(':instrument_kind', int(instrument.instrument_kind))
+        insert_ai_query.bindValue(':instrument_kind', instrument.instrument_kind.name)
         insert_ai_query.bindValue(':position_uid', instrument.position_uid)
 
         insert_ai_exec_flag: bool = insert_ai_query.exec()
@@ -1039,30 +1123,32 @@ class MainConnection(MyConnection):
         if assets:  # Если список активов не пуст.
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            assert transaction_flag, db.lastError().text()
-
             if transaction_flag:
                 def insertAsset(asset: Asset):
                     """Добавляет актив в таблицу активов."""
+                    insert_asset_sql_command: str = '''
+                    INSERT INTO \"{0}\" (\"uid\", \"type\", \"name\") VALUES (:uid, :type, :name) 
+                    ON CONFLICT(\"uid\") DO UPDATE SET \"type\" = {1}.\"type\", \"name\" = {1}.\"name\";
+                    '''.format(MyConnection.ASSETS_TABLE, '\"excluded\"')
+
                     insert_asset_query = QSqlQuery(db)
-                    insert_asset_prepare_flag: bool = insert_asset_query.prepare('''
-                    INSERT INTO "Assets" ("uid", "type", "name") VALUES (:uid, :type, :name)
-                    ON CONFLICT("uid") DO UPDATE SET "type" = "excluded"."type", "name" = "excluded"."name";
-                    ''')
+                    insert_asset_prepare_flag: bool = insert_asset_query.prepare(insert_asset_sql_command)
                     assert insert_asset_prepare_flag, insert_asset_query.lastError().text()
 
                     insert_asset_query.bindValue(':uid', asset.uid)
-                    insert_asset_query.bindValue(':type', int(asset.type))
+                    insert_asset_query.bindValue(':type', asset.type.name)
                     insert_asset_query.bindValue(':name', asset.name)
 
                     insert_asset_exec_flag: bool = insert_asset_query.exec()
                     assert insert_asset_exec_flag, insert_asset_query.lastError().text()
 
                     for instrument in asset.instruments:
-                        cls.addAssetInstrument(db, asset.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
+                        MainConnection.addAssetInstrument(db, asset.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
 
                 for a in assets:
                     insertAsset(a)  # Добавляем актив в таблицу активов.
 
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
+            else:
+                assert transaction_flag, db.lastError().text()
