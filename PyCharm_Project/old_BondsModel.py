@@ -549,8 +549,8 @@ class BondsModel(QAbstractTableModel):
             for column, bond_column in self.columns.items():
                 if bond_column.dependsOnCoupons():
                     source_index: QModelIndex = self.index(row, column)
-                    # bond_class.setCoupons_signal.connect(lambda: self.dataChanged.emit(source_index, source_index))  # Подключаем слот обновления.
-                    bond_class.setCoupons_signal.connect(update_class(self, source_index, source_index))  # Подключаем слот обновления.
+                    # bond_class.couponsChanged_signal.connect(lambda: self.dataChanged.emit(source_index, source_index))  # Подключаем слот обновления.
+                    bond_class.couponsChanged_signal.connect(update_class(self, source_index, source_index))  # Подключаем слот обновления.
         self.endResetModel()  # Завершает операцию сброса модели.
 
     def setDateTime(self, entered_datetime: datetime):

@@ -7,7 +7,16 @@ from MyQuotation import MyQuotation
 class MyLastPrice(LastPrice):
     """Класс LastPrice, дополненный функциями."""
     def __init__(self, figi: str, price: Quotation, time: datetime, instrument_uid: str):
-        super().__init__(figi=figi, price=price, time=time, instrument_uid=instrument_uid)  # __init__() LastPrice.
+        super().__init__(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
+
+    def __eq__(self: LastPrice, other: LastPrice) -> bool:
+        if not isinstance(other, LastPrice):
+            raise TypeError('Тип правого операнда должен быть наследником LastPrice! Передан тип {0}.'.format(type(other)))
+        if self.figi == other.figi and self.price == other.price and self.time == other.time \
+                and self.instrument_uid == other.instrument_uid:
+            return True
+        else:
+            return False
 
     def isEmpty(self: LastPrice):
         """Проверка цены.

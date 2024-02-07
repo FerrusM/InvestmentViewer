@@ -124,6 +124,14 @@ class MyMoneyValue(MoneyValue):
             assert mmv.getMyQuotation().IsEmpty(), 'Экземпляр класса MoneyValue содержит непустую величину, но пустую строку валюты!'
             return True  # Строка валюты пуста.
 
+    def __eq__(self: MoneyValue, other: MoneyValue) -> bool:
+        if not isinstance(other, MoneyValue):
+            raise TypeError('Тип правого операнда должен быть наследником MoneyValue! Передан тип {0}.'.format(type(other)))
+        if self.currency == other.currency and MyMoneyValue.getQuotation(self) == MyMoneyValue.getQuotation(other):
+            return True
+        else:
+            return False
+
 
 def ifCurrenciesAreEqual(*currency_tuple) -> bool:
     """Функция возвращает True, если валюты переданных переменных равны, иначе возвращает False."""

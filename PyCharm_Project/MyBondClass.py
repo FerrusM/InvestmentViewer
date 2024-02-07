@@ -16,6 +16,19 @@ DAYS_IN_YEAR: int = 365
 
 class MyCoupon:
     """Класс, объединяющий функции для работы с купонами."""
+    def __eq__(self: Coupon, other: Coupon) -> bool:
+        """self == other"""
+        if not type(other) == Coupon:
+            raise TypeError('Правый операнд должен иметь тип Coupon, а передан тип {0}!'.format(type(other)))
+        if self.figi == other.figi and self.coupon_date == other.coupon_date and \
+                self.coupon_number == other.coupon_number and self.fix_date == other.fix_date and \
+                MyMoneyValue.__eq__(self.pay_one_bond, other.pay_one_bond) and \
+                self.coupon_type == other.coupon_type and self.coupon_start_date == other.coupon_start_date and \
+                self.coupon_end_date == other.coupon_end_date and self.coupon_period == other.coupon_period:
+            return True
+        else:
+            return False
+
     @staticmethod
     def ifCouponHasBeenPaid(coupon: Coupon, entered_datetime: datetime = getUtcDateTime()) -> bool:
         """Возвращает True, если купон уже выплачен на момент указанной даты, иначе возвращает False."""
@@ -73,6 +86,39 @@ class MyCoupon:
 
 class MyBond:
     """Класс, объединяющий функции для работы с облигациями."""
+    def __eq__(self: Bond, other: Bond):
+        if self.figi == other.figi and self.ticker == other.ticker and self.class_code == other.class_code and \
+                self.isin == other.isin and self.lot == other.lot and self.currency == other.currency and \
+                self.klong == other.klong and self.kshort == other.kshort and self.dlong == other.dlong and \
+                self.dshort == other.dshort and self.dlong_min == other.dlong_min and \
+                self.dshort_min == other.dshort_min and self.short_enabled_flag == other.short_enabled_flag and \
+                self.name == other.name and self.exchange == other.exchange and \
+                self.coupon_quantity_per_year == other.coupon_quantity_per_year and \
+                self.maturity_date == other.maturity_date and MyMoneyValue.__eq__(self.nominal, other.nominal) and \
+                MyMoneyValue.__eq__(self.initial_nominal, other.initial_nominal) and \
+                self.state_reg_date == other.state_reg_date and self.placement_date == other.placement_date and \
+                MyMoneyValue.__eq__(self.placement_price, other.placement_price) and \
+                MyMoneyValue.__eq__(self.aci_value, other.aci_value) and self.country_of_risk == other.country_of_risk \
+                and self.country_of_risk_name == other.country_of_risk_name and self.sector == other.sector and \
+                self.issue_kind == other.issue_kind and self.issue_size == other.issue_size and \
+                self.issue_size_plan == other.issue_size_plan and self.trading_status == other.trading_status and \
+                self.otc_flag == other.otc_flag and self.buy_available_flag == other.buy_available_flag and \
+                self.sell_available_flag == other.sell_available_flag and \
+                self.floating_coupon_flag == other.floating_coupon_flag and \
+                self.perpetual_flag == other.perpetual_flag and self.amortization_flag == other.amortization_flag and \
+                self.min_price_increment == other.min_price_increment and \
+                self.api_trade_available_flag == other.api_trade_available_flag and self.uid == other.uid and \
+                self.real_exchange == other.real_exchange and self.position_uid == other.position_uid and \
+                self.for_iis_flag == other.for_iis_flag and \
+                self.for_qual_investor_flag == other.for_qual_investor_flag and \
+                self.weekend_flag == other.weekend_flag and self.blocked_tca_flag == other.blocked_tca_flag and \
+                self.subordinated_flag == other.subordinated_flag and self.liquidity_flag == other.liquidity_flag and \
+                self.first_1min_candle_date == other.first_1min_candle_date and \
+                self.first_1day_candle_date == other.first_1day_candle_date and self.risk_level == other.risk_level:
+            return True
+        else:
+            return False
+
     @staticmethod  # Преобразует метод класса в статический метод этого класса.
     def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getUtcDateTime()) -> bool:
         """Проверяет, погашена ли облигация."""
@@ -91,7 +137,9 @@ class MyBond:
 
 class MyBondClass(QObject):
     """Класс облигации, дополненный параметрами (последняя цена, купоны) и функциями."""
-    setCoupons_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении списка купонов.
+    bondChanged_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении облигации.
+    couponsChanged_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении списка купонов.
+    lastPriceChanged_signal: pyqtSignal = pyqtSignal()  # Сигнал, испускаемый при изменении последней цены.
 
     def __init__(self, bond: Bond, last_price: LastPrice | None = None, coupons: list[Coupon] | None = None, candles: list[HistoricCandle] | None = None, parent: QObject | None = None):
         super().__init__(parent)
@@ -103,6 +151,28 @@ class MyBondClass(QObject):
     def instrument(self) -> Bond:
         """Возвращает инструмент (облигацию), хранящийся в классе."""
         return self.bond
+
+    def updateBond(self, bond: Bond):
+        """Обновляет облигацию."""
+        if not MyBond.__eq__(self.bond, bond):
+            self.bond = bond
+            self.bondChanged_signal.emit()  # Испускаем сигнал о том, что облигация была изменена.
+
+    def setLastPrice(self, last_price: LastPrice | None):
+        """Назначает последнюю цену облигации."""
+        if last_price is None:
+            if self.last_price is not None:
+                self.last_price = last_price
+                self.lastPriceChanged_signal.emit()  # Испускаем сигнал о том, что последняя цена была изменена.
+        else:
+            assert self.bond.uid == last_price.instrument_uid, 'Uid-идентификаторы облигации и последней цены должны совпадать (\'{0}\' и \'{1}\')!'.format(self.bond.uid, last_price.instrument_uid)
+            if self.last_price is None:
+                self.last_price = last_price
+                self.lastPriceChanged_signal.emit()  # Испускаем сигнал о том, что последняя цена была изменена.
+            else:
+                if not MyLastPrice.__eq__(last_price, self.last_price):
+                    self.last_price = last_price
+                    self.lastPriceChanged_signal.emit()  # Испускаем сигнал о том, что последняя цена была изменена.
 
     def getLastPrice(self) -> MyMoneyValue | None:
         """Рассчитывает последнюю цену одной облигации."""
@@ -131,21 +201,75 @@ class MyBondClass(QObject):
         if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
         return MyMoneyValue.__str__(last_price * self.bond.lot, ndigits, delete_decimal_zeros)
 
-    def getCoupon(self, coupon_number: int) -> Coupon | None:
-        """Возвращает купон, соответствующий переданному порядковому номеру.
+    def getCouponIndex(self, coupon_number: int) -> int | None:
+        """Находит по coupon_number купон в списке купонов облигации и возвращает его индекс.
         Если купон не найден, то возвращает None."""
-        if self.coupons is None:
+        found_coupons_indexes: list[int] = [i for i, cpn in enumerate(self.coupons) if cpn.coupon_number == coupon_number]
+        found_coupons_indexes_count: int = len(found_coupons_indexes)  # Количество найденных купонов.
+        if found_coupons_indexes_count == 0:
             return None
-        elif 0 <= coupon_number < len(self.coupons):
-            return self.coupons[coupon_number]
+        elif found_coupons_indexes_count == 1:
+            return found_coupons_indexes[0]
         else:
-            return None
+            raise SystemError('Облигация содержит несколько купонов с одинаковым coupon_number ({0})!'.format(self.bond.uid))
 
-    @pyqtSlot(list)
     def setCoupons(self, coupons_list: list[Coupon]):
         """Заполняет список купонов."""
-        self.coupons = coupons_list
-        self.setCoupons_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+        if len(coupons_list) == len(set(cpn.coupon_number for cpn in coupons_list)):
+            self.coupons = coupons_list
+            self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+        else:
+            raise SystemError('Каждый купон облигации должен иметь уникальный номер! Uid = \'{0}\''.format(self.bond.uid))
+
+    def addCoupon(self, coupon: Coupon):
+        """Добавляет купон в список купонов."""
+        if self.coupons is None:
+            self.coupons = [coupon]
+            self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+        else:
+            found_coupons: list[Coupon] = [cpn for cpn in self.coupons if cpn.coupon_number == coupon.coupon_number]
+            found_coupons_count: int = len(found_coupons)  # Количество купонов с таким же номером.
+            if found_coupons_count == 0:
+                self.coupons.append(coupon)
+                self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+            elif found_coupons_count == 1:
+                raise SystemError('Облигация \'{0}\' уже содержит купон с таким номером ({1})!'.format(self.bond.uid, coupon.coupon_number))
+            else:
+                raise SystemError('Облигация \'{0}\' содержит несколько купонов с одним и тем же номером ({1})!'.format(self.bond.uid, coupon.coupon_number))
+
+    def upsertCoupon(self, coupon: Coupon):
+        """Обновляет купон из списка купонов облигации, имеющий такой же coupon_number.
+        Если такого купона нет, то добавляет купон в список."""
+        if self.coupons is None:
+            self.coupons = [coupon]
+            self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+        else:
+            found_coupons_indexes: list[int] = [i for i, cpn in enumerate(self.coupons) if cpn.coupon_number == coupon.coupon_number]
+            found_coupons_indexes_count: int = len(found_coupons_indexes)  # Количество купонов с таким же номером.
+            if found_coupons_indexes_count == 0:
+                self.coupons.append(coupon)
+                self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+            elif found_coupons_indexes_count == 1:
+                old_coupon_index: int = found_coupons_indexes[0]
+                if MyCoupon.__eq__(coupon, self.coupons[old_coupon_index]):
+                    return  # Если купоны одинаковы, то нет смысла что-то перезаписывать.
+                else:
+                    self.coupons[old_coupon_index] = coupon
+                    self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
+            else:
+                raise SystemError('Облигация \'{0}\' содержит несколько купонов с одним и тем же номером ({1})!'.format(self.bond.uid, coupon.coupon_number))
+
+    def removeCoupons(self, coupon_number: int):
+        """Удаляет из списка купонов облигации купоны, чей coupon_number равен переданному."""
+        begin_coupons_count: int = len(self.coupons)
+        i: int = 0
+        while i < len(self.coupons):
+            if self.coupons[i].coupon_number == coupon_number:
+                self.coupons.pop(i)
+            else:
+                i += 1
+        if begin_coupons_count != len(self.coupons):
+            self.couponsChanged_signal.emit()  # Испускаем сигнал о том, что купоны были изменены.
 
     def getCouponsCurrency(self) -> str | None:
         """Если все купоны облигации имеют одинаковую валюту, то возвращает её, иначе возвращает None."""

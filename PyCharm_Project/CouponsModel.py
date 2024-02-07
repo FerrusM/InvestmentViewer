@@ -129,10 +129,14 @@ class CouponsModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if self._bond_class is not None:
-            coupon: Coupon | None = self._bond_class.getCoupon(index.row())
-            if coupon is not None:
-                column: CouponColumn = self.columns[index.column()]
-                return column(role, self._bond_class, coupon)
+            # coupon: Coupon | None = self._bond_class.getCoupon(index.row())
+            # if coupon is not None:
+            #     column: CouponColumn = self.columns[index.column()]
+            #     return column(role, self._bond_class, coupon)
+
+            coupon: Coupon = self._bond_class.coupons[index.row()]
+            column: CouponColumn = self.columns[index.column()]
+            return column(role, self._bond_class, coupon)
 
 
 class CouponsProxyModel(QSortFilterProxyModel):

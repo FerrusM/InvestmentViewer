@@ -254,7 +254,7 @@ class MyConnection(ABC):
         return QSqlDatabase.database(cls.CONNECTION_NAME)
 
     @staticmethod
-    def convertDateTimeToText(dt: datetime, sep: str = ' ', timespec: str = 'auto') -> str:
+    def convertDateTimeToText(dt: datetime, sep: str = 'T', timespec: str = 'auto') -> str:
         """Конвертирует datetime в TEXT для хранения в БД."""
         return dt.isoformat(sep=sep, timespec=timespec)
 

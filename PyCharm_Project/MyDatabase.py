@@ -13,15 +13,16 @@ class MainConnection(MyConnection):
         self.open()  # Открываем соединение с базой данных.
         self.createDataBase()  # Создаёт базу данных.
 
-        def notificationSlot(name: str, source: QSqlDriver.NotificationSource, payload):
-            print('notificationSlot: name = {0}, source = {1}, payload = {2}'.format(name, source, payload))
-            assert name == self.BONDS_TABLE, 'Неверный параметр name ({0}).'.format(name)
-
-        db: QSqlDatabase = self.getDatabase()
-        driver = db.driver()
-        subscribe_flag: bool = driver.subscribeToNotification(self.BONDS_TABLE)
-        assert subscribe_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}.'.format(self.BONDS_TABLE)
-        driver.notification.connect(notificationSlot)
+        # def notificationSlot(name: str, source: QSqlDriver.NotificationSource, payload):
+        #     # print('notificationSlot: name = {0}, source = {1}, payload = {2}.'.format(name, source, payload))
+        #     print('notificationSlot: name = {0}, source = {1}, payload = {2} (type = {3}).'.format(name, source, payload, type(payload)))
+        #     assert name == self.BONDS_TABLE, 'Неверный параметр name ({0})!'.format(name)
+        #
+        # db: QSqlDatabase = self.getDatabase()
+        # driver = db.driver()
+        # subscribe_flag: bool = driver.subscribeToNotification(self.BONDS_TABLE)
+        # assert subscribe_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(self.BONDS_TABLE)
+        # driver.notification.connect(notificationSlot)
 
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
     def createDataBase(cls):
@@ -346,8 +347,9 @@ class MainConnection(MyConnection):
 
             '''---------------Создание представления последних цен---------------'''
             last_prices_view_query_str: str = '''
-            CREATE VIEW IF NOT EXISTS \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") AS
-            SELECT {1}.\"figi\" AS \"figi\", {1}.\"price\" AS \"price\", MAX({1}.\"time\") AS \"time\", {1}.\"instrument_uid\" AS \"instrument_uid\" 
+            CREATE VIEW IF NOT EXISTS \"{0}\" (\"lp_rowid\", \"figi\", \"price\", \"time\", \"instrument_uid\") AS
+            SELECT {1}.\"rowid\" AS \"lp_rowid\", {1}.\"figi\" AS \"figi\", {1}.\"price\" AS \"price\", 
+            MAX({1}.\"time\") AS \"time\", {1}.\"instrument_uid\" AS \"instrument_uid\" 
             FROM {1} GROUP BY {1}.\"instrument_uid\"
             ;'''.format(MyConnection.LAST_PRICES_VIEW, '\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
             last_prices_view_query = QSqlQuery(db)
@@ -424,7 +426,6 @@ class MainConnection(MyConnection):
             \"description\" TEXT,
             \"deleted_at\" TEXT,
             \"required_tests\" TEXT,
-            \"security\",
             \"gos_reg_code\" TEXT,
             \"cfi\" TEXT,
             \"code_nsd\" TEXT,
@@ -695,8 +696,8 @@ class MainConnection(MyConnection):
                 query.bindValue(':type', int(account.type))
                 query.bindValue(':name', account.name)
                 query.bindValue(':status', int(account.status))
-                query.bindValue(':opened_date', MyConnection.convertDateTimeToText(account.opened_date))
-                query.bindValue(':closed_date', MyConnection.convertDateTimeToText(account.closed_date))
+                query.bindValue(':opened_date', MyConnection.convertDateTimeToText(account.opened_date, sep=' '))
+                query.bindValue(':closed_date', MyConnection.convertDateTimeToText(account.closed_date, sep=' '))
                 query.bindValue(':access_level', int(account.access_level))
                 exec_flag: bool = query.exec()
                 assert exec_flag, query.lastError().text()
@@ -751,33 +752,83 @@ class MainConnection(MyConnection):
                 :liquidity_flag{0}, :first_1min_candle_date{0}, :first_1day_candle_date{0}, :risk_level{0}
                 )'''
 
+                # bonds_insert_sql_command_end: str = ''' ON CONFLICT(\"uid\") DO UPDATE SET \"figi\" = {0}.\"figi\",
+                # \"ticker\" = {0}.\"ticker\", \"class_code\" = {0}.\"class_code\", \"isin\" = {0}.\"isin\",
+                # \"lot\" = {0}.\"lot\", \"currency\" = {0}.\"currency\", \"klong\" = {0}.\"klong\",
+                # \"kshort\" = {0}.\"kshort\", \"dlong\" = {0}.\"dlong\", \"dshort\" = {0}.\"dshort\",
+                # \"dlong_min\" = {0}.\"dlong_min\", \"dshort_min\" = {0}.\"dshort_min\",
+                # \"short_enabled_flag\" = {0}.\"short_enabled_flag\", \"name\" = {0}.\"name\",
+                # \"exchange\" = {0}.\"exchange\", \"coupon_quantity_per_year\" = {0}.\"coupon_quantity_per_year\",
+                # \"maturity_date\" = {0}.\"maturity_date\", \"nominal\" = {0}.\"nominal\",
+                # \"initial_nominal\" = {0}.\"initial_nominal\", \"state_reg_date\" = {0}.\"state_reg_date\",
+                # \"placement_date\" = {0}.\"placement_date\", \"placement_price\" = {0}.\"placement_price\",
+                # \"aci_value\" = {0}.\"aci_value\", \"country_of_risk\" = {0}.\"country_of_risk\",
+                # \"country_of_risk_name\" = {0}.\"country_of_risk_name\", \"sector\" = {0}.\"sector\",
+                # \"issue_kind\" = {0}.\"issue_kind\", \"issue_size\" = {0}.\"issue_size\",
+                # \"issue_size_plan\" = {0}.\"issue_size_plan\", \"trading_status\" = {0}.\"trading_status\",
+                # \"otc_flag\" = {0}.\"otc_flag\", \"buy_available_flag\" = {0}.\"buy_available_flag\",
+                # \"sell_available_flag\" = {0}.\"sell_available_flag\",
+                # \"floating_coupon_flag\" = {0}.\"floating_coupon_flag\",
+                # \"perpetual_flag\" = {0}.\"perpetual_flag\", \"amortization_flag\" = {0}.\"amortization_flag\",
+                # \"min_price_increment\" = {0}.\"min_price_increment\",
+                # \"api_trade_available_flag\" = {0}.\"api_trade_available_flag\",
+                # \"real_exchange\" = {0}.\"real_exchange\", \"position_uid\" = {0}.\"position_uid\",
+                # \"for_iis_flag\" = {0}.\"for_iis_flag\", \"for_qual_investor_flag\" = {0}.\"for_qual_investor_flag\",
+                # \"weekend_flag\" = {0}.\"weekend_flag\", \"blocked_tca_flag\" = {0}.\"blocked_tca_flag\",
+                # \"subordinated_flag\" = {0}.\"subordinated_flag\", \"liquidity_flag\" = {0}.\"liquidity_flag\",
+                # \"first_1min_candle_date\" = {0}.\"first_1min_candle_date\",
+                # \"first_1day_candle_date\" = {0}.\"first_1day_candle_date\", \"risk_level\" = {0}.\"risk_level\"
+                # ;'''.format('\"excluded\"')
+
+                '''------------Изменённая ON CONFLICT часть, которая не обновляет совпадающие записи------------'''
                 bonds_insert_sql_command_end: str = ''' ON CONFLICT(\"uid\") DO UPDATE SET \"figi\" = {0}.\"figi\", 
-                \"ticker\" = {0}.\"ticker\", \"class_code\" = {0}.\"class_code\", \"isin\" = {0}.\"isin\", 
-                \"lot\" = {0}.\"lot\", \"currency\" = {0}.\"currency\", \"klong\" = {0}.\"klong\", 
-                \"kshort\" = {0}.\"kshort\", \"dlong\" = {0}.\"dlong\", \"dshort\" = {0}.\"dshort\", 
-                \"dlong_min\" = {0}.\"dlong_min\", \"dshort_min\" = {0}.\"dshort_min\", 
-                \"short_enabled_flag\" = {0}.\"short_enabled_flag\", \"name\" = {0}.\"name\", 
-                \"exchange\" = {0}.\"exchange\", \"coupon_quantity_per_year\" = {0}.\"coupon_quantity_per_year\", 
-                \"maturity_date\" = {0}.\"maturity_date\", \"nominal\" = {0}.\"nominal\", 
-                \"initial_nominal\" = {0}.\"initial_nominal\", \"state_reg_date\" = {0}.\"state_reg_date\", 
-                \"placement_date\" = {0}.\"placement_date\", \"placement_price\" = {0}.\"placement_price\", 
-                \"aci_value\" = {0}.\"aci_value\", \"country_of_risk\" = {0}.\"country_of_risk\", 
-                \"country_of_risk_name\" = {0}.\"country_of_risk_name\", \"sector\" = {0}.\"sector\", 
-                \"issue_kind\" = {0}.\"issue_kind\", \"issue_size\" = {0}.\"issue_size\", 
+                \"ticker\" = {0}.\"ticker\", \"class_code\" = {0}.\"class_code\", \"isin\" = {0}.\"isin\", \"lot\" = 
+                {0}.\"lot\", \"currency\" = {0}.\"currency\", \"klong\" = {0}.\"klong\", \"kshort\" = {0}.\"kshort\", 
+                \"dlong\" = {0}.\"dlong\", \"dshort\" = {0}.\"dshort\", \"dlong_min\" = {0}.\"dlong_min\", 
+                \"dshort_min\" = {0}.\"dshort_min\", \"short_enabled_flag\" = {0}.\"short_enabled_flag\", \"name\" = 
+                {0}.\"name\", \"exchange\" = {0}.\"exchange\", \"coupon_quantity_per_year\" = 
+                {0}.\"coupon_quantity_per_year\", \"maturity_date\" = {0}.\"maturity_date\", \"nominal\" = 
+                {0}.\"nominal\", \"initial_nominal\" = {0}.\"initial_nominal\", \"state_reg_date\" = 
+                {0}.\"state_reg_date\", \"placement_date\" = {0}.\"placement_date\", \"placement_price\" = 
+                {0}.\"placement_price\", \"aci_value\" = {0}.\"aci_value\", \"country_of_risk\" = 
+                {0}.\"country_of_risk\", \"country_of_risk_name\" = {0}.\"country_of_risk_name\", \"sector\" = 
+                {0}.\"sector\", \"issue_kind\" = {0}.\"issue_kind\", \"issue_size\" = {0}.\"issue_size\", 
                 \"issue_size_plan\" = {0}.\"issue_size_plan\", \"trading_status\" = {0}.\"trading_status\", 
                 \"otc_flag\" = {0}.\"otc_flag\", \"buy_available_flag\" = {0}.\"buy_available_flag\", 
-                \"sell_available_flag\" = {0}.\"sell_available_flag\", 
-                \"floating_coupon_flag\" = {0}.\"floating_coupon_flag\", 
-                \"perpetual_flag\" = {0}.\"perpetual_flag\", \"amortization_flag\" = {0}.\"amortization_flag\", 
-                \"min_price_increment\" = {0}.\"min_price_increment\", 
-                \"api_trade_available_flag\" = {0}.\"api_trade_available_flag\", 
-                \"real_exchange\" = {0}.\"real_exchange\", \"position_uid\" = {0}.\"position_uid\", 
-                \"for_iis_flag\" = {0}.\"for_iis_flag\", \"for_qual_investor_flag\" = {0}.\"for_qual_investor_flag\", 
-                \"weekend_flag\" = {0}.\"weekend_flag\", \"blocked_tca_flag\" = {0}.\"blocked_tca_flag\", 
-                \"subordinated_flag\" = {0}.\"subordinated_flag\", \"liquidity_flag\" = {0}.\"liquidity_flag\", 
-                \"first_1min_candle_date\" = {0}.\"first_1min_candle_date\", 
-                \"first_1day_candle_date\" = {0}.\"first_1day_candle_date\", \"risk_level\" = {0}.\"risk_level\"
-                ;'''.format('\"excluded\"')
+                \"sell_available_flag\" = {0}.\"sell_available_flag\", \"floating_coupon_flag\" = 
+                {0}.\"floating_coupon_flag\", \"perpetual_flag\" = {0}.\"perpetual_flag\", \"amortization_flag\" = 
+                {0}.\"amortization_flag\", \"min_price_increment\" = {0}.\"min_price_increment\", 
+                \"api_trade_available_flag\" = {0}.\"api_trade_available_flag\", \"real_exchange\" = 
+                {0}.\"real_exchange\", \"position_uid\" = {0}.\"position_uid\", \"for_iis_flag\" = {0}.\"for_iis_flag\", 
+                \"for_qual_investor_flag\" = {0}.\"for_qual_investor_flag\", \"weekend_flag\" = {0}.\"weekend_flag\", 
+                \"blocked_tca_flag\" = {0}.\"blocked_tca_flag\", \"subordinated_flag\" = {0}.\"subordinated_flag\", 
+                \"liquidity_flag\" = {0}.\"liquidity_flag\", \"first_1min_candle_date\" = 
+                {0}.\"first_1min_candle_date\", \"first_1day_candle_date\" = {0}.\"first_1day_candle_date\", 
+                \"risk_level\" = {0}.\"risk_level\" WHERE \"figi\" != {0}.\"figi\" OR \"ticker\" != {0}.\"ticker\" OR 
+                \"class_code\" != {0}.\"class_code\" OR \"isin\" != {0}.\"isin\" OR \"lot\" != {0}.\"lot\" OR 
+                \"currency\" != {0}.\"currency\" OR \"klong\" != {0}.\"klong\" OR \"kshort\" != {0}.\"kshort\" OR 
+                \"dlong\" != {0}.\"dlong\" OR \"dshort\" != {0}.\"dshort\" OR \"dlong_min\" != {0}.\"dlong_min\" OR 
+                \"dshort_min\" != {0}.\"dshort_min\" OR \"short_enabled_flag\" != {0}.\"short_enabled_flag\" OR 
+                \"name\" != {0}.\"name\" OR \"exchange\" != {0}.\"exchange\" OR \"coupon_quantity_per_year\" != 
+                {0}.\"coupon_quantity_per_year\" OR \"maturity_date\" != {0}.\"maturity_date\" OR \"nominal\" != 
+                {0}.\"nominal\" OR \"initial_nominal\" != {0}.\"initial_nominal\" OR \"state_reg_date\" != 
+                {0}.\"state_reg_date\" OR \"placement_date\" != {0}.\"placement_date\" OR \"placement_price\" != 
+                {0}.\"placement_price\" OR \"aci_value\" != {0}.\"aci_value\" OR \"country_of_risk\" != 
+                {0}.\"country_of_risk\" OR \"country_of_risk_name\" != {0}.\"country_of_risk_name\" OR \"sector\" != 
+                {0}.\"sector\" OR \"issue_kind\" != {0}.\"issue_kind\" OR \"issue_size\" != {0}.\"issue_size\" OR 
+                \"issue_size_plan\" != {0}.\"issue_size_plan\" OR \"trading_status\" != {0}.\"trading_status\" OR 
+                \"otc_flag\" != {0}.\"otc_flag\" OR \"buy_available_flag\" != {0}.\"buy_available_flag\" OR 
+                \"sell_available_flag\" != {0}.\"sell_available_flag\" OR \"floating_coupon_flag\" != 
+                {0}.\"floating_coupon_flag\" OR \"perpetual_flag\" != {0}.\"perpetual_flag\" OR \"amortization_flag\" != 
+                {0}.\"amortization_flag\" OR \"min_price_increment\" != {0}.\"min_price_increment\" OR 
+                \"api_trade_available_flag\" != {0}.\"api_trade_available_flag\" OR \"real_exchange\" != 
+                {0}.\"real_exchange\" OR \"position_uid\" != {0}.\"position_uid\" OR \"for_iis_flag\" != 
+                {0}.\"for_iis_flag\" OR \"for_qual_investor_flag\" != {0}.\"for_qual_investor_flag\" OR 
+                \"weekend_flag\" != {0}.\"weekend_flag\" OR \"blocked_tca_flag\" != {0}.\"blocked_tca_flag\" OR 
+                \"subordinated_flag\" != {0}.\"subordinated_flag\" OR \"liquidity_flag\" != {0}.\"liquidity_flag\" OR 
+                \"first_1min_candle_date\" != {0}.\"first_1min_candle_date\" OR \"first_1day_candle_date\" != 
+                {0}.\"first_1day_candle_date\" OR \"risk_level\" != {0}.\"risk_level\";'''.format('\"excluded\"')
+                '''---------------------------------------------------------------------------------------------'''
 
                 bonds_packs: list[list[Bond]] = partition(bonds, bonds_in_pack)
                 for pack in bonds_packs:
@@ -810,11 +861,11 @@ class MainConnection(MyConnection):
                         query.bindValue(':name{0}'.format(i), bond.name)
                         query.bindValue(':exchange{0}'.format(i), bond.exchange)
                         query.bindValue(':coupon_quantity_per_year{0}'.format(i), bond.coupon_quantity_per_year)
-                        query.bindValue(':maturity_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.maturity_date))
+                        query.bindValue(':maturity_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.maturity_date, sep=' '))
                         query.bindValue(':nominal{0}'.format(i), MyMoneyValue.__repr__(bond.nominal))
                         query.bindValue(':initial_nominal{0}'.format(i), MyMoneyValue.__repr__(bond.initial_nominal))
-                        query.bindValue(':state_reg_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.state_reg_date))
-                        query.bindValue(':placement_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.placement_date))
+                        query.bindValue(':state_reg_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.state_reg_date, sep=' '))
+                        query.bindValue(':placement_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.placement_date, sep=' '))
                         query.bindValue(':placement_price{0}'.format(i), MyMoneyValue.__repr__(bond.placement_price))
                         query.bindValue(':aci_value{0}'.format(i), MyMoneyValue.__repr__(bond.aci_value))
                         query.bindValue(':country_of_risk{0}'.format(i), bond.country_of_risk)
@@ -841,8 +892,8 @@ class MainConnection(MyConnection):
                         query.bindValue(':blocked_tca_flag{0}'.format(i), bond.blocked_tca_flag)
                         query.bindValue(':subordinated_flag{0}'.format(i), bond.subordinated_flag)
                         query.bindValue(':liquidity_flag{0}'.format(i), bond.liquidity_flag)
-                        query.bindValue(':first_1min_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1min_candle_date))
-                        query.bindValue(':first_1day_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1day_candle_date))
+                        query.bindValue(':first_1min_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1min_candle_date, sep=' '))
+                        query.bindValue(':first_1day_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1day_candle_date, sep=' '))
                         query.bindValue(':risk_level{0}'.format(i), int(bond.risk_level))
 
                     bonds_insert_exec_flag: bool = query.exec()
@@ -957,7 +1008,7 @@ class MainConnection(MyConnection):
                     query.bindValue(':short_enabled_flag', share.short_enabled_flag)
                     query.bindValue(':name', share.name)
                     query.bindValue(':exchange', share.exchange)
-                    query.bindValue(':ipo_date', MyConnection.convertDateTimeToText(share.ipo_date))
+                    query.bindValue(':ipo_date', MyConnection.convertDateTimeToText(share.ipo_date, sep=' '))
                     query.bindValue(':issue_size', share.issue_size)
                     query.bindValue(':country_of_risk', share.country_of_risk)
                     query.bindValue(':country_of_risk_name', share.country_of_risk_name)
@@ -980,8 +1031,8 @@ class MainConnection(MyConnection):
                     query.bindValue(':weekend_flag', share.weekend_flag)
                     query.bindValue(':blocked_tca_flag', share.blocked_tca_flag)
                     query.bindValue(':liquidity_flag', share.liquidity_flag)
-                    query.bindValue(':first_1min_candle_date', MyConnection.convertDateTimeToText(share.first_1min_candle_date))
-                    query.bindValue(':first_1day_candle_date', MyConnection.convertDateTimeToText(share.first_1day_candle_date))
+                    query.bindValue(':first_1min_candle_date', MyConnection.convertDateTimeToText(share.first_1min_candle_date, sep=' '))
+                    query.bindValue(':first_1day_candle_date', MyConnection.convertDateTimeToText(share.first_1day_candle_date, sep=' '))
 
                     exec_flag: bool = query.exec()
                     assert exec_flag, query.lastError().text()
@@ -1036,13 +1087,23 @@ class MainConnection(MyConnection):
     def addLastPrices(cls, last_prices: list[LastPrice]):
         """Добавляет последние цены в таблицу последних цен."""
         if last_prices:  # Если список последних цен не пуст.
+            # '''---------------------Создание SQL-строки---------------------'''
+            # sql_command_middle: str = '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'
+            # sql_command: str = 'INSERT INTO \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") VALUES '.format(MyConnection.LAST_PRICES_TABLE)
+            # for i in range(len(last_prices)):
+            #     if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
+            #     sql_command += sql_command_middle.format(i)
+            # sql_command += ' ON CONFLICT(\"time\", \"instrument_uid\") DO UPDATE SET \"figi\" = \"excluded\".\"figi\", \"price\" = \"excluded\".\"price\";'
+            # '''-------------------------------------------------------------'''
+
             '''---------------------Создание SQL-строки---------------------'''
             sql_command_middle: str = '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'
             sql_command: str = 'INSERT INTO \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") VALUES '.format(MyConnection.LAST_PRICES_TABLE)
             for i in range(len(last_prices)):
                 if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
                 sql_command += sql_command_middle.format(i)
-            sql_command += ' ON CONFLICT(\"time\", \"instrument_uid\") DO UPDATE SET \"figi\" = \"excluded\".\"figi\", \"price\" = \"excluded\".\"price\";'
+            sql_command += ''' ON CONFLICT(\"time\", \"instrument_uid\") DO UPDATE SET \"figi\" = \"excluded\".\"figi\", \"price\" = \"excluded\".\"price\" 
+            WHERE \"figi\" != \"excluded\".\"figi\" OR \"price\" != \"excluded\".\"price\";'''
             '''-------------------------------------------------------------'''
 
             db: QSqlDatabase = cls.getDatabase()
@@ -1055,7 +1116,7 @@ class MainConnection(MyConnection):
                 for i, lp in enumerate(last_prices):
                     query.bindValue(':figi{0}'.format(i), lp.figi)
                     query.bindValue(':price{0}'.format(i), MyQuotation.__repr__(lp.price))
-                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(dt=lp.time, timespec='microseconds'))
+                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(dt=lp.time, sep=' ', timespec='microseconds'))
                     query.bindValue(':instrument_uid{0}'.format(i), lp.instrument_uid)
 
                 exec_flag: bool = query.exec()
