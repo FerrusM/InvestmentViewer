@@ -8,7 +8,8 @@ from tinkoff.invest.schemas import RiskLevel, LastPrice, Coupon, CouponType, Mon
 from Classes import MyConnection, Column, TokenClass, reportTradingStatus
 from MyBondClass import MyBondClass, MyBond, TINKOFF_COMMISSION, MyCoupon, NDFL, DAYS_IN_YEAR
 from MyDatabase import MainConnection
-from MyDateTime import reportSignificantInfoFromDateTime, ifDateTimeIsEmpty, reportDateIfOnlyDate, getUtcDateTime, getCountOfDaysBetweenTwoDateTimes
+from MyDateTime import reportSignificantInfoFromDateTime, ifDateTimeIsEmpty, reportDateIfOnlyDate, getUtcDateTime, \
+    getCountOfDaysBetweenTwoDateTimes, getMoscowDateTime
 from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation, MyDecimal
@@ -456,35 +457,52 @@ class BondsModel(QAbstractTableModel):
         self.__calculation_dt: datetime = calculation_dt  # Дата расчёта.
         '''----------------------------------------------------------'''
 
+        '''-------Статистические параметры-------'''
         self.bond_notifications_count: int = 0
         self.lp_notifications_count: int = 0
         self.coupons_notifications_count: int = 0
+
+        self.bond_notifications_seconds: float = 0.0
+        self.lp_notifications_seconds: float = 0.0
+        self.coupons_notifications_seconds: float = 0.0
+        '''--------------------------------------'''
 
         self.update(token, instrument_status, sql_condition)  # Обновляем данные модели.
 
         '''------------------------Подписываемся на уведомления от бд------------------------'''
         def notificationSlot(name: str, source: QtSql.QSqlDriver.NotificationSource, payload: int):
-            # print('notificationSlot: name = {0}, source = {1}, payload = {2}.'.format(name, source, payload))
-            if name == MyConnection.BONDS_TABLE:
-                self.bond_notifications_count += 1
-                print('notificationSlot: name = {0} ({3}), source = {1}, payload = {2}.'.format(name, source, payload, self.bond_notifications_count))
-                if self.__token is None:
-                    return
-                self.updateBondRow(payload)
-            elif name == MyConnection.COUPONS_TABLE:
-                self.coupons_notifications_count += 1
-                print('notificationSlot: name = {0} ({3}), source = {1}, payload = {2}.'.format(name, source, payload, self.coupons_notifications_count))
-                if self.__token is None:
-                    return
-                self.updateCouponsRow(payload)
-            elif name == MyConnection.LAST_PRICES_TABLE:
-                self.lp_notifications_count += 1
-                print('notificationSlot: name = {0} ({3}), source = {1}, payload = {2}.'.format(name, source, payload, self.lp_notifications_count))
-                if self.__token is None:
-                    return
-                self.updateLastPricesRow(payload)
+            assert source == QtSql.QSqlDriver.NotificationSource.UnknownSource
+            # print('notificationSlot: name = {0}, payload = {1}.'.format(name, payload))
+            if self.__token is None:
+                if name == MyConnection.BONDS_TABLE:
+                    self.bond_notifications_count += 1
+                elif name == MyConnection.COUPONS_TABLE:
+                    self.coupons_notifications_count += 1
+                elif name == MyConnection.LAST_PRICES_TABLE:
+                    self.lp_notifications_count += 1
+                else:
+                    raise ValueError('Неверный параметр name ({0})!'.format(name))
             else:
-                raise ValueError('Неверный параметр name ({0})!'.format(name))
+                if name == MyConnection.BONDS_TABLE:
+                    self.bond_notifications_count += 1
+                    begin_datetime: datetime = getUtcDateTime()
+                    print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.bond_notifications_count))
+                    self.updateBondRow(payload)
+                    self.bond_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+                elif name == MyConnection.COUPONS_TABLE:
+                    self.coupons_notifications_count += 1
+                    begin_datetime: datetime = getUtcDateTime()
+                    print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.coupons_notifications_count))
+                    self.updateCouponsRow(payload)
+                    self.coupons_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+                elif name == MyConnection.LAST_PRICES_TABLE:
+                    self.lp_notifications_count += 1
+                    begin_datetime: datetime = getUtcDateTime()
+                    print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.lp_notifications_count))
+                    self.updateLastPricesRow_new(payload)
+                    self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+                else:
+                    raise ValueError('Неверный параметр name ({0})!'.format(name))
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
         driver = db.driver()
@@ -498,6 +516,15 @@ class BondsModel(QAbstractTableModel):
         assert subscribe_lp_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.LAST_PRICES_TABLE)
         '''----------------------------------------------------------------------------------'''
 
+    def getBondNotificationAverageTime(self) -> float:
+        return self.bond_notifications_seconds / self.bond_notifications_count
+
+    def getCouponsNotificationAverageTime(self) -> float:
+        return self.coupons_notifications_seconds / self.coupons_notifications_count
+
+    def getLpNotificationAverageTime(self) -> float:
+        return self.lp_notifications_seconds / self.lp_notifications_count
+
     def update(self, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None):
         """Обновляет данные модели в соответствии с переданными параметрами запроса к БД."""
         self.beginResetModel()  # Начинаем операцию сброса модели.
@@ -508,9 +535,21 @@ class BondsModel(QAbstractTableModel):
         self.__sql_condition = sql_condition
         '''----------------------------------------------'''
 
+        '''-------Статистические параметры-------'''
+        self.bond_notifications_count = 0
+        self.lp_notifications_count = 0
+        self.coupons_notifications_count = 0
+
+        self.bond_notifications_seconds = 0.0
+        self.lp_notifications_seconds = 0.0
+        self.coupons_notifications_seconds = 0.0
+        '''--------------------------------------'''
+
         if token is None:
             self.__rows.clear()  # Очищаем список с удалением всех строк.
         else:
+            self.__rows.clear()  # Очищаем список с удалением всех строк.
+
             '''---------------------------------------Создание запроса к БД---------------------------------------'''
             bonds_select: str = '''
             SELECT {0}.\"rowid\", {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", {0}.\"lot\", {0}.\"currency\",
@@ -567,7 +606,6 @@ class BondsModel(QAbstractTableModel):
                 assert exec_flag, query.lastError().text()
 
                 '''------------------------Извлекаем список облигаций------------------------'''
-                self.__rows.clear()  # Очищаем список с удалением всех строк.
                 while query.next():
                     def getLastPrice(bond_uid: str) -> LastPrice | None:
                         """Создаёт и возвращает экземпляр класса LastPrice."""
@@ -827,7 +865,6 @@ class BondsModel(QAbstractTableModel):
         else:
             raise SystemError('Модель облигаций содержит несколько облигаций с одинаковым uid (\'{0}\')!'.format(uid))
 
-    @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def updateBondRow(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы облигаций."""
         rowid_select: str = '''SELECT {0}.\"uid\" FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format(
@@ -863,7 +900,7 @@ class BondsModel(QAbstractTableModel):
                     deleted_row: BondsModel.BondRow = self.__rows.pop(row_index)
                     deleted_row.disconnectAllConnections()  # Отключаем и удаляем все соединения.
                     self.endRemoveRows()
-                    print('Облигация \'{0}\' удалена из модели облигаций.'.format(deleted_row.bond.uid))
+                    print('Облигация \'{0}\' удалена из модели облигаций. Время: {1:.2f}c.'.format(deleted_row.bond.uid, self.getBondNotificationAverageTime()))
             else:
                 """Если облигация была получена."""
                 '''----------------Проверяем облигацию на статус и фильтры----------------'''
@@ -950,7 +987,7 @@ class BondsModel(QAbstractTableModel):
                         self.endRemoveRows()
 
                         if deleted_row is not None:
-                            print('Облигация \'{0}\' обновилась и больше не соответствует фильтрам. Облигация удалена из модели облигаций.'.format(deleted_row.bond.uid))
+                            print('Облигация \'{0}\' обновилась и больше не соответствует фильтрам. Облигация удалена из модели облигаций. Время: {1:.2f}c.'.format(deleted_row.bond.uid, self.getBondNotificationAverageTime()))
                 else:
                     """Если облигация была получена, то она должна присутствовать в модели."""
                     if row_index is None:
@@ -1029,19 +1066,17 @@ class BondsModel(QAbstractTableModel):
                                     self.__rows[first].appendLastPriceChangedConnection(last_price_changed_connection)
                         '''--------------------------------------------------------------------------------------------'''
                         self.endInsertRows()
-
-                        print('Добавлена облигация \'{0}\' в модель облигаций.'.format(new_filtered_bond.uid))
+                        print('Добавлена облигация \'{0}\' в модель облигаций. Время: {1:.2f}c.'.format(new_filtered_bond.uid, self.getBondNotificationAverageTime()))
                     else:
                         """Если облигация с таким uid есть в модели, то её следует обновить."""
                         self.__rows[row_index].bond_class.updateBond(new_filtered_bond)
-                        # print('Облигация \'{0}\' в модели облигаций обновлена.'.format(changed_rowid_uid))
+                        print('Облигация \'{0}\' в модели облигаций обновлена. Время: {1:.2f}c.'.format(changed_rowid_uid, self.getBondNotificationAverageTime()))
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
             assert transaction_flag, db.lastError().text()
 
-    @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def updateCouponsRow(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы купонов."""
         rowid_select_str: str = '''SELECT {0}.\"instrument_uid\", {0}.\"figi\", {0}.\"coupon_date\", 
@@ -1088,8 +1123,7 @@ class BondsModel(QAbstractTableModel):
         else:
             assert transaction_flag, db.lastError().text()
 
-    @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def updateLastPricesRow(self, rowid: int):
+    def updateLastPricesRow_old(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы последних цен."""
         view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\" 
         FROM {0} WHERE {0}.\"lp_rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
@@ -1148,17 +1182,90 @@ class BondsModel(QAbstractTableModel):
                 # '''-----------------------------------------------------'''
 
                 pass
-                print('LastPrices notification: view_rows_count == 0 для rowid = {0}.'.format(rowid))
+                print('LastPrices notification: view_rows_count == 0 для rowid = {0}. Время: {1:.2f}c.'.format(rowid, self.getLpNotificationAverageTime()))
             else:
                 """Если представление содержит последнюю цену, то последняя цена актуальна."""
                 bond_index: int | None = self.__findBond(last_price.instrument_uid)
                 if bond_index is None:
                     """Последняя цена не имеет отношения к облигациям в модели облигаций."""
                     pass  # Ничего не делаем.
-                    print('LastPrices notification: Последняя цена не имеет отношения к облигациям в модели облигаций.')
+                    print('LastPrices notification: Последняя цена не имеет отношения к облигациям в модели облигаций. Время: {0:.2f}c.'.format(self.getLpNotificationAverageTime()))
                 else:
                     self.__rows[bond_index].bond_class.setLastPrice(last_price)
-                    # print('LastPrices notification: добавлена новая последняя цена (instrument_uid = \'{0}\').'.format(last_price.instrument_uid))
+                    print('LastPrices notification: добавлена новая последняя цена (instrument_uid = \'{0}\'). Время: {1:.2f}c.'.format(last_price.instrument_uid, self.getLpNotificationAverageTime()))
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            assert transaction_flag, db.lastError().text()
+
+    def updateLastPricesRow_new(self, rowid: int):
+        """Обновляет все необходимые данные при изменении строки таблицы последних цен."""
+        lp_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\" 
+        FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
+
+        db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+        if transaction_flag:
+            lp_select_query = QtSql.QSqlQuery(db)
+            lp_select_prepare_flag: bool = lp_select_query.prepare(lp_select_str)
+            assert lp_select_prepare_flag, lp_select_query.lastError().text()
+            lp_select_query.bindValue(':rowid', rowid)
+            lp_select_exec_flag: bool = lp_select_query.exec()
+            assert lp_select_exec_flag, lp_select_query.lastError().text()
+
+            '''----------Извлекаем последнюю цену из query----------'''
+            lp_count: int = 0
+            while lp_select_query.next():
+                lp_count += 1
+                if lp_count > 1:
+                    raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
+                last_price: LastPrice = self._getCurrentLastPrice(lp_select_query)
+            '''-----------------------------------------------------'''
+
+            if lp_count == 0:
+                """Если последняя цена была удалена."""
+                raise SystemError('Пока не реализовано!')
+                ...
+            else:
+                """Если последняя цена найдена."""
+                bond_index: int | None = self.__findBond(last_price.instrument_uid)
+                if bond_index is None:
+                    """Последняя цена не имеет отношения к облигациям в модели облигаций."""
+                    pass  # Ничего не делаем.
+                    print('LastPrices notification: Последняя цена не имеет отношения к облигациям в модели облигаций. Время: {0:.2f}c.'.format(self.getLpNotificationAverageTime()))
+                else:
+                    """===========Получаем актуальную цену для инструмента по полученному instrument_uid==========="""
+                    view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\"
+                    FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
+
+                    # view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", MAX({0}.\"time\") AS \"time\",
+                    # {0}.\"instrument_uid\" FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid
+                    # GROUP BY {0}.\"instrument_uid\";'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
+
+                    view_select_query = QtSql.QSqlQuery(db)
+                    view_select_prepare_flag: bool = view_select_query.prepare(view_select_str)
+                    assert view_select_prepare_flag, view_select_query.lastError().text()
+                    view_select_query.bindValue(':instrument_uid', last_price.instrument_uid)
+                    view_select_exec_flag: bool = view_select_query.exec()
+                    assert view_select_exec_flag, view_select_query.lastError().text()
+
+                    '''----------Извлекаем последнюю цену из query----------'''
+                    view_count: int = 0
+                    view_last_price: LastPrice
+                    while view_select_query.next():
+                        view_count += 1
+                        if view_count > 1:
+                            raise SystemError('Не должно быть нескольких строк с одним и тем же instrument_uid ({0})!'.format(last_price.instrument_uid))
+                        view_last_price: LastPrice = self._getCurrentLastPrice(view_select_query)
+                    '''-----------------------------------------------------'''
+                    """============================================================================================"""
+
+                    if view_count == 0:
+                        raise SystemError('Если у инструмента есть хотя бы одна цена, то её не может не быть в представлении!.')
+                    else:
+                        self.__rows[bond_index].bond_class.setLastPrice(view_last_price)
+                        print('LastPricesNotification: Актуальная цена обновлена. Время: {0:.2f}c.'.format(self.getLpNotificationAverageTime()))
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()

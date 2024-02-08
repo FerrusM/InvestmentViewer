@@ -1,6 +1,6 @@
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlDriver
-from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
-    InstrumentType
+from enum import EnumType
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, InstrumentType
 from Classes import TokenClass, MyConnection, partition
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
@@ -13,25 +13,25 @@ class MainConnection(MyConnection):
         self.open()  # Открываем соединение с базой данных.
         self.createDataBase()  # Создаёт базу данных.
 
-        # def notificationSlot(name: str, source: QSqlDriver.NotificationSource, payload):
-        #     # print('notificationSlot: name = {0}, source = {1}, payload = {2}.'.format(name, source, payload))
-        #     print('notificationSlot: name = {0}, source = {1}, payload = {2} (type = {3}).'.format(name, source, payload, type(payload)))
-        #     assert name == self.BONDS_TABLE, 'Неверный параметр name ({0})!'.format(name)
-        #
-        # db: QSqlDatabase = self.getDatabase()
-        # driver = db.driver()
-        # subscribe_flag: bool = driver.subscribeToNotification(self.BONDS_TABLE)
-        # assert subscribe_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(self.BONDS_TABLE)
-        # driver.notification.connect(notificationSlot)
-
     @classmethod  # Привязывает метод к классу, а не к конкретному экземпляру этого класса.
     def createDataBase(cls):
         """Создаёт базу данных."""
         db: QSqlDatabase = cls.getDatabase()
         transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        assert transaction_flag
-
         if transaction_flag:
+            def getCheckConstraintForColumnFromEnum(column_name: str, enum_class: EnumType) -> str | None:
+                """Возвращает CHECK-ограничение для столбца в соответствии с переданным перечислением."""
+                enum_keys = enum_class.__members__.keys()
+                if len(enum_keys) > 0:
+                    check_str: str = 'CHECK('
+                    for i, key in enumerate(enum_keys):
+                        if i > 0: check_str += ' OR '
+                        check_str += '{0} = \'{1}\''.format(column_name, key)
+                    check_str += ')'
+                    return check_str
+                else:
+                    return None
+
             '''------------Создание таблицы токенов------------'''
             tokens_query = QSqlQuery(db)
             tokens_prepare_flag: bool = tokens_query.prepare('''
@@ -114,7 +114,7 @@ class MainConnection(MyConnection):
                 SELECT 
                     CASE 
                         WHEN \"NEW\".\"instrument_type\" != \"OLD\".\"instrument_type\"
-                            THEN RAISE(FAIL, 'Таблица {1} уже содержит такой же uid, но для другого типа инструмента!')
+                            THEN RAISE(FAIL, \'Таблица {1} уже содержит такой же uid, но для другого типа инструмента!\')
                     END;
             END;
             '''.format(MyConnection.INSTRUMENT_UIDS_BEFORE_UPDATE_TRIGGER, MyConnection.INSTRUMENT_UIDS_TABLE)
@@ -417,10 +417,13 @@ class MainConnection(MyConnection):
             '''--------------------------------------------------------------'''
 
             '''-------------------Создание таблицы активов-------------------'''
+            asset_type_column_name: str = '\"type\"'
+            asset_type_check_str: str | None = getCheckConstraintForColumnFromEnum(asset_type_column_name, AssetType)
+
             assets_sql_command: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"uid\" TEXT NOT NULL PRIMARY KEY,
-            \"type\" TEXT NOT NULL CHECK(\"type\" = \'ASSET_TYPE_UNSPECIFIED\' OR \"type\" = \'ASSET_TYPE_CURRENCY\' OR \"type\" = \'ASSET_TYPE_COMMODITY\' OR \"type\" = \'ASSET_TYPE_INDEX\' OR \"type\" = \'ASSET_TYPE_SECURITY\'),
+            {2} TEXT NOT NULL{3},
             \"name\" TEXT NOT NULL,
             \"name_brief\" TEXT, 
             \"description\" TEXT,
@@ -435,7 +438,12 @@ class MainConnection(MyConnection):
             \"br_code\" TEXT,
             \"br_code_name\" TEXT,
             FOREIGN KEY (\"brand_uid\") REFERENCES \"{1}\"(\"uid\")
-            );'''.format(MyConnection.ASSETS_TABLE, MyConnection.BRANDS_TABLE)
+            );'''.format(
+                MyConnection.ASSETS_TABLE,
+                MyConnection.BRANDS_TABLE,
+                asset_type_column_name,
+                '' if asset_type_check_str is None else ' {0}'.format(asset_type_check_str)
+            )
             assets_query = QSqlQuery(db)
             assets_prepare_flag: bool = assets_query.prepare(assets_sql_command)
             assert assets_prepare_flag, assets_query.lastError().text()
@@ -443,17 +451,10 @@ class MainConnection(MyConnection):
             assert assets_exec_flag, assets_query.lastError().text()
             '''--------------------------------------------------------------'''
 
-            '''--------------Создание таблицы AssetInstruments--------------'''
             instrument_kind_column_name: str = '\"instrument_kind\"'
-            instrument_kind_keys = InstrumentType.__members__.keys()
-            instrument_kind_check_str: str = ''
-            if len(instrument_kind_keys) > 0:
-                instrument_kind_check_str += ' CHECK('
-                for i, key in enumerate(instrument_kind_keys):
-                    if i > 0: instrument_kind_check_str += ' OR '
-                    instrument_kind_check_str += '{0} = \'{1}\''.format(instrument_kind_column_name, key)
-                instrument_kind_check_str += ')'
+            instrument_kind_check_str: str | None = getCheckConstraintForColumnFromEnum(instrument_kind_column_name, InstrumentType)
 
+            '''--------------Создание таблицы AssetInstruments--------------'''
             asset_instruments_sql_command: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"asset_uid\" TEXT NOT NULL,
@@ -470,7 +471,7 @@ class MainConnection(MyConnection):
                 MyConnection.ASSET_INSTRUMENTS_TABLE,
                 MyConnection.ASSETS_TABLE,
                 instrument_kind_column_name,
-                instrument_kind_check_str
+                '' if instrument_kind_check_str is None else ' {0}'.format(instrument_kind_check_str)
             )
             asset_instruments_query = QSqlQuery(db)
             asset_instruments_prepare_flag: bool = asset_instruments_query.prepare(asset_instruments_sql_command)
@@ -512,22 +513,6 @@ class MainConnection(MyConnection):
             '''--------------------------------------------------------------------'''
 
             '''-----------Добавление триггера перед обновлением актива-----------'''
-            # '''
-            # SELECT
-            # CASE
-            #     WHEN \"NEW\".\"type\" != \"OLD\".\"type\" AND \"OLD\".\"type\" = \'{3}\'
-            #         THEN DELETE FROM \"{4}\" WHERE \"asset_uid\" = \"OLD\".\"uid\"
-            # END;
-            # '''
-
-            # '''
-            # DELETE FROM \"{4}\" WHERE \"asset_uid\" = \"OLD\".\"uid\" AND \"OLD\".\"uid\" IN (SELECT
-            #     CASE
-            #         WHEN \"NEW\".\"type\" != \"OLD\".\"type\" AND \"OLD\".\"type\" = \'{3}\'
-            #             THEN \"OLD\".\"uid\"
-            #     END);
-            # '''
-
             assets_on_update_trigger_query_str: str = '''
             CREATE TRIGGER IF NOT EXISTS \"{0}\" BEFORE UPDATE ON \"{1}\"
             BEGIN 
@@ -564,7 +549,7 @@ class MainConnection(MyConnection):
             );'''.format(
                 MyConnection.ASSET_SECURITIES_TABLE,
                 instrument_kind_column_name,
-                instrument_kind_check_str,
+                '' if instrument_kind_check_str is None else ' {0}'.format(instrument_kind_check_str),
                 MyConnection.ASSETS_TABLE
             )
             asset_securities_query = QSqlQuery(db)
@@ -575,15 +560,24 @@ class MainConnection(MyConnection):
             '''------------------------------------------------------------------------'''
 
             '''--------------------Создание таблицы запросов инструментов--------------------'''
+            status_column_name: str = '\"status\"'
+            status_check_str: str | None = getCheckConstraintForColumnFromEnum(status_column_name, InstrumentStatus)
+
             instruments_status_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"token\" TEXT NOT NULL,
-            \"status\" TEXT NOT NULL CHECK(\"status\" = 'INSTRUMENT_STATUS_UNSPECIFIED' OR \"status\" = 'INSTRUMENT_STATUS_BASE' OR \"status\" = 'INSTRUMENT_STATUS_ALL'),
+            {3} TEXT NOT NULL{4},
             \"uid\" TEXT NOT NULL,
             UNIQUE (\"token\", \"status\", \"uid\"),
             FOREIGN KEY (\"token\") REFERENCES \"{1}\"(\"token\") ON DELETE CASCADE,
             FOREIGN KEY (\"uid\") REFERENCES \"{2}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(MyConnection.INSTRUMENT_STATUS_TABLE, MyConnection.TOKENS_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
+            );'''.format(
+                MyConnection.INSTRUMENT_STATUS_TABLE,
+                MyConnection.TOKENS_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE,
+                status_column_name,
+                '' if status_check_str is None else ' {0}'.format(status_check_str)
+            )
             instruments_status_query = QSqlQuery(db)
             instruments_status_prepare_flag: bool = instruments_status_query.prepare(instruments_status_query_str)
             assert instruments_status_prepare_flag, instruments_status_query.lastError().text()
@@ -591,13 +585,16 @@ class MainConnection(MyConnection):
             assert instruments_status_exec_flag, instruments_status_query.lastError().text()
             '''------------------------------------------------------------------------------'''
 
+            recommendation_column_name: str = '\"recommendation\"'
+            recommendation_check_str: str = ' CHECK({0} = \'RECOMMENDATION_UNSPECIFIED\' OR {0} = \'RECOMMENDATION_BUY\' OR {0} = \'RECOMMENDATION_HOLD\' OR {0} = \'RECOMMENDATION_SELL\')'.format(recommendation_column_name)
+
             '''------------------------Создание таблицы прогнозов------------------------'''
             target_items_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"uid\" TEXT NOT NULL,
             \"ticker\" TEXT NOT NULL,
             \"company\" TEXT NOT NULL,
-            \"recommendation\" TEXT NOT NULL CHECK(\"recommendation\" = 'RECOMMENDATION_UNSPECIFIED' OR \"recommendation\" = 'RECOMMENDATION_BUY' OR \"recommendation\" = 'RECOMMENDATION_HOLD' OR \"recommendation\" = 'RECOMMENDATION_SELL'),
+            {2} TEXT NOT NULL{3},
             \"recommendation_date\" TEXT NOT NULL,
             \"currency\" TEXT NOT NULL,
             \"current_price\" TEXT NOT NULL,
@@ -607,7 +604,12 @@ class MainConnection(MyConnection):
             \"show_name\" TEXT NOT NULL,
             UNIQUE (\"uid\", \"company\", \"recommendation_date\"),
             FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(MyConnection.TARGET_ITEMS_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
+            );'''.format(
+                MyConnection.TARGET_ITEMS_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE,
+                recommendation_column_name,
+                recommendation_check_str
+            )
             target_items_query = QSqlQuery(db)
             target_items_prepare_flag: bool = target_items_query.prepare(target_items_query_str)
             assert target_items_prepare_flag, target_items_query.lastError().text()
@@ -620,7 +622,7 @@ class MainConnection(MyConnection):
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"uid\" TEXT NOT NULL,
             \"ticker\" TEXT NOT NULL,
-            \"recommendation\" TEXT NOT NULL CHECK(\"recommendation\" = 'RECOMMENDATION_UNSPECIFIED' OR \"recommendation\" = 'RECOMMENDATION_BUY' OR \"recommendation\" = 'RECOMMENDATION_HOLD' OR \"recommendation\" = 'RECOMMENDATION_SELL'),
+            {2} TEXT NOT NULL{3},
             \"currency\" TEXT NOT NULL,
             \"current_price\" TEXT NOT NULL,
             \"consensus\" TEXT NOT NULL,
@@ -630,7 +632,12 @@ class MainConnection(MyConnection):
             \"price_change_rel\" TEXT NOT NULL,
             UNIQUE (\"uid\"),
             FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(MyConnection.CONSENSUS_ITEMS_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
+            );'''.format(
+                MyConnection.CONSENSUS_ITEMS_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE,
+                recommendation_column_name,
+                recommendation_check_str
+            )
             consensus_items_query = QSqlQuery(db)
             consensus_items_prepare_flag: bool = consensus_items_query.prepare(consensus_items_query_str)
             assert consensus_items_prepare_flag, consensus_items_query.lastError().text()
@@ -640,18 +647,17 @@ class MainConnection(MyConnection):
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
+        else:
+            assert transaction_flag, db.lastError().text()
 
     @classmethod
     def addNewToken(cls, token: TokenClass):
         """Добавляет новый токен в таблицу токенов."""
         db: QSqlDatabase = cls.getDatabase()
-
         transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        assert transaction_flag, db.lastError().text()
-
         if transaction_flag:
             tokens_query = QSqlQuery(db)
-            tokens_prepare_flag: bool = tokens_query.prepare('INSERT INTO {0} (\"token\", \"name\") VALUES (:token, :name);'.format('\"{0}\"'.format(MyConnection.TOKENS_TABLE)))
+            tokens_prepare_flag: bool = tokens_query.prepare('INSERT INTO \"{0}\" (\"token\", \"name\") VALUES (:token, :name);'.format(MyConnection.TOKENS_TABLE))
             assert tokens_prepare_flag, tokens_query.lastError().text()
             tokens_query.bindValue(':token', token.token)
             tokens_query.bindValue(':name', token.name)
@@ -688,9 +694,10 @@ class MainConnection(MyConnection):
             for account in token.accounts:
                 query = QSqlQuery(db)
                 query.prepare('''
-                INSERT INTO "Accounts" ("token", "id", "type", "name", "status", "opened_date", "closed_date", "access_level")
+                INSERT INTO \"{0}\" 
+                (\"token\", \"id\", \"type\", \"name\", \"status\", \"opened_date\", \"closed_date\", \"access_level\")
                 VALUES (:token, :id, :type, :name, :status, :opened_date, :closed_date, :access_level);
-                ''')
+                '''.format(MyConnection.ACCOUNTS_TABLE))
                 query.bindValue(':token', token.token)
                 query.bindValue(':id', account.id)
                 query.bindValue(':type', int(account.type))
@@ -704,17 +711,26 @@ class MainConnection(MyConnection):
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
+        else:
+            assert transaction_flag, db.lastError().text()
 
     @classmethod
     def deleteToken(cls, token: str):
         """Удаляет токен и все связанные с ним данные."""
         db: QSqlDatabase = cls.getDatabase()
         query = QSqlQuery(db)
-        prepare_flag: bool = query.prepare('DELETE FROM \"{0}\" WHERE \"token\" = :token;'.format(MyConnection.TOKENS_TABLE))
-        assert prepare_flag, query.lastError().text()
-        query.bindValue(':token', token)
-        exec_flag: bool = query.exec()
-        assert exec_flag, query.lastError().text()
+        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+        if transaction_flag:
+            prepare_flag: bool = query.prepare('DELETE FROM \"{0}\" WHERE \"token\" = :token;'.format(MyConnection.TOKENS_TABLE))
+            assert prepare_flag, query.lastError().text()
+            query.bindValue(':token', token)
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            assert transaction_flag, db.lastError().text()
 
     @classmethod
     def addBonds(cls, token: str, instrument_status: InstrumentStatus, bonds: list[Bond]):
