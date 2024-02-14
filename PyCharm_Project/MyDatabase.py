@@ -1,9 +1,13 @@
 from enum import EnumType
+from PyQt6 import QtSql
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, InstrumentType
+from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
+    InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel
 from Classes import TokenClass, MyConnection, partition
+from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
+from MyShareClass import MyShareClass
 
 
 class MainConnection(MyConnection):
@@ -73,20 +77,40 @@ class MainConnection(MyConnection):
             '''-----------------------------------------------'''
 
             '''------------------Создание таблицы счетов------------------'''
-            accounts_query = QSqlQuery(db)
-            accounts_prepare_flag: bool = accounts_query.prepare('''
+            account_type_column_name: str = '\"type\"'
+            account_type_check_str: str | None = getCheckConstraintForColumnFromEnum(account_type_column_name, AccountType)
+
+            account_status_column_name: str = '\"status\"'
+            account_status_check_str: str | None = getCheckConstraintForColumnFromEnum(account_status_column_name, AccountStatus)
+
+            account_access_level_column_name: str = '\"access_level\"'
+            account_access_level_check_str: str | None = getCheckConstraintForColumnFromEnum(account_access_level_column_name, AccessLevel)
+
+            accounts_table_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"token\" TEXT NOT NULL,
             \"id\" TEXT NOT NULL,
-            \"type\" INTEGER NOT NULL,
+            {2} TEXT NOT NULL{3},
             \"name\" TEXT NOT NULL,
-            \"status\" INTEGER NOT NULL,
+            {4} TEXT NOT NULL{5},
             \"opened_date\" TEXT NOT NULL,
             \"closed_date\" TEXT NOT NULL,
-            \"access_level\" INTEGER NOT NULL,
+            {6} TEXT NOT NULL{7},
             PRIMARY KEY (\"token\", \"id\"),
             FOREIGN KEY (\"token\") REFERENCES \"{1}\"(\"token\") ON DELETE CASCADE
-            );'''.format(MyConnection.ACCOUNTS_TABLE, MyConnection.TOKENS_TABLE))
+            );'''.format(
+                MyConnection.ACCOUNTS_TABLE,
+                MyConnection.TOKENS_TABLE,
+                account_type_column_name,
+                '' if account_type_check_str is None else ' {0}'.format(account_type_check_str),
+                account_status_column_name,
+                '' if account_status_check_str is None else ' {0}'.format(account_status_check_str),
+                account_access_level_column_name,
+                '' if account_access_level_check_str is None else ' {0}'.format(account_access_level_check_str)
+            )
+
+            accounts_query = QSqlQuery(db)
+            accounts_prepare_flag: bool = accounts_query.prepare(accounts_table_str)
             assert accounts_prepare_flag, accounts_query.lastError().text()
             accounts_exec_flag: bool = accounts_query.exec()
             assert accounts_exec_flag, accounts_query.lastError().text()
@@ -124,6 +148,25 @@ class MainConnection(MyConnection):
             instr_bef_up_trigger_exec_flag: bool = instr_bef_up_trigger_query.exec()
             assert instr_bef_up_trigger_exec_flag, instr_bef_up_trigger_query.lastError().text()
             '''-------------------------------------------------------------------------'''
+
+            '''--------------------Создание таблицы данных о бренде--------------------'''
+            brands_data_command: str = '''CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"instrument_uid\" TEXT NOT NULL, 
+            \"logo_name\" TEXT NOT NULL, 
+            \"logo_base_color\" TEXT NOT NULL, 
+            \"text_color\" TEXT NOT NULL,
+            UNIQUE (\"instrument_uid\"),
+            FOREIGN KEY (\"instrument_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(
+                MyConnection.BRANDS_DATA_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE
+            )
+            brands_data_query = QSqlQuery(db)
+            brands_data_prepare_flag: bool = brands_data_query.prepare(brands_data_command)
+            assert brands_data_prepare_flag, brands_data_query.lastError().text()
+            brands_data_exec_flag: bool = brands_data_query.exec()
+            assert brands_data_exec_flag, brands_data_query.lastError().text()
+            '''------------------------------------------------------------------------'''
 
             '''------------------Создание таблицы облигаций------------------'''
             bonds_query_str: str = '''
@@ -169,6 +212,7 @@ class MainConnection(MyConnection):
             \"uid\" TEXT NOT NULL,
             \"real_exchange\" INTEGER NOT NULL,
             \"position_uid\" TEXT NOT NULL,
+            \"asset_uid\" TEXT NOT NULL,
             \"for_iis_flag\" BLOB NOT NULL,
             \"for_qual_investor_flag\" BLOB NOT NULL,
             \"weekend_flag\" BLOB NOT NULL,
@@ -267,6 +311,7 @@ class MainConnection(MyConnection):
             \"uid\" TEXT NOT NULL,
             \"real_exchange\" INTEGER NOT NULL,
             \"position_uid\" TEXT NOT NULL,
+            \"asset_uid\" TEXT NOT NULL,
             \"for_iis_flag\" BLOB NOT NULL,
             \"for_qual_investor_flag\" BLOB NOT NULL,
             \"weekend_flag\" BLOB NOT NULL,
@@ -347,8 +392,8 @@ class MainConnection(MyConnection):
 
             '''---------------Создание представления последних цен---------------'''
             last_prices_view_query_str: str = '''
-            CREATE VIEW IF NOT EXISTS \"{0}\" (\"lp_rowid\", \"figi\", \"price\", \"time\", \"instrument_uid\") AS
-            SELECT {1}.\"rowid\" AS \"lp_rowid\", {1}.\"figi\" AS \"figi\", {1}.\"price\" AS \"price\", 
+            CREATE VIEW IF NOT EXISTS \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") AS
+            SELECT {1}.\"figi\" AS \"figi\", {1}.\"price\" AS \"price\", 
             MAX({1}.\"time\") AS \"time\", {1}.\"instrument_uid\" AS \"instrument_uid\" 
             FROM {1} GROUP BY {1}.\"instrument_uid\"
             ;'''.format(MyConnection.LAST_PRICES_VIEW, '\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
@@ -654,8 +699,7 @@ class MainConnection(MyConnection):
     def addNewToken(cls, token: TokenClass):
         """Добавляет новый токен в таблицу токенов."""
         db: QSqlDatabase = cls.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             tokens_query = QSqlQuery(db)
             tokens_prepare_flag: bool = tokens_query.prepare('INSERT INTO \"{0}\" (\"token\", \"name\") VALUES (:token, :name);'.format(MyConnection.TOKENS_TABLE))
             assert tokens_prepare_flag, tokens_query.lastError().text()
@@ -664,12 +708,11 @@ class MainConnection(MyConnection):
             tokens_exec_flag: bool = tokens_query.exec()
             assert tokens_exec_flag, tokens_query.lastError().text()
 
+            insert_unary_limit_command: str = '''INSERT INTO \"{0}\" (\"token\", \"limit_per_minute\", \"methods\") 
+            VALUES (:token, :limit_per_minute, :methods);'''.format(MyConnection.UNARY_LIMITS_TABLE)
             for unary_limit in token.unary_limits:
                 unary_limit_query = QSqlQuery(db)
-                unary_limit_prepare_flag: bool = unary_limit_query.prepare('''
-                INSERT INTO \"{0}\" (\"token\", \"limit_per_minute\", \"methods\") 
-                VALUES (:token, :limit_per_minute, :methods);
-                '''.format(MyConnection.UNARY_LIMITS_TABLE))
+                unary_limit_prepare_flag: bool = unary_limit_query.prepare(insert_unary_limit_command)
                 assert unary_limit_prepare_flag, unary_limit_query.lastError().text()
                 unary_limit_query.bindValue(':token', token.token)
                 unary_limit_query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
@@ -677,12 +720,11 @@ class MainConnection(MyConnection):
                 unary_limit_exec_flag: bool = unary_limit_query.exec()
                 assert unary_limit_exec_flag, unary_limit_query.lastError().text()
 
+            insert_stream_limit_command: str = '''INSERT INTO \"{0}\" (\"token\", \"limit_count\", \"streams\", 
+            \"open\") VALUES (:token, :limit_count, :streams, :open);'''.format(MyConnection.STREAM_LIMITS_TABLE)
             for stream_limit in token.stream_limits:
                 stream_limit_query = QSqlQuery(db)
-                stream_limit_prepare_flag: bool = stream_limit_query.prepare('''
-                INSERT INTO \"{0}\" (\"token\", \"limit_count\", \"streams\", \"open\") 
-                VALUES (:token, :limit_count, :streams, :open);
-                '''.format(MyConnection.STREAM_LIMITS_TABLE))
+                stream_limit_prepare_flag: bool = stream_limit_query.prepare(insert_stream_limit_command)
                 assert stream_limit_prepare_flag, stream_limit_query.lastError().text()
                 stream_limit_query.bindValue(':token', token.token)
                 stream_limit_query.bindValue(':limit_count', stream_limit.limit)
@@ -691,36 +733,35 @@ class MainConnection(MyConnection):
                 stream_limit_exec_flag: bool = stream_limit_query.exec()
                 assert stream_limit_exec_flag, stream_limit_query.lastError().text()
 
+            insert_account_command: str = '''INSERT INTO \"{0}\" (\"token\", \"id\", \"type\", \"name\", \"status\", 
+            \"opened_date\", \"closed_date\", \"access_level\") VALUES (:token, :id, :type, :name, :status, 
+            :opened_date, :closed_date, :access_level);'''.format(MyConnection.ACCOUNTS_TABLE)
             for account in token.accounts:
-                query = QSqlQuery(db)
-                query.prepare('''
-                INSERT INTO \"{0}\" 
-                (\"token\", \"id\", \"type\", \"name\", \"status\", \"opened_date\", \"closed_date\", \"access_level\")
-                VALUES (:token, :id, :type, :name, :status, :opened_date, :closed_date, :access_level);
-                '''.format(MyConnection.ACCOUNTS_TABLE))
-                query.bindValue(':token', token.token)
-                query.bindValue(':id', account.id)
-                query.bindValue(':type', int(account.type))
-                query.bindValue(':name', account.name)
-                query.bindValue(':status', int(account.status))
-                query.bindValue(':opened_date', MyConnection.convertDateTimeToText(account.opened_date, sep=' '))
-                query.bindValue(':closed_date', MyConnection.convertDateTimeToText(account.closed_date, sep=' '))
-                query.bindValue(':access_level', int(account.access_level))
-                exec_flag: bool = query.exec()
-                assert exec_flag, query.lastError().text()
+                account_query = QSqlQuery(db)
+                account_prepare_flag: bool = account_query.prepare(insert_account_command)
+                assert account_prepare_flag, account_query.lastError().text()
+                account_query.bindValue(':token', token.token)
+                account_query.bindValue(':id', account.id)
+                account_query.bindValue(':type', account.type.name)
+                account_query.bindValue(':name', account.name)
+                account_query.bindValue(':status', account.status.name)
+                account_query.bindValue(':opened_date', MyConnection.convertDateTimeToText(account.opened_date))
+                account_query.bindValue(':closed_date', MyConnection.convertDateTimeToText(account.closed_date))
+                account_query.bindValue(':access_level', account.access_level.name)
+                account_exec_flag: bool = account_query.exec()
+                assert account_exec_flag, account_query.lastError().text()
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def deleteToken(cls, token: str):
         """Удаляет токен и все связанные с ним данные."""
         db: QSqlDatabase = cls.getDatabase()
-        query = QSqlQuery(db)
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
+            query = QSqlQuery(db)
             prepare_flag: bool = query.prepare('DELETE FROM \"{0}\" WHERE \"token\" = :token;'.format(MyConnection.TOKENS_TABLE))
             assert prepare_flag, query.lastError().text()
             query.bindValue(':token', token)
@@ -730,7 +771,7 @@ class MainConnection(MyConnection):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def addBonds(cls, token: str, instrument_status: InstrumentStatus, bonds: list[Bond]):
@@ -739,7 +780,7 @@ class MainConnection(MyConnection):
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
             if transaction_flag:
-                VARIABLES_COUNT: int = 50  # Количество variables в каждом insert.
+                VARIABLES_COUNT: int = 51  # Количество variables в каждом insert.
                 bonds_in_pack: int = int(cls.VARIABLE_LIMIT / VARIABLES_COUNT)
                 assert bonds_in_pack > 0
 
@@ -751,52 +792,24 @@ class MainConnection(MyConnection):
                 \"sector\", \"issue_kind\", \"issue_size\", \"issue_size_plan\", \"trading_status\", \"otc_flag\", 
                 \"buy_available_flag\", \"sell_available_flag\", \"floating_coupon_flag\", \"perpetual_flag\", 
                 \"amortization_flag\", \"min_price_increment\", \"api_trade_available_flag\", \"uid\", 
-                \"real_exchange\", \"position_uid\", \"for_iis_flag\", \"for_qual_investor_flag\", \"weekend_flag\", 
-                \"blocked_tca_flag\", \"subordinated_flag\", \"liquidity_flag\", \"first_1min_candle_date\", 
-                \"first_1day_candle_date\", \"risk_level\") VALUES '''.format(MyConnection.BONDS_TABLE)
+                \"real_exchange\", \"position_uid\", \"asset_uid\", \"for_iis_flag\", \"for_qual_investor_flag\", 
+                \"weekend_flag\", \"blocked_tca_flag\", \"subordinated_flag\", \"liquidity_flag\", 
+                \"first_1min_candle_date\", \"first_1day_candle_date\", \"risk_level\") VALUES '''.format(
+                    MyConnection.BONDS_TABLE
+                )
 
-                bonds_insert_sql_command_middle: str = '''(
-                :figi{0}, :ticker{0}, :class_code{0}, :isin{0}, :lot{0}, :currency{0}, :klong{0}, :kshort{0}, 
-                :dlong{0}, :dshort{0}, :dlong_min{0}, :dshort_min{0}, :short_enabled_flag{0}, :name{0}, 
-                :exchange{0}, :coupon_quantity_per_year{0}, :maturity_date{0}, :nominal{0}, :initial_nominal{0}, 
-                :state_reg_date{0}, :placement_date{0}, :placement_price{0}, :aci_value{0}, :country_of_risk{0}, 
-                :country_of_risk_name{0}, :sector{0}, :issue_kind{0}, :issue_size{0}, :issue_size_plan{0}, 
-                :trading_status{0}, :otc_flag{0}, :buy_available_flag{0}, :sell_available_flag{0}, 
-                :floating_coupon_flag{0}, :perpetual_flag{0}, :amortization_flag{0}, :min_price_increment{0}, 
-                :api_trade_available_flag{0}, :uid{0}, :real_exchange{0}, :position_uid{0}, :for_iis_flag{0}, 
-                :for_qual_investor_flag{0}, :weekend_flag{0}, :blocked_tca_flag{0}, :subordinated_flag{0}, 
-                :liquidity_flag{0}, :first_1min_candle_date{0}, :first_1day_candle_date{0}, :risk_level{0}
-                )'''
+                bonds_insert_sql_command_middle: str = '''(:figi{0}, :ticker{0}, :class_code{0}, :isin{0}, :lot{0}, 
+                :currency{0}, :klong{0}, :kshort{0}, :dlong{0}, :dshort{0}, :dlong_min{0}, :dshort_min{0}, 
+                :short_enabled_flag{0}, :name{0}, :exchange{0}, :coupon_quantity_per_year{0}, :maturity_date{0}, 
+                :nominal{0}, :initial_nominal{0}, :state_reg_date{0}, :placement_date{0}, :placement_price{0}, 
+                :aci_value{0}, :country_of_risk{0}, :country_of_risk_name{0}, :sector{0}, :issue_kind{0}, 
+                :issue_size{0}, :issue_size_plan{0}, :trading_status{0}, :otc_flag{0}, :buy_available_flag{0}, 
+                :sell_available_flag{0}, :floating_coupon_flag{0}, :perpetual_flag{0}, :amortization_flag{0}, 
+                :min_price_increment{0}, :api_trade_available_flag{0}, :uid{0}, :real_exchange{0}, :position_uid{0}, 
+                :asset_uid{0}, :for_iis_flag{0}, :for_qual_investor_flag{0}, :weekend_flag{0}, :blocked_tca_flag{0}, 
+                :subordinated_flag{0}, :liquidity_flag{0}, :first_1min_candle_date{0}, :first_1day_candle_date{0}, 
+                :risk_level{0})'''
 
-                # bonds_insert_sql_command_end: str = ''' ON CONFLICT(\"uid\") DO UPDATE SET \"figi\" = {0}.\"figi\",
-                # \"ticker\" = {0}.\"ticker\", \"class_code\" = {0}.\"class_code\", \"isin\" = {0}.\"isin\",
-                # \"lot\" = {0}.\"lot\", \"currency\" = {0}.\"currency\", \"klong\" = {0}.\"klong\",
-                # \"kshort\" = {0}.\"kshort\", \"dlong\" = {0}.\"dlong\", \"dshort\" = {0}.\"dshort\",
-                # \"dlong_min\" = {0}.\"dlong_min\", \"dshort_min\" = {0}.\"dshort_min\",
-                # \"short_enabled_flag\" = {0}.\"short_enabled_flag\", \"name\" = {0}.\"name\",
-                # \"exchange\" = {0}.\"exchange\", \"coupon_quantity_per_year\" = {0}.\"coupon_quantity_per_year\",
-                # \"maturity_date\" = {0}.\"maturity_date\", \"nominal\" = {0}.\"nominal\",
-                # \"initial_nominal\" = {0}.\"initial_nominal\", \"state_reg_date\" = {0}.\"state_reg_date\",
-                # \"placement_date\" = {0}.\"placement_date\", \"placement_price\" = {0}.\"placement_price\",
-                # \"aci_value\" = {0}.\"aci_value\", \"country_of_risk\" = {0}.\"country_of_risk\",
-                # \"country_of_risk_name\" = {0}.\"country_of_risk_name\", \"sector\" = {0}.\"sector\",
-                # \"issue_kind\" = {0}.\"issue_kind\", \"issue_size\" = {0}.\"issue_size\",
-                # \"issue_size_plan\" = {0}.\"issue_size_plan\", \"trading_status\" = {0}.\"trading_status\",
-                # \"otc_flag\" = {0}.\"otc_flag\", \"buy_available_flag\" = {0}.\"buy_available_flag\",
-                # \"sell_available_flag\" = {0}.\"sell_available_flag\",
-                # \"floating_coupon_flag\" = {0}.\"floating_coupon_flag\",
-                # \"perpetual_flag\" = {0}.\"perpetual_flag\", \"amortization_flag\" = {0}.\"amortization_flag\",
-                # \"min_price_increment\" = {0}.\"min_price_increment\",
-                # \"api_trade_available_flag\" = {0}.\"api_trade_available_flag\",
-                # \"real_exchange\" = {0}.\"real_exchange\", \"position_uid\" = {0}.\"position_uid\",
-                # \"for_iis_flag\" = {0}.\"for_iis_flag\", \"for_qual_investor_flag\" = {0}.\"for_qual_investor_flag\",
-                # \"weekend_flag\" = {0}.\"weekend_flag\", \"blocked_tca_flag\" = {0}.\"blocked_tca_flag\",
-                # \"subordinated_flag\" = {0}.\"subordinated_flag\", \"liquidity_flag\" = {0}.\"liquidity_flag\",
-                # \"first_1min_candle_date\" = {0}.\"first_1min_candle_date\",
-                # \"first_1day_candle_date\" = {0}.\"first_1day_candle_date\", \"risk_level\" = {0}.\"risk_level\"
-                # ;'''.format('\"excluded\"')
-
-                '''------------Изменённая ON CONFLICT часть, которая не обновляет совпадающие записи------------'''
                 bonds_insert_sql_command_end: str = ''' ON CONFLICT(\"uid\") DO UPDATE SET \"figi\" = {0}.\"figi\", 
                 \"ticker\" = {0}.\"ticker\", \"class_code\" = {0}.\"class_code\", \"isin\" = {0}.\"isin\", \"lot\" = 
                 {0}.\"lot\", \"currency\" = {0}.\"currency\", \"klong\" = {0}.\"klong\", \"kshort\" = {0}.\"kshort\", 
@@ -815,36 +828,36 @@ class MainConnection(MyConnection):
                 {0}.\"floating_coupon_flag\", \"perpetual_flag\" = {0}.\"perpetual_flag\", \"amortization_flag\" = 
                 {0}.\"amortization_flag\", \"min_price_increment\" = {0}.\"min_price_increment\", 
                 \"api_trade_available_flag\" = {0}.\"api_trade_available_flag\", \"real_exchange\" = 
-                {0}.\"real_exchange\", \"position_uid\" = {0}.\"position_uid\", \"for_iis_flag\" = {0}.\"for_iis_flag\", 
-                \"for_qual_investor_flag\" = {0}.\"for_qual_investor_flag\", \"weekend_flag\" = {0}.\"weekend_flag\", 
-                \"blocked_tca_flag\" = {0}.\"blocked_tca_flag\", \"subordinated_flag\" = {0}.\"subordinated_flag\", 
-                \"liquidity_flag\" = {0}.\"liquidity_flag\", \"first_1min_candle_date\" = 
-                {0}.\"first_1min_candle_date\", \"first_1day_candle_date\" = {0}.\"first_1day_candle_date\", 
-                \"risk_level\" = {0}.\"risk_level\" WHERE \"figi\" != {0}.\"figi\" OR \"ticker\" != {0}.\"ticker\" OR 
-                \"class_code\" != {0}.\"class_code\" OR \"isin\" != {0}.\"isin\" OR \"lot\" != {0}.\"lot\" OR 
-                \"currency\" != {0}.\"currency\" OR \"klong\" != {0}.\"klong\" OR \"kshort\" != {0}.\"kshort\" OR 
-                \"dlong\" != {0}.\"dlong\" OR \"dshort\" != {0}.\"dshort\" OR \"dlong_min\" != {0}.\"dlong_min\" OR 
-                \"dshort_min\" != {0}.\"dshort_min\" OR \"short_enabled_flag\" != {0}.\"short_enabled_flag\" OR 
-                \"name\" != {0}.\"name\" OR \"exchange\" != {0}.\"exchange\" OR \"coupon_quantity_per_year\" != 
-                {0}.\"coupon_quantity_per_year\" OR \"maturity_date\" != {0}.\"maturity_date\" OR \"nominal\" != 
-                {0}.\"nominal\" OR \"initial_nominal\" != {0}.\"initial_nominal\" OR \"state_reg_date\" != 
-                {0}.\"state_reg_date\" OR \"placement_date\" != {0}.\"placement_date\" OR \"placement_price\" != 
-                {0}.\"placement_price\" OR \"aci_value\" != {0}.\"aci_value\" OR \"country_of_risk\" != 
-                {0}.\"country_of_risk\" OR \"country_of_risk_name\" != {0}.\"country_of_risk_name\" OR \"sector\" != 
-                {0}.\"sector\" OR \"issue_kind\" != {0}.\"issue_kind\" OR \"issue_size\" != {0}.\"issue_size\" OR 
-                \"issue_size_plan\" != {0}.\"issue_size_plan\" OR \"trading_status\" != {0}.\"trading_status\" OR 
-                \"otc_flag\" != {0}.\"otc_flag\" OR \"buy_available_flag\" != {0}.\"buy_available_flag\" OR 
-                \"sell_available_flag\" != {0}.\"sell_available_flag\" OR \"floating_coupon_flag\" != 
-                {0}.\"floating_coupon_flag\" OR \"perpetual_flag\" != {0}.\"perpetual_flag\" OR \"amortization_flag\" != 
-                {0}.\"amortization_flag\" OR \"min_price_increment\" != {0}.\"min_price_increment\" OR 
-                \"api_trade_available_flag\" != {0}.\"api_trade_available_flag\" OR \"real_exchange\" != 
-                {0}.\"real_exchange\" OR \"position_uid\" != {0}.\"position_uid\" OR \"for_iis_flag\" != 
-                {0}.\"for_iis_flag\" OR \"for_qual_investor_flag\" != {0}.\"for_qual_investor_flag\" OR 
-                \"weekend_flag\" != {0}.\"weekend_flag\" OR \"blocked_tca_flag\" != {0}.\"blocked_tca_flag\" OR 
-                \"subordinated_flag\" != {0}.\"subordinated_flag\" OR \"liquidity_flag\" != {0}.\"liquidity_flag\" OR 
-                \"first_1min_candle_date\" != {0}.\"first_1min_candle_date\" OR \"first_1day_candle_date\" != 
-                {0}.\"first_1day_candle_date\" OR \"risk_level\" != {0}.\"risk_level\";'''.format('\"excluded\"')
-                '''---------------------------------------------------------------------------------------------'''
+                {0}.\"real_exchange\", \"position_uid\" = {0}.\"position_uid\", \"asset_uid\" = {0}.\"asset_uid\", 
+                \"for_iis_flag\" = {0}.\"for_iis_flag\", \"for_qual_investor_flag\" = {0}.\"for_qual_investor_flag\", 
+                \"weekend_flag\" = {0}.\"weekend_flag\", \"blocked_tca_flag\" = {0}.\"blocked_tca_flag\", 
+                \"subordinated_flag\" = {0}.\"subordinated_flag\", \"liquidity_flag\" = {0}.\"liquidity_flag\", 
+                \"first_1min_candle_date\" = {0}.\"first_1min_candle_date\", \"first_1day_candle_date\" = 
+                {0}.\"first_1day_candle_date\", \"risk_level\" = {0}.\"risk_level\" WHERE \"figi\" != {0}.\"figi\" OR 
+                \"ticker\" != {0}.\"ticker\" OR \"class_code\" != {0}.\"class_code\" OR \"isin\" != {0}.\"isin\" OR 
+                \"lot\" != {0}.\"lot\" OR \"currency\" != {0}.\"currency\" OR \"klong\" != {0}.\"klong\" OR 
+                \"kshort\" != {0}.\"kshort\" OR \"dlong\" != {0}.\"dlong\" OR \"dshort\" != {0}.\"dshort\" OR 
+                \"dlong_min\" != {0}.\"dlong_min\" OR \"dshort_min\" != {0}.\"dshort_min\" OR \"short_enabled_flag\" != 
+                {0}.\"short_enabled_flag\" OR \"name\" != {0}.\"name\" OR \"exchange\" != {0}.\"exchange\" OR 
+                \"coupon_quantity_per_year\" != {0}.\"coupon_quantity_per_year\" OR \"maturity_date\" != 
+                {0}.\"maturity_date\" OR \"nominal\" != {0}.\"nominal\" OR \"initial_nominal\" != 
+                {0}.\"initial_nominal\" OR \"state_reg_date\" != {0}.\"state_reg_date\" OR \"placement_date\" != 
+                {0}.\"placement_date\" OR \"placement_price\" != {0}.\"placement_price\" OR \"aci_value\" != 
+                {0}.\"aci_value\" OR \"country_of_risk\" != {0}.\"country_of_risk\" OR \"country_of_risk_name\" != 
+                {0}.\"country_of_risk_name\" OR \"sector\" != {0}.\"sector\" OR \"issue_kind\" != {0}.\"issue_kind\" OR 
+                \"issue_size\" != {0}.\"issue_size\" OR \"issue_size_plan\" != {0}.\"issue_size_plan\" OR 
+                \"trading_status\" != {0}.\"trading_status\" OR \"otc_flag\" != {0}.\"otc_flag\" OR 
+                \"buy_available_flag\" != {0}.\"buy_available_flag\" OR \"sell_available_flag\" != 
+                {0}.\"sell_available_flag\" OR \"floating_coupon_flag\" != {0}.\"floating_coupon_flag\" OR 
+                \"perpetual_flag\" != {0}.\"perpetual_flag\" OR \"amortization_flag\" != {0}.\"amortization_flag\" OR 
+                \"min_price_increment\" != {0}.\"min_price_increment\" OR \"api_trade_available_flag\" != 
+                {0}.\"api_trade_available_flag\" OR \"real_exchange\" != {0}.\"real_exchange\" OR \"position_uid\" != 
+                {0}.\"position_uid\" OR \"asset_uid\" != {0}.\"asset_uid\" OR \"for_iis_flag\" != {0}.\"for_iis_flag\" 
+                OR \"for_qual_investor_flag\" != {0}.\"for_qual_investor_flag\" OR \"weekend_flag\" != 
+                {0}.\"weekend_flag\" OR \"blocked_tca_flag\" != {0}.\"blocked_tca_flag\" OR \"subordinated_flag\" != 
+                {0}.\"subordinated_flag\" OR \"liquidity_flag\" != {0}.\"liquidity_flag\" OR \"first_1min_candle_date\" 
+                != {0}.\"first_1min_candle_date\" OR \"first_1day_candle_date\" != {0}.\"first_1day_candle_date\" OR 
+                \"risk_level\" != {0}.\"risk_level\";'''.format('\"excluded\"')
 
                 bonds_packs: list[list[Bond]] = partition(bonds, bonds_in_pack)
                 for pack in bonds_packs:
@@ -902,6 +915,7 @@ class MainConnection(MyConnection):
                         query.bindValue(':uid{0}'.format(i), bond.uid)
                         query.bindValue(':real_exchange{0}'.format(i), int(bond.real_exchange))
                         query.bindValue(':position_uid{0}'.format(i), bond.position_uid)
+                        query.bindValue(':asset_uid{0}'.format(i), bond.asset_uid)
                         query.bindValue(':for_iis_flag{0}'.format(i), bond.for_iis_flag)
                         query.bindValue(':for_qual_investor_flag{0}'.format(i), bond.for_qual_investor_flag)
                         query.bindValue(':weekend_flag{0}'.format(i), bond.weekend_flag)
@@ -914,6 +928,28 @@ class MainConnection(MyConnection):
 
                     bonds_insert_exec_flag: bool = query.exec()
                     assert bonds_insert_exec_flag, query.lastError().text()
+
+                """===============Добавляем данные о бренде в таблицу данных о брендах==============="""
+                brand_data_command: str = '''INSERT INTO {0} (\"instrument_uid\", \"logo_name\", \"logo_base_color\", 
+                \"text_color\") VALUES (:uid, :logo_name, :logo_base_color, :text_color) ON CONFLICT(\"instrument_uid\") 
+                DO UPDATE SET \"logo_name\" = {1}.\"logo_name\", \"logo_base_color\" = {1}.\"logo_base_color\", 
+                \"text_color\" = {1}.\"text_color\" WHERE \"logo_name\" != {1}.\"logo_name\" OR \"logo_base_color\" != 
+                {1}.\"logo_base_color\" OR \"text_color\" != {1}.\"text_color\";'''.format(
+                    '\"{0}\"'.format(MyConnection.BRANDS_DATA_TABLE),
+                    '\"excluded\"'
+                )
+
+                for bond in bonds:
+                    brand_data_query = QSqlQuery(db)
+                    brand_data_prepare_flag: bool = brand_data_query.prepare(brand_data_command)
+                    assert brand_data_prepare_flag, brand_data_query.lastError().text()
+                    brand_data_query.bindValue(':uid', bond.uid)
+                    brand_data_query.bindValue(':logo_name', bond.brand.logo_name)
+                    brand_data_query.bindValue(':logo_base_color', bond.brand.logo_base_color)
+                    brand_data_query.bindValue(':text_color', bond.brand.text_color)
+                    brand_data_exec_flag: bool = brand_data_query.exec()
+                    assert brand_data_exec_flag, brand_data_query.lastError().text()
+                """=================================================================================="""
 
                 """===============Добавляем облигации в таблицу запросов инструментов==============="""
                 '''--------------Удаляем облигации из таблицы запросов инструментов--------------'''
@@ -943,11 +979,9 @@ class MainConnection(MyConnection):
                     instruments_status_insert_query = QSqlQuery(db)
                     instruments_status_insert_prepare_flag: bool = instruments_status_insert_query.prepare(instruments_status_insert_sql_command)
                     assert instruments_status_insert_prepare_flag, instruments_status_insert_query.lastError().text()
-
                     instruments_status_insert_query.bindValue(':token', token)
                     instruments_status_insert_query.bindValue(':status', instrument_status.name)
                     instruments_status_insert_query.bindValue(':uid', bond.uid)
-
                     instruments_status_insert_exec_flag: bool = instruments_status_insert_query.exec()
                     assert instruments_status_insert_exec_flag, instruments_status_insert_query.lastError().text()
                 '''-----------------------------------------------------------------------------'''
@@ -959,47 +993,334 @@ class MainConnection(MyConnection):
                 assert transaction_flag, db.lastError().text()
 
     @classmethod
+    def getInstrument(cls, uid: str) -> Share | Bond | None:
+        type_sql_command: str = 'SELECT {0}.\"instrument_type\" FROM {0} WHERE {0}.\"uid\" = :uid;'.format('\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE))
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+        if transaction_flag:
+            type_query = QtSql.QSqlQuery(db)
+            type_prepare_flag: bool = type_query.prepare(type_sql_command)
+            assert type_prepare_flag, type_query.lastError().text()
+            type_query.bindValue(':uid', uid)
+            type_exec_flag: bool = type_query.exec()
+            assert type_exec_flag, type_query.lastError().text()
+
+            instrument_type: str
+            types_count: int = 0
+            while type_query.next():
+                types_count += 1
+                instrument_type = type_query.value('instrument_type')
+
+            if types_count == 0:
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+                return None
+            elif types_count == 1:
+                if instrument_type == 'share':
+                    share_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
+                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
+                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
+                    {0}.\"ipo_date\", {0}.\"issue_size\", {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", 
+                    {0}.\"sector\", {0}.\"issue_size_plan\", {0}.\"nominal\", {0}.\"trading_status\", {0}.\"otc_flag\", 
+                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"div_yield_flag\", {0}.\"share_type\", 
+                    {0}.\"min_price_increment\", {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", 
+                    {0}.\"position_uid\", {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\",
+                    {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", {0}.\"liquidity_flag\", 
+                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\"
+                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.SHARES_TABLE))
+
+                    share_query = QtSql.QSqlQuery(db)
+                    share_prepare_flag: bool = share_query.prepare(share_sql_command)
+                    assert share_prepare_flag, share_query.lastError().text()
+                    share_query.bindValue(':uid', uid)
+                    share_exec_flag: bool = share_query.exec()
+                    assert share_exec_flag, share_query.lastError().text()
+
+                    share: Share
+                    shares_count: int = 0
+                    while share_query.next():
+                        shares_count += 1
+                        share = MyConnection.getCurrentShare(share_query)
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+
+                    if shares_count != 1:
+                        raise SystemError('Таблица {0} должна содержать одну акцию с uid = \'{1}\'!'.format(MyConnection.SHARES_TABLE, uid))
+
+                    return share
+                elif instrument_type == 'bond':
+                    bond_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
+                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
+                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
+                    {0}.\"coupon_quantity_per_year\", {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", 
+                    {0}.\"state_reg_date\", {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", 
+                    {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", 
+                    {0}.\"issue_size\", {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", 
+                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", 
+                    {0}.\"perpetual_flag\", {0}.\"amortization_flag\", {0}.\"min_price_increment\", 
+                    {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", {0}.\"position_uid\", 
+                    {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\", {0}.\"weekend_flag\", 
+                    {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
+                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\"
+                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.BONDS_TABLE))
+
+                    bond_query = QtSql.QSqlQuery(db)
+                    bond_prepare_flag: bool = bond_query.prepare(bond_sql_command)
+                    assert bond_prepare_flag, bond_query.lastError().text()
+                    bond_query.bindValue(':uid', uid)
+                    bond_exec_flag: bool = bond_query.exec()
+                    assert bond_exec_flag, bond_query.lastError().text()
+
+                    bond: Bond
+                    bonds_count: int = 0
+                    while bond_query.next():
+                        bonds_count += 1
+                        bond = MyConnection.getCurrentBond(bond_query)
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+
+                    if bonds_count != 1:
+                        raise SystemError('Таблица {0} должна содержать одну облигацию с uid = \'{1}\'!'.format(MyConnection.BONDS_TABLE, uid))
+
+                    return bond
+                else:
+                    raise ValueError('Неизвестный тип инструмента ({0})!'.format(instrument_type))
+            else:
+                raise SystemError('В таблице {0} не должно быть несколько одинаковых uid (\'{1}\')!'.format(MyConnection.INSTRUMENT_UIDS_TABLE, uid))
+        else:
+            assert transaction_flag, db.lastError().text()
+
+    @classmethod
+    def getMyInstrument(cls, uid: str) -> MyShareClass | MyBondClass | None:
+        type_sql_command: str = 'SELECT {0}.\"instrument_type\" FROM {0} WHERE {0}.\"uid\" = :uid;'.format(
+            '\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE)
+        )
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
+        if transaction_flag:
+            type_query = QtSql.QSqlQuery(db)
+            type_prepare_flag: bool = type_query.prepare(type_sql_command)
+            assert type_prepare_flag, type_query.lastError().text()
+            type_query.bindValue(':uid', uid)
+            type_exec_flag: bool = type_query.exec()
+            assert type_exec_flag, type_query.lastError().text()
+
+            instrument_type: str
+            types_count: int = 0
+            while type_query.next():
+                types_count += 1
+                instrument_type = type_query.value('instrument_type')
+
+            if types_count == 0:
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+                return None
+            elif types_count == 1:
+                def getCurrentLastPrice(instrument_uid: str) -> LastPrice | None:
+                    last_price_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", 
+                    {0}.\"instrument_uid\" FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid;
+                    '''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
+
+                    last_price_query = QtSql.QSqlQuery(db)
+                    last_price_prepare_flag: bool = last_price_query.prepare(last_price_sql_command)
+                    assert last_price_prepare_flag, last_price_query.lastError().text()
+                    last_price_query.bindValue(':instrument_uid', instrument_uid)
+                    last_price_exec_flag: bool = last_price_query.exec()
+                    assert last_price_exec_flag, last_price_query.lastError().text()
+
+                    last_price_rows_count: int = 0
+                    last_price: LastPrice | None = None
+                    while last_price_query.next():
+                        last_price_rows_count += 1
+                        assert last_price_rows_count < 2, 'Не должно быть нескольких строк с одним и тем же instrument_uid (\'{0}\')!'.format(uid)
+                        last_price = MyConnection.getCurrentLastPrice(last_price_query)
+
+                    return last_price
+
+                if instrument_type == 'share':
+                    share_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
+                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
+                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
+                    {0}.\"ipo_date\", {0}.\"issue_size\", {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", 
+                    {0}.\"sector\", {0}.\"issue_size_plan\", {0}.\"nominal\", {0}.\"trading_status\", {0}.\"otc_flag\", 
+                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"div_yield_flag\", {0}.\"share_type\", 
+                    {0}.\"min_price_increment\", {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", 
+                    {0}.\"position_uid\", {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\",
+                    {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", {0}.\"liquidity_flag\", 
+                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"dividends\" 
+                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.SHARES_TABLE))
+
+                    share_query = QtSql.QSqlQuery(db)
+                    share_prepare_flag: bool = share_query.prepare(share_sql_command)
+                    assert share_prepare_flag, share_query.lastError().text()
+                    share_query.bindValue(':uid', uid)
+                    share_exec_flag: bool = share_query.exec()
+                    assert share_exec_flag, share_query.lastError().text()
+
+                    share: Share
+                    shares_count: int = 0
+                    while share_query.next():
+                        shares_count += 1
+                        share = MyConnection.getCurrentShare(share_query)
+                        dividends_flag = MyConnection.convertDividendsFlagToBool(share_query.value('dividends'))
+
+                    if shares_count != 1:
+                        commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                        assert commit_flag, db.lastError().text()
+                        raise SystemError('Таблица {0} должна содержать одну акцию с uid = \'{1}\'!'.format(MyConnection.SHARES_TABLE, uid))
+
+                    '''--------------------------Получаем дивиденды акций--------------------------'''
+                    if dividends_flag:
+                        dividends_sql_command: str = '''SELECT {0}.\"dividend_net\", {0}.\"payment_date\", {0}.\"declared_date\", 
+                        {0}.\"last_buy_date\", {0}.\"dividend_type\", {0}.\"record_date\", {0}.\"regularity\", 
+                        {0}.\"close_price\", {0}.\"yield_value\", {0}.\"created_at\", 
+                        FROM {0} WHERE {0}.\"instrument_uid\" = :share_uid;
+                        '''.format('\"{0}\"'.format(MyConnection.DIVIDENDS_TABLE))
+
+                        dividends_query = QtSql.QSqlQuery(db)
+                        dividends_prepare_flag: bool = dividends_query.prepare(dividends_sql_command)
+                        assert dividends_prepare_flag, dividends_query.lastError().text()
+                        dividends_query.bindValue(':share_uid', uid)
+                        dividends_exec_flag: bool = dividends_query.exec()
+                        assert dividends_exec_flag, dividends_query.lastError().text()
+
+                        dividends: list[Dividend] = []
+                        while dividends_query.next():
+                            dividends.append(MyConnection.getCurrentDividend(dividends_query))
+                        assert len(dividends) > 0
+                    else:
+                        dividends: None = None
+                    '''----------------------------------------------------------------------------'''
+
+                    last_price: LastPrice | None = getCurrentLastPrice(uid)
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+
+                    return MyShareClass(share=share, last_price=last_price, dividends=dividends)
+                elif instrument_type == 'bond':
+                    bond_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
+                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
+                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
+                    {0}.\"coupon_quantity_per_year\", {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", 
+                    {0}.\"state_reg_date\", {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", 
+                    {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", 
+                    {0}.\"issue_size\", {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", 
+                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", 
+                    {0}.\"perpetual_flag\", {0}.\"amortization_flag\", {0}.\"min_price_increment\", 
+                    {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", {0}.\"position_uid\", 
+                    {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\", {0}.\"weekend_flag\", 
+                    {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
+                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\", {0}.\"coupons\" 
+                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.BONDS_TABLE))
+
+                    bond_query = QtSql.QSqlQuery(db)
+                    bond_prepare_flag: bool = bond_query.prepare(bond_sql_command)
+                    assert bond_prepare_flag, bond_query.lastError().text()
+                    bond_query.bindValue(':uid', uid)
+                    bond_exec_flag: bool = bond_query.exec()
+                    assert bond_exec_flag, bond_query.lastError().text()
+
+                    bond: Bond
+                    coupons_flag: bool
+                    bonds_count: int = 0
+                    while bond_query.next():
+                        bonds_count += 1
+                        bond = MyConnection.getCurrentBond(bond_query)
+                        coupons_flag = MyConnection.convertCouponsFlagToBool(bond_query.value('coupons'))
+
+                    if bonds_count != 1:
+                        commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                        assert commit_flag, db.lastError().text()
+                        raise SystemError('Таблица {0} должна содержать одну облигацию с uid = \'{1}\'!'.format(MyConnection.BONDS_TABLE, uid))
+
+                    '''--------------------------Получаем купоны облигации--------------------------'''
+                    if coupons_flag:
+                        coupons_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"coupon_date\", {0}.\"coupon_number\", 
+                        {0}.\"fix_date\", {0}.\"pay_one_bond\", {0}.\"coupon_type\", {0}.\"coupon_start_date\", 
+                        {0}.\"coupon_end_date\", {0}.\"coupon_period\" 
+                        FROM {0} WHERE {0}.\"instrument_uid\" = :bond_uid;
+                        '''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
+
+                        coupons_query = QtSql.QSqlQuery(db)
+                        coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
+                        assert coupons_prepare_flag, coupons_query.lastError().text()
+                        coupons_query.bindValue(':bond_uid', uid)
+                        coupons_exec_flag: bool = coupons_query.exec()
+                        assert coupons_exec_flag, coupons_query.lastError().text()
+
+                        coupons: list[Coupon] = []
+                        while coupons_query.next():
+                            coupons.append(MyConnection.getCurrentCoupon(coupons_query))
+                        assert len(coupons) > 0
+                    else:
+                        coupons: None = None
+                    '''-----------------------------------------------------------------------------'''
+
+                    last_price: LastPrice | None = getCurrentLastPrice(uid)
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+
+                    return MyBondClass(bond=bond, last_price=last_price, coupons=coupons)
+                else:
+                    raise ValueError('Неизвестный тип инструмента ({0})!'.format(instrument_type))
+            else:
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+                raise SystemError('В таблице {0} не должно быть несколько одинаковых uid (\'{1}\')!'.format(MyConnection.INSTRUMENT_UIDS_TABLE, uid))
+        else:
+            assert transaction_flag, db.lastError().text()
+
+    @classmethod
     def addShares(cls, token: str, instrument_status: InstrumentStatus, shares: list[Share]):
         """Добавляет акции в таблицу акций."""
         if shares:  # Если список акций не пуст.
-            sql_command: str = '''INSERT INTO \"{0}\" (
-            \"figi\", \"ticker\", \"class_code\", \"isin\", \"lot\", \"currency\", \"klong\", \"kshort\", 
-            \"dlong\", \"dshort\", \"dlong_min\", \"dshort_min\", \"short_enabled_flag\", \"name\", 
-            \"exchange\", \"ipo_date\", \"issue_size\", \"country_of_risk\", \"country_of_risk_name\", 
-            \"sector\", \"issue_size_plan\", \"nominal\", \"trading_status\", \"otc_flag\", 
+            sql_command: str = '''INSERT INTO \"{0}\" (\"figi\", \"ticker\", \"class_code\", \"isin\", \"lot\", 
+            \"currency\", \"klong\", \"kshort\", \"dlong\", \"dshort\", \"dlong_min\", \"dshort_min\", 
+            \"short_enabled_flag\", \"name\", \"exchange\", \"ipo_date\", \"issue_size\", \"country_of_risk\", 
+            \"country_of_risk_name\", \"sector\", \"issue_size_plan\", \"nominal\", \"trading_status\", \"otc_flag\", 
             \"buy_available_flag\", \"sell_available_flag\", \"div_yield_flag\", \"share_type\", 
-            \"min_price_increment\", \"api_trade_available_flag\", \"uid\", \"real_exchange\", 
-            \"position_uid\", \"for_iis_flag\", \"for_qual_investor_flag\", \"weekend_flag\", 
-            \"blocked_tca_flag\", \"liquidity_flag\", \"first_1min_candle_date\", \"first_1day_candle_date\") 
-            VALUES (
-            :figi, :ticker, :class_code, :isin, :lot, :currency, :klong, :kshort, :dlong, :dshort, :dlong_min, 
-            :dshort_min, :short_enabled_flag, :name, :exchange, :ipo_date, :issue_size, :country_of_risk, 
-            :country_of_risk_name, :sector, :issue_size_plan, :nominal, :trading_status, :otc_flag, 
-            :buy_available_flag, :sell_available_flag, :div_yield_flag, :share_type, :min_price_increment, 
-            :api_trade_available_flag, :uid, :real_exchange, :position_uid, :for_iis_flag, 
-            :for_qual_investor_flag, :weekend_flag, :blocked_tca_flag, :liquidity_flag, 
-            :first_1min_candle_date, :first_1day_candle_date 
-            ) ON CONFLICT(\"uid\") DO 
-            UPDATE SET \"figi\" = {1}.\"figi\", \"ticker\" = {1}.\"ticker\", \"class_code\" = {1}.\"class_code\", 
-            \"isin\" = {1}.\"isin\", \"lot\" = {1}.\"lot\", \"currency\" = {1}.\"currency\", \"klong\" = {1}.\"klong\", 
-            \"kshort\" = {1}.\"kshort\", \"dlong\" = {1}.\"dlong\", \"dshort\" = {1}.\"dshort\", 
-            \"dlong_min\" = {1}.\"dlong_min\", \"dshort_min\" = {1}.\"dshort_min\", 
-            \"short_enabled_flag\" = {1}.\"short_enabled_flag\", \"name\" = {1}.\"name\", 
-            \"exchange\" = {1}.\"exchange\", \"exchange\" = {1}.\"exchange\", \"ipo_date\" = {1}.\"ipo_date\", 
-            \"issue_size\" = {1}.\"issue_size\", \"country_of_risk\" = {1}.\"country_of_risk\", 
-            \"country_of_risk_name\" = {1}.\"country_of_risk_name\", \"sector\" = {1}.\"sector\", 
-            \"issue_size_plan\" = {1}.\"issue_size_plan\", \"nominal\" = {1}.\"nominal\", 
-            \"trading_status\" = {1}.\"trading_status\", \"otc_flag\" = {1}.\"otc_flag\", 
-            \"buy_available_flag\" = {1}.\"buy_available_flag\", \"sell_available_flag\" = {1}.\"sell_available_flag\", 
-            \"div_yield_flag\" = {1}.\"div_yield_flag\", \"share_type\" = {1}.\"share_type\", 
-            \"min_price_increment\" = {1}.\"min_price_increment\", 
+            \"min_price_increment\", \"api_trade_available_flag\", \"uid\", \"real_exchange\", \"position_uid\", 
+            \"asset_uid\", \"for_iis_flag\", \"for_qual_investor_flag\", \"weekend_flag\", \"blocked_tca_flag\", 
+            \"liquidity_flag\", \"first_1min_candle_date\", \"first_1day_candle_date\") VALUES (:figi, :ticker, 
+            :class_code, :isin, :lot, :currency, :klong, :kshort, :dlong, :dshort, :dlong_min, :dshort_min, 
+            :short_enabled_flag, :name, :exchange, :ipo_date, :issue_size, :country_of_risk, :country_of_risk_name, 
+            :sector, :issue_size_plan, :nominal, :trading_status, :otc_flag, :buy_available_flag, :sell_available_flag, 
+            :div_yield_flag, :share_type, :min_price_increment, :api_trade_available_flag, :uid, :real_exchange, 
+            :position_uid, :asset_uid, :for_iis_flag, :for_qual_investor_flag, :weekend_flag, :blocked_tca_flag, 
+            :liquidity_flag, :first_1min_candle_date, :first_1day_candle_date) ON CONFLICT(\"uid\") DO UPDATE SET 
+            \"figi\" = {1}.\"figi\", \"ticker\" = {1}.\"ticker\", \"class_code\" = {1}.\"class_code\", \"isin\" = 
+            {1}.\"isin\", \"lot\" = {1}.\"lot\", \"currency\" = {1}.\"currency\", \"klong\" = {1}.\"klong\", \"kshort\" 
+            = {1}.\"kshort\", \"dlong\" = {1}.\"dlong\", \"dshort\" = {1}.\"dshort\", \"dlong_min\" = {1}.\"dlong_min\", 
+            \"dshort_min\" = {1}.\"dshort_min\", \"short_enabled_flag\" = {1}.\"short_enabled_flag\", \"name\" = 
+            {1}.\"name\", \"exchange\" = {1}.\"exchange\", \"exchange\" = {1}.\"exchange\", \"ipo_date\" = 
+            {1}.\"ipo_date\", \"issue_size\" = {1}.\"issue_size\", \"country_of_risk\" = {1}.\"country_of_risk\", 
+            \"country_of_risk_name\" = {1}.\"country_of_risk_name\", \"sector\" = {1}.\"sector\", \"issue_size_plan\" = 
+            {1}.\"issue_size_plan\", \"nominal\" = {1}.\"nominal\", \"trading_status\" = {1}.\"trading_status\", 
+            \"otc_flag\" = {1}.\"otc_flag\", \"buy_available_flag\" = {1}.\"buy_available_flag\", 
+            \"sell_available_flag\" = {1}.\"sell_available_flag\", \"div_yield_flag\" = {1}.\"div_yield_flag\", 
+            \"share_type\" = {1}.\"share_type\", \"min_price_increment\" = {1}.\"min_price_increment\", 
             \"api_trade_available_flag\" = {1}.\"api_trade_available_flag\", \"real_exchange\" = {1}.\"real_exchange\", 
-            \"position_uid\" = {1}.\"position_uid\", \"for_iis_flag\" = {1}.\"for_iis_flag\", 
-            \"for_qual_investor_flag\" = {1}.\"for_qual_investor_flag\", \"weekend_flag\" = {1}.\"weekend_flag\", 
-            \"blocked_tca_flag\" = {1}.\"blocked_tca_flag\", \"liquidity_flag\" = {1}.\"liquidity_flag\", 
-            \"first_1min_candle_date\" = {1}.\"first_1min_candle_date\", 
-            \"first_1day_candle_date\" = {1}.\"first_1day_candle_date\";
-            '''.format(MyConnection.SHARES_TABLE, '\"excluded\"')
+            \"position_uid\" = {1}.\"position_uid\", \"asset_uid\" = {1}.\"asset_uid\", \"for_iis_flag\" = 
+            {1}.\"for_iis_flag\", \"for_qual_investor_flag\" = {1}.\"for_qual_investor_flag\", \"weekend_flag\" = 
+            {1}.\"weekend_flag\", \"blocked_tca_flag\" = {1}.\"blocked_tca_flag\", \"liquidity_flag\" = 
+            {1}.\"liquidity_flag\", \"first_1min_candle_date\" = {1}.\"first_1min_candle_date\", 
+            \"first_1day_candle_date\" = {1}.\"first_1day_candle_date\";'''.format(
+                MyConnection.SHARES_TABLE,
+                '\"excluded\"'
+            )
+
+            brand_data_command: str = '''INSERT INTO {0} (\"instrument_uid\", \"logo_name\", \"logo_base_color\", 
+            \"text_color\") VALUES (:uid, :logo_name, :logo_base_color, :text_color) ON CONFLICT(\"instrument_uid\") 
+            DO UPDATE SET \"logo_name\" = {1}.\"logo_name\", \"logo_base_color\" = {1}.\"logo_base_color\", 
+            \"text_color\" = {1}.\"text_color\" WHERE \"logo_name\" != {1}.\"logo_name\" OR \"logo_base_color\" != 
+            {1}.\"logo_base_color\" OR \"text_color\" != {1}.\"text_color\";'''.format(
+                '\"{0}\"'.format(MyConnection.BRANDS_DATA_TABLE),
+                '\"excluded\"'
+            )
 
             db: QSqlDatabase = cls.getDatabase()
             transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
@@ -1042,6 +1363,7 @@ class MainConnection(MyConnection):
                     query.bindValue(':uid', share.uid)
                     query.bindValue(':real_exchange', int(share.real_exchange))
                     query.bindValue(':position_uid', share.position_uid)
+                    query.bindValue(':asset_uid', share.asset_uid)
                     query.bindValue(':for_iis_flag', share.for_iis_flag)
                     query.bindValue(':for_qual_investor_flag', share.for_qual_investor_flag)
                     query.bindValue(':weekend_flag', share.weekend_flag)
@@ -1052,6 +1374,18 @@ class MainConnection(MyConnection):
 
                     exec_flag: bool = query.exec()
                     assert exec_flag, query.lastError().text()
+
+                    """===============Добавляем данные о бренде в таблицу данных о брендах==============="""
+                    brand_data_query = QSqlQuery(db)
+                    brand_data_prepare_flag: bool = brand_data_query.prepare(brand_data_command)
+                    assert brand_data_prepare_flag, brand_data_query.lastError().text()
+                    brand_data_query.bindValue(':uid', share.uid)
+                    brand_data_query.bindValue(':logo_name', share.brand.logo_name)
+                    brand_data_query.bindValue(':logo_base_color', share.brand.logo_base_color)
+                    brand_data_query.bindValue(':text_color', share.brand.text_color)
+                    brand_data_exec_flag: bool = brand_data_query.exec()
+                    assert brand_data_exec_flag, brand_data_query.lastError().text()
+                    """=================================================================================="""
 
                 """=================Добавляем акции в таблицу запросов инструментов================="""
                 '''----------------Удаляем акции из таблицы запросов инструментов----------------'''
@@ -1066,10 +1400,8 @@ class MainConnection(MyConnection):
                 instruments_status_delete_query = QSqlQuery(db)
                 instruments_status_delete_prepare_flag: bool = instruments_status_delete_query.prepare(instruments_status_delete_sql_command)
                 assert instruments_status_delete_prepare_flag, instruments_status_delete_query.lastError().text()
-
                 instruments_status_delete_query.bindValue(':token', token)
                 instruments_status_delete_query.bindValue(':status', instrument_status.name)
-
                 instruments_status_delete_exec_flag: bool = instruments_status_delete_query.exec()
                 assert instruments_status_delete_exec_flag, instruments_status_delete_query.lastError().text()
                 '''------------------------------------------------------------------------------'''
@@ -1083,11 +1415,9 @@ class MainConnection(MyConnection):
                     instruments_status_insert_query = QSqlQuery(db)
                     instruments_status_insert_prepare_flag: bool = instruments_status_insert_query.prepare(instruments_status_insert_sql_command)
                     assert instruments_status_insert_prepare_flag, instruments_status_insert_query.lastError().text()
-
                     instruments_status_insert_query.bindValue(':token', token)
                     instruments_status_insert_query.bindValue(':status', instrument_status.name)
                     instruments_status_insert_query.bindValue(':uid', share.uid)
-
                     instruments_status_insert_exec_flag: bool = instruments_status_insert_query.exec()
                     assert instruments_status_insert_exec_flag, instruments_status_insert_query.lastError().text()
                 '''-----------------------------------------------------------------------------'''
@@ -1097,7 +1427,6 @@ class MainConnection(MyConnection):
                 assert commit_flag, db.lastError().text()
             else:
                 assert transaction_flag, db.lastError().text()
-
 
     @classmethod
     def addLastPrices(cls, last_prices: list[LastPrice]):

@@ -1,13 +1,96 @@
 import enum
 from datetime import datetime, date, timezone
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
-from Classes import TokenClass, partition
+from Classes import TokenClass, partition, TITLE_FONT
+from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
+from MyMoneyValue import MyMoneyValue
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
+from MyShareClass import MyShareClass
 from TokenModel import TokenListModel
+
+
+class TitleLabel(QtWidgets.QLabel):
+    """Класс QLabel'а-заголовка."""
+    def __init__(self, text: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(text=text, parent=parent)
+        self.setFont(TITLE_FONT)
+        self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
+
+
+class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
+    """Панель отображения информации об инструменте."""
+    class Label_InstrumentInfo(QtWidgets.QLabel):
+        def __init__(self, parent: QtWidgets.QWidget | None = ...):
+            super().__init__(parent)
+            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
+            sizePolicy.setHorizontalStretch(0)
+            sizePolicy.setVerticalStretch(0)
+            sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+            self.setSizePolicy(sizePolicy)
+            self.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+
+        def setInstrument(self, instrument: MyBondClass | MyShareClass):
+            if isinstance(instrument, MyBondClass):
+                self.__reportBond(instrument)
+            elif isinstance(instrument, MyShareClass):
+                self.__reportShare(instrument)
+            else:
+                raise TypeError('Некорректный тип параметра!')
+
+        def reset(self):
+            self.setText(None)
+
+        def __reportBond(self, bond: MyBondClass):
+            text: str = \
+                'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
+                'Первая дневная свеча: {6}\nАмортизация: {7}\nНоминал: {8}\nПервоначальный номинал: {9}'.format(
+                    'Облигация',
+                    bond.bond.name,
+                    bond.bond.uid,
+                    bond.bond.figi,
+                    bond.bond.isin,
+                    bond.bond.first_1min_candle_date,
+                    bond.bond.first_1day_candle_date,
+                    bond.bond.amortization_flag,
+                    MyMoneyValue.__str__(bond.bond.nominal, delete_decimal_zeros=True),
+                    MyMoneyValue.__str__(bond.bond.initial_nominal, delete_decimal_zeros=True)
+                )
+            self.setText(text)
+
+        def __reportShare(self, share: MyShareClass):
+            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
+                'Акция',
+                share.share.name,
+                share.share.uid,
+                share.share.figi,
+                share.share.isin,
+                share.share.first_1min_candle_date,
+                share.share.first_1day_candle_date
+            )
+            self.setText(text)
+
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
+
+        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        self.verticalLayout_main.setSpacing(2)
+
+        self.verticalLayout_main.addWidget(TitleLabel(text='ИНФОРМАЦИЯ ОБ ИНСТРУМЕНТЕ', parent=self))
+
+        self.label_info = self.Label_InstrumentInfo(self)
+        self.verticalLayout_main.addWidget(self.label_info)
+
+    def setInstrument(self, instrument: MyBondClass | MyShareClass):
+        self.label_info.setInstrument(instrument)
+
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def reset(self):
+        self.label_info.reset()
 
 
 class GroupBox_CalculationDate(QtWidgets.QGroupBox):
@@ -21,7 +104,6 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
         self.setMinimumSize(QtCore.QSize(0, 234))
-        self.setTitle('')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -36,20 +118,10 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.horizontalLayout_title.setSpacing(0)
         self.horizontalLayout_title.setObjectName('horizontalLayout_title')
 
-        spacerItem44 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem44)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
-        spacerItem45 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem45)
-
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.label_title.setText(_translate('MainWindow', 'ДАТА РАСЧЁТА'))
-        self.horizontalLayout_title.addWidget(self.label_title)
+        self.horizontalLayout_title.addWidget(TitleLabel(text='ДАТА РАСЧЁТА', parent=self))
 
         self.label_days_before = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -62,8 +134,7 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.label_days_before.setText(_translate('MainWindow', '0'))
         self.horizontalLayout_title.addWidget(self.label_days_before)
 
-        spacerItem46 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem46)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
         '''----------------------------------------------------------------------------'''
@@ -111,7 +182,6 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -124,22 +194,11 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         """------------------------Заголовок------------------------"""
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
 
-        spacerItem = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
-        spacerItem1 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem1)
-
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
-        self.horizontalLayout_title.addWidget(self.label_title)
+        self.horizontalLayout_title.addWidget(TitleLabel(text='ЗАПРОС', parent=self))
 
         self.label_count = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -148,12 +207,10 @@ class GroupBox_Request(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
         self.label_count.setText(_translate('MainWindow', '0'))
         self.horizontalLayout_title.addWidget(self.label_count)
 
-        spacerItem2 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem2)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
         """---------------------------------------------------------"""
@@ -223,19 +280,10 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         self.horizontalLayout_title.setSpacing(0)
         self.horizontalLayout_title.setObjectName('horizontalLayout_title')
 
-        spacerItem = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
-        spacerItem1 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem1)
-
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.horizontalLayout_title.addWidget(self.label_title)
+        self.horizontalLayout_title.addWidget(TitleLabel(text='ЗАПРОС', parent=self))
 
         self.label_count = QtWidgets.QLabel(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
@@ -244,11 +292,9 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
         self.horizontalLayout_title.addWidget(self.label_count)
 
-        spacerItem2 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem2)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
         '''---------------------------------------------------------'''
@@ -302,7 +348,6 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         '''----------------------------------------------------------'''
 
         _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'ЗАПРОС'))
         self.label_count.setText(_translate('MainWindow', '0'))
         self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
         self.label_token.setText(_translate('MainWindow', 'Токен:'))

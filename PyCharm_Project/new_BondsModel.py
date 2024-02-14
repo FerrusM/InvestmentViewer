@@ -8,8 +8,7 @@ from tinkoff.invest.schemas import RiskLevel, LastPrice, Coupon, CouponType, Mon
 from Classes import MyConnection, Column, TokenClass, reportTradingStatus
 from MyBondClass import MyBondClass, MyBond, TINKOFF_COMMISSION, MyCoupon, NDFL, DAYS_IN_YEAR
 from MyDatabase import MainConnection
-from MyDateTime import reportSignificantInfoFromDateTime, ifDateTimeIsEmpty, reportDateIfOnlyDate, getUtcDateTime, \
-    getCountOfDaysBetweenTwoDateTimes, getMoscowDateTime
+from MyDateTime import reportSignificantInfoFromDateTime, ifDateTimeIsEmpty, reportDateIfOnlyDate, getUtcDateTime, getCountOfDaysBetweenTwoDateTimes
 from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation, MyDecimal
@@ -381,10 +380,10 @@ class BondsModel(QAbstractTableModel):
                        header_tooltip='Признак облигации с амортизацией долга.',
                        data_function=lambda bond_class: bond_class.bond.amortization_flag,
                        display_function=lambda bond_class: "Да" if bond_class.bond.amortization_flag else "Нет"),
-            BondColumn(header='Дней до погашения',
+            BondColumn(header='До погашения',
                        header_tooltip='Количество дней до погашения облигации.',
                        data_function=lambda bond_class: MyBond.getDaysToMaturityCount(bond_class.bond),
-                       display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else MyBond.getDaysToMaturityCount(bond_class.bond),
+                       display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else '{0} дней'.format(MyBond.getDaysToMaturityCount(bond_class.bond)),
                        sort_role=Qt.ItemDataRole.UserRole,
                        lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             BondColumn(header='Дата погашения',
@@ -434,7 +433,7 @@ class BondsModel(QAbstractTableModel):
                        lp_dependence=True,
                        sort_role=Qt.ItemDataRole.UserRole,
                        lessThan=lessThan_Decimal_or_None),
-            BondColumn(header='Годовая доходность',
+            BondColumn(header='Годовая дох-ть',
                        header_tooltip='Относительная доходность к выбранной дате в пересчёте на год.',
                        data_function=lambda bond_class, entered_dt: getAnnualProfit(bond_class, entered_dt),
                        display_function=showAnnualProfit,
@@ -481,7 +480,8 @@ class BondsModel(QAbstractTableModel):
                 elif name == MyConnection.LAST_PRICES_TABLE:
                     self.lp_notifications_count += 1
                 else:
-                    raise ValueError('Неверный параметр name ({0})!'.format(name))
+                    pass
+                    # raise ValueError('Неверный параметр name ({0})!'.format(name))
             else:
                 if name == MyConnection.BONDS_TABLE:
                     self.bond_notifications_count += 1
@@ -502,7 +502,8 @@ class BondsModel(QAbstractTableModel):
                     self.updateLastPricesRow_new(payload)
                     self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
                 else:
-                    raise ValueError('Неверный параметр name ({0})!'.format(name))
+                    pass
+                    # raise ValueError('Неверный параметр name ({0})!'.format(name))
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
         driver = db.driver()
@@ -552,18 +553,19 @@ class BondsModel(QAbstractTableModel):
 
             '''---------------------------------------Создание запроса к БД---------------------------------------'''
             bonds_select: str = '''
-            SELECT {0}.\"rowid\", {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", {0}.\"lot\", {0}.\"currency\",
-            {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", {0}.\"dlong_min\", {0}.\"dshort_min\",
-            {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", {0}.\"coupon_quantity_per_year\",
-            {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", {0}.\"state_reg_date\",
-            {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", {0}.\"country_of_risk\",
-            {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", {0}.\"issue_size\",
-            {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", {0}.\"buy_available_flag\",
-            {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", {0}.\"perpetual_flag\",
-            {0}.\"amortization_flag\", {0}.\"min_price_increment\", {0}.\"api_trade_available_flag\", {0}.\"uid\",
-            {0}.\"real_exchange\", {0}.\"position_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\",
-            {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
-            {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\", {0}.\"coupons\"
+            SELECT {0}.\"rowid\", {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", {0}.\"lot\", 
+            {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", {0}.\"dlong_min\", 
+            {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
+            {0}.\"coupon_quantity_per_year\", {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", 
+            {0}.\"state_reg_date\", {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", 
+            {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", 
+            {0}.\"issue_size\", {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", 
+            {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", 
+            {0}.\"perpetual_flag\", {0}.\"amortization_flag\", {0}.\"min_price_increment\", 
+            {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", {0}.\"position_uid\", 
+            {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\", {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", 
+            {0}.\"subordinated_flag\", {0}.\"liquidity_flag\", {0}.\"first_1min_candle_date\", 
+            {0}.\"first_1day_candle_date\", {0}.\"risk_level\", {0}.\"coupons\"
             FROM {1}, {0}
             WHERE {1}.\"token\" = :token AND {1}.\"status\" = :status AND {1}.\"uid\" = {0}.\"uid\"{2}'''.format(
                 '\"{0}\"'.format(MyConnection.BONDS_TABLE),
@@ -607,20 +609,22 @@ class BondsModel(QAbstractTableModel):
 
                 '''------------------------Извлекаем список облигаций------------------------'''
                 while query.next():
-                    def getLastPrice(bond_uid: str) -> LastPrice | None:
+                    def getLastPrice() -> LastPrice:
                         """Создаёт и возвращает экземпляр класса LastPrice."""
                         figi: str = query.value('lp_figi')
                         price_str: str = query.value('lp_price')
                         time_str: str = query.value('lp_time')
                         instrument_uid: str = query.value('lp_instrument_uid')
 
-                        if figi or price_str or time_str or instrument_uid:
-                            assert instrument_uid == bond_uid, 'Uid-идентификатор инструмента в LastPrice (\'{0}\') не совпадает с uid облигации (\'{1}\')!'.format(instrument_uid, bond_uid)
+                        try:
                             price: Quotation = MyConnection.convertTextToQuotation(price_str)
+                        except AttributeError:
+                            raise AttributeError('getLastPrice: figi = \'{0}\', price = \'{1}\', time = \'{2}\', instrument_uid = \'{3}\'.'.format(figi, price_str, time_str, instrument_uid))
+                        try:
                             time: datetime = MyConnection.convertTextToDateTime(time_str)
-                            return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
-                        else:  # Если last_price отсутствует.
-                            return None
+                        except ValueError:
+                            raise ValueError('getLastPrice: figi = \'{0}\', price = \'{1}\', time = \'{2}\', instrument_uid = \'{3}\'.'.format(figi, price_str, time_str, instrument_uid))
+                        return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
 
                     def getCoupons(bond_uid: str) -> list[Coupon] | None:
                         """Извлекает купоны из таблицы купонов."""
@@ -660,8 +664,9 @@ class BondsModel(QAbstractTableModel):
                         else:
                             return None
 
-                    bond: Bond = self._getCurrentBond(query)
-                    bond_class: MyBondClass = MyBondClass(bond, getLastPrice(bond_uid=bond.uid), getCoupons(bond_uid=bond.uid))
+                    bond: Bond = MyConnection.getCurrentBond(query)
+                    last_price: LastPrice = getLastPrice()
+                    bond_class: MyBondClass = MyBondClass(bond, last_price, getCoupons(bond_uid=bond.uid))
                     rowid: int = query.value('rowid')
                     self.__rows.append(BondsModel.BondRow(rowid=rowid, bond_class=bond_class))
                 '''--------------------------------------------------------------------------'''
@@ -684,7 +689,6 @@ class BondsModel(QAbstractTableModel):
                 for column, bond_column in enumerate(self.columns):
                     if bond_column.dependsOnCoupons():
                         source_index: QModelIndex = self.index(row, column)
-                        # bond_class.couponsChanged_signal.connect(update_class(self, source_index, source_index))  # Подключаем слот обновления.
                         coupons_changed_connection: QtCore.QMetaObject.Connection = \
                             bond_row.bond_class.couponsChanged_signal.connect(lambda: self.dataChanged.emit(source_index, source_index))  # Подключаем слот обновления.
                         bond_row.appendCouponsChangedConnection(coupons_changed_connection)
@@ -696,172 +700,27 @@ class BondsModel(QAbstractTableModel):
         '''--------------------------------------------------------------------------------------------'''
         self.endResetModel()  # Завершаем операцию сброса модели.
 
-    @staticmethod
-    def _getCurrentBond(query: QtSql.QSqlQuery) -> Bond:
-        """Создаёт и возвращает экземпляр класса Bond."""
-        figi: str = query.value('figi')
-        ticker: str = query.value('ticker')
-        class_code: str = query.value('class_code')
-        isin: str = query.value('isin')
-        lot: int = query.value('lot')
-        currency: str = query.value('currency')
-        klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
-        kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
-        dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
-        dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
-        dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
-        dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
-        short_enabled_flag: bool = bool(query.value('short_enabled_flag'))
-        name: str = query.value('name')
-        exchange: str = query.value('exchange')
-        coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
-        maturity_date: datetime = MyConnection.convertTextToDateTime(query.value('maturity_date'))
-        nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
-        initial_nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('initial_nominal'))
-        state_reg_date: datetime = MyConnection.convertTextToDateTime(query.value('state_reg_date'))
-        placement_date: datetime = MyConnection.convertTextToDateTime(query.value('placement_date'))
-        placement_price: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('placement_price'))
-        aci_value: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('aci_value'))
-        country_of_risk: str = query.value('country_of_risk')
-        country_of_risk_name: str = query.value('country_of_risk_name')
-        sector: str = query.value('sector')
-        issue_kind: str = query.value('issue_kind')
-        issue_size: int = query.value('issue_size')
-        issue_size_plan: int = query.value('issue_size_plan')
-        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
-        otc_flag: bool = bool(query.value('otc_flag'))
-        buy_available_flag: bool = bool(query.value('buy_available_flag'))
-        sell_available_flag: bool = bool(query.value('sell_available_flag'))
-        floating_coupon_flag: bool = bool(query.value('floating_coupon_flag'))
-        perpetual_flag: bool = bool(query.value('perpetual_flag'))
-        amortization_flag: bool = bool(query.value('amortization_flag'))
-        min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
-        api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
-        uid: str = query.value('uid')
-        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
-        position_uid: str = query.value('position_uid')
-        for_iis_flag: bool = bool(query.value('for_iis_flag'))
-        for_qual_investor_flag: bool = bool(query.value('for_qual_investor_flag'))
-        weekend_flag: bool = bool(query.value('weekend_flag'))
-        blocked_tca_flag: bool = bool(query.value('blocked_tca_flag'))
-        subordinated_flag: bool = bool(query.value('subordinated_flag'))
-        liquidity_flag: bool = bool(query.value('liquidity_flag'))
-        first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
-        first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
-        risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
-        return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency, klong=klong,
-                    kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
-                    short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
-                    coupon_quantity_per_year=coupon_quantity_per_year, maturity_date=maturity_date,
-                    nominal=nominal, initial_nominal=initial_nominal, state_reg_date=state_reg_date,
-                    placement_date=placement_date, placement_price=placement_price, aci_value=aci_value,
-                    country_of_risk=country_of_risk, country_of_risk_name=country_of_risk_name, sector=sector,
-                    issue_kind=issue_kind, issue_size=issue_size, issue_size_plan=issue_size_plan,
-                    trading_status=trading_status, otc_flag=otc_flag, buy_available_flag=buy_available_flag,
-                    sell_available_flag=sell_available_flag, floating_coupon_flag=floating_coupon_flag,
-                    perpetual_flag=perpetual_flag, amortization_flag=amortization_flag,
-                    min_price_increment=min_price_increment, api_trade_available_flag=api_trade_available_flag, uid=uid,
-                    real_exchange=real_exchange, position_uid=position_uid, for_iis_flag=for_iis_flag,
-                    for_qual_investor_flag=for_qual_investor_flag, weekend_flag=weekend_flag,
-                    blocked_tca_flag=blocked_tca_flag, subordinated_flag=subordinated_flag,
-                    liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
-                    first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
-
-    @staticmethod
-    def _getLastPrice(query: QtSql.QSqlQuery, bond_uid: str) -> LastPrice | None:
-        """Создаёт и возвращает экземпляр класса LastPrice."""
-        figi: str = query.value('lp_figi')
-        price_str: str = query.value('lp_price')
-        time_str: str = query.value('lp_time')
-        instrument_uid: str = query.value('lp_instrument_uid')
-
-        if figi or price_str or time_str or instrument_uid:
-            assert instrument_uid == bond_uid, 'Uid-идентификатор инструмента в LastPrice (\'{0}\') не совпадает с uid облигации (\'{1}\')!'.format(instrument_uid, bond_uid)
-            price: Quotation = MyConnection.convertTextToQuotation(price_str)
-            time: datetime = MyConnection.convertTextToDateTime(time_str)
-            return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
-        else:  # Если last_price отсутствует.
-            return None
-
-    @staticmethod
-    def _getCurrentCoupon(coupons_query: QtSql.QSqlQuery) -> Coupon:
-        figi: str = coupons_query.value('figi')
-        coupon_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_date'))
-        coupon_number: int = coupons_query.value('coupon_number')
-        fix_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('fix_date'))
-        pay_one_bond: MoneyValue = MyConnection.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
-        coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
-        coupon_start_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_start_date'))
-        coupon_end_date: datetime = MyConnection.convertTextToDateTime(coupons_query.value('coupon_end_date'))
-        coupon_period: int = coupons_query.value('coupon_period')
-        return Coupon(figi=figi, coupon_date=coupon_date, coupon_number=coupon_number, fix_date=fix_date,
-                      pay_one_bond=pay_one_bond, coupon_type=coupon_type, coupon_start_date=coupon_start_date,
-                      coupon_end_date=coupon_end_date, coupon_period=coupon_period)
-
-    @staticmethod
-    def _getCurrentLastPrice(query: QtSql.QSqlQuery) -> LastPrice:
-        figi: str = query.value('figi')
-        price_str: str = query.value('price')
-        time_str: str = query.value('time')
-        instrument_uid: str = query.value('instrument_uid')
-        price: Quotation = MyConnection.convertTextToQuotation(price_str)
-        time: datetime = MyConnection.convertTextToDateTime(time_str)
-        return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
-
-    @classmethod
-    def _getBondCoupons(cls, db: QtSql.QSqlDatabase, bond_uid: str) -> list[Coupon]:
-        """Извлекает купоны из таблицы купонов."""
-        coupons_sql_command: str = '''SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\", 
-        \"pay_one_bond\", \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\" 
-        FROM {0} WHERE {0}.\"instrument_uid\" = :bond_uid;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
-        coupons_query = QtSql.QSqlQuery(db)
-        coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
-        assert coupons_prepare_flag, coupons_query.lastError().text()
-        coupons_query.bindValue(':bond_uid', bond_uid)
-        coupons_exec_flag: bool = coupons_query.exec()
-        assert coupons_exec_flag, coupons_query.lastError().text()
-
-        '''-----------Извлекаем купоны из SQL-запроса-----------'''
-        coupons: list[Coupon] = []
-        while coupons_query.next():
-            coupon: Coupon = cls._getCurrentCoupon(coupons_query=coupons_query)
-            coupons.append(coupon)
-        '''-----------------------------------------------------'''
-        return coupons
-
-    def __findBond(self, instrument_uid: str) -> int | None:
-        """Находит по uid облигацию в списке облигаций модели и возвращает её индекс.
-        Если облигация не найдена, то возвращает None."""
-        found_bonds_indexes: list[int] = [i for i, row in enumerate(self.__rows) if row.bond.uid == instrument_uid]
-        found_bonds_indexes_count: int = len(found_bonds_indexes)  # Количество найденных облигаций.
-        if found_bonds_indexes_count == 0:
-            return None
-        elif found_bonds_indexes_count == 1:
-            return found_bonds_indexes[0]
-        else:
-            raise SystemError('Модель облигаций содержит несколько облигаций с одинаковым uid ({0})!'.format(instrument_uid))
-
     def __findRowIndexWithBondRowid(self, rowid: int) -> int | None:
         """Находит и возвращает индекс строки с переданным rowid.
         Если строки с таким rowid нет в списке строк модели, то возвращает None."""
-        rowid_list: list[int] = [row.rowid for row in self.__rows]
-        rowid_count: int = rowid_list.count(rowid)
-        if rowid_count == 0:
+        found_rowid_indexes: list[int] = [i for i, row in enumerate(self.__rows) if row.rowid == rowid]
+        found_rowid_indexes_count: int = len(found_rowid_indexes)  # Количество найденных строк.
+        if found_rowid_indexes_count == 0:
             return None
-        elif rowid_count == 1:
-            return rowid_list.index(rowid)
+        elif found_rowid_indexes_count == 1:
+            return found_rowid_indexes[0]
         else:
             raise SystemError('Модель облигаций содержит несколько одинаковых rowid ({0})!'.format(rowid))
 
     def __findRowIndexWithBondUid(self, uid: str) -> int | None:
         """Находит и возвращает индекс строки с переданным uid облигации.
         Если строки с таким uid облигации нет в списке строк модели, то возвращает None."""
-        uid_list: list[str] = [row.bond.uid for row in self.__rows]
-        uid_count: int = uid_list.count(uid)
-        if uid_count == 0:
+        found_bonds_indexes: list[int] = [i for i, row in enumerate(self.__rows) if row.bond.uid == uid]
+        found_bonds_indexes_count: int = len(found_bonds_indexes)  # Количество найденных облигаций.
+        if found_bonds_indexes_count == 0:
             return None
-        elif uid_count == 1:
-            return uid_list.index(uid)
+        elif found_bonds_indexes_count == 1:
+            return found_bonds_indexes[0]
         else:
             raise SystemError('Модель облигаций содержит несколько облигаций с одинаковым uid (\'{0}\')!'.format(uid))
 
@@ -955,25 +814,13 @@ class BondsModel(QAbstractTableModel):
                 '''-----------------------------------------------------------------------'''
 
                 '''-----------Извлекаем облигацию из query-----------'''
-                def convertCouponsFlagToBool(coupons_flag_str: str) -> bool:
-                    """Конвертирует значение поля coupons таблицы облигаций в булевый тип."""
-                    if coupons_flag_str:
-                        if coupons_flag_str == 'Yes':
-                            return True
-                        elif coupons_flag_str == 'No':
-                            return False
-                        else:
-                            raise ValueError('Некорректное значение флага наличия купонов ({0})!'.format(coupons_flag_str))
-                    else:
-                        return False
-
                 coupons_flag: bool
                 rows_count: int = 0
                 while filter_query.next():
                     rows_count += 1
                     assert rows_count < 2, 'Не должно быть нескольких строк с одним и тем же uid ({0})!'.format(changed_rowid_uid)
-                    new_filtered_bond: Bond = self._getCurrentBond(query=filter_query)
-                    coupons_flag = convertCouponsFlagToBool(filter_query.value('coupons'))
+                    new_filtered_bond: Bond = MyConnection.getCurrentBond(query=filter_query)
+                    coupons_flag = MyConnection.convertCouponsFlagToBool(filter_query.value('coupons'))
                     new_filtered_bond_rowid: int = filter_query.value('rowid')
                 '''--------------------------------------------------'''
 
@@ -1009,7 +856,7 @@ class BondsModel(QAbstractTableModel):
                         while last_price_query.next():
                             last_price_rows_count += 1
                             assert last_price_rows_count < 2, 'Не должно быть нескольких строк с одним и тем же instrument_uid (\'{0}\')!'.format(changed_rowid_uid)
-                            last_price = self._getCurrentLastPrice(last_price_query)
+                            last_price = MyConnection.getCurrentLastPrice(last_price_query)
                         '''-----------------------------------------------------------------------------'''
 
                         '''--------------------------Получаем купоны облигации--------------------------'''
@@ -1028,11 +875,9 @@ class BondsModel(QAbstractTableModel):
                             assert coupons_exec_flag, coupons_query.lastError().text()
 
                             coupons: list[Coupon] = []
-                            coupons_count: int = 0
                             while coupons_query.next():
-                                coupons_count += 1
-                                coupons.append(self._getCurrentCoupon(coupons_query))
-                            assert coupons_count > 0
+                                coupons.append(MyConnection.getCurrentCoupon(coupons_query))
+                            assert len(coupons) > 0
                         else:
                             coupons: None = None
                         '''-----------------------------------------------------------------------------'''
@@ -1109,7 +954,7 @@ class BondsModel(QAbstractTableModel):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
 
-            bond_index: int | None = self.__findBond(coupon_instrument_uid)
+            bond_index: int | None = self.__findRowIndexWithBondUid(coupon_instrument_uid)
             if bond_index is None:
                 """Купон не имеет отношения к облигациям в модели облигаций."""
                 pass  # Ничего не делаем.
@@ -1145,7 +990,7 @@ class BondsModel(QAbstractTableModel):
                 view_rows_count += 1
                 if view_rows_count > 1:
                     raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
-                last_price: LastPrice = self._getCurrentLastPrice(view_query)
+                last_price: LastPrice = MyConnection.getCurrentLastPrice(view_query)
             '''-----------------------------------------------------'''
             """=================================================================================================="""
 
@@ -1178,14 +1023,14 @@ class BondsModel(QAbstractTableModel):
                 #     rows_count += 1
                 #     if rows_count > 1:
                 #         raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
-                #     last_price: LastPrice = self._getCurrentLastPrice(rowid_query)
+                #     last_price: LastPrice = MyConnection.getCurrentLastPrice(rowid_query)
                 # '''-----------------------------------------------------'''
 
                 pass
                 print('LastPrices notification: view_rows_count == 0 для rowid = {0}. Время: {1:.2f}c.'.format(rowid, self.getLpNotificationAverageTime()))
             else:
                 """Если представление содержит последнюю цену, то последняя цена актуальна."""
-                bond_index: int | None = self.__findBond(last_price.instrument_uid)
+                bond_index: int | None = self.__findRowIndexWithBondUid(last_price.instrument_uid)
                 if bond_index is None:
                     """Последняя цена не имеет отношения к облигациям в модели облигаций."""
                     pass  # Ничего не делаем.
@@ -1220,7 +1065,7 @@ class BondsModel(QAbstractTableModel):
                 lp_count += 1
                 if lp_count > 1:
                     raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
-                last_price: LastPrice = self._getCurrentLastPrice(lp_select_query)
+                last_price: LastPrice = MyConnection.getCurrentLastPrice(lp_select_query)
             '''-----------------------------------------------------'''
 
             if lp_count == 0:
@@ -1229,7 +1074,7 @@ class BondsModel(QAbstractTableModel):
                 ...
             else:
                 """Если последняя цена найдена."""
-                bond_index: int | None = self.__findBond(last_price.instrument_uid)
+                bond_index: int | None = self.__findRowIndexWithBondUid(last_price.instrument_uid)
                 if bond_index is None:
                     """Последняя цена не имеет отношения к облигациям в модели облигаций."""
                     pass  # Ничего не делаем.
@@ -1257,7 +1102,7 @@ class BondsModel(QAbstractTableModel):
                         view_count += 1
                         if view_count > 1:
                             raise SystemError('Не должно быть нескольких строк с одним и тем же instrument_uid ({0})!'.format(last_price.instrument_uid))
-                        view_last_price: LastPrice = self._getCurrentLastPrice(view_select_query)
+                        view_last_price: LastPrice = MyConnection.getCurrentLastPrice(view_select_query)
                     '''-----------------------------------------------------'''
                     """============================================================================================"""
 

@@ -1,12 +1,16 @@
 from abc import ABC
 from datetime import datetime
-from PyQt6 import QtWidgets
+from PyQt6 import QtWidgets, QtGui, QtSql
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, pyqtSlot
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue
+from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
+from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
-from MyDateTime import getUtcDateTime
 from MyMoneyValue import MyMoneyValue
+
+
+TITLE_FONT = QtGui.QFont()
+TITLE_FONT.setPointSize(9)
+TITLE_FONT.setBold(True)
 
 
 def partition(array: list, length: int) -> list[list]:
@@ -81,18 +85,44 @@ class Column:
 
 class TokenClass:
     """Мой класс для хранения всей информации, связанной с токеном."""
-    def __init__(self, token: str, accounts: list[Account],
-                 unary_limits: list[MyUnaryLimit], stream_limits: list[MyStreamLimit],
-                 name: str = '', response_datetime: datetime = getUtcDateTime()):
+    def __init__(self, token: str, accounts: list[Account] | None = None,
+                 unary_limits: list[MyUnaryLimit] | None = None, stream_limits: list[MyStreamLimit] | None = None,
+                 name: str = ''):
         self.token: str = token  # Токен.
         self.name: str = name  # Название токена.
-        self.accounts: list[Account] = accounts  # Список аккаунтов.
-        self.unary_limits: list[MyUnaryLimit] = unary_limits  # Unary-лимиты.
+        self.__accounts: list[Account] = [] if accounts is None else accounts  # Список аккаунтов.
 
-        self.unary_limits_manager: UnaryLimitsManager = UnaryLimitsManager(self.unary_limits)  # Менеджер unary-лимитов.
+        self.__unary_limits_manager: UnaryLimitsManager = UnaryLimitsManager(unary_limits)  # Менеджер unary-лимитов.
 
-        self.stream_limits: list[MyStreamLimit] = stream_limits  # Stream-лимиты.
-        self.response_datetime: datetime = response_datetime
+        self.__stream_limits: list[MyStreamLimit] = [] if stream_limits is None else stream_limits  # Stream-лимиты.
+
+    @property
+    def accounts(self) -> list[Account]:
+        return self.__accounts
+
+    @accounts.setter
+    def accounts(self, accounts: list[Account]):
+        self.__accounts = accounts
+
+    @property
+    def unary_limits(self) -> list[MyUnaryLimit]:
+        return self.__unary_limits_manager.unary_limits
+
+    @unary_limits.setter
+    def unary_limits(self, unary_limits: list[MyUnaryLimit]):
+        self.__unary_limits_manager.setData(unary_limits)
+
+    @property
+    def unary_limits_manager(self) -> UnaryLimitsManager:
+        return self.__unary_limits_manager
+
+    @property
+    def stream_limits(self):
+        return self.__stream_limits
+
+    @stream_limits.setter
+    def stream_limits(self, stream_limits: list[MyStreamLimit]):
+        self.__stream_limits = stream_limits
 
 
 def reportAccountAccessLevel(access_level: AccessLevel) -> str:
@@ -190,6 +220,7 @@ class MyConnection(ABC):
     ASSET_INSTRUMENTS_TABLE: str = 'AssetInstruments'
     ASSET_SECURITIES_TABLE: str = 'AssetSecurities'
     ASSET_CURRENCIES_TABLE: str = 'AssetCurrencies'
+    BRANDS_DATA_TABLE: str = 'BrandsData'
 
     LAST_PRICES_VIEW: str = 'LastPricesView'
 
@@ -201,7 +232,7 @@ class MyConnection(ABC):
     '''------------------------------------------------'''
 
     SQLITE_DRIVER: str = 'QSQLITE'
-    assert QSqlDatabase.isDriverAvailable(SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(SQLITE_DRIVER)
+    assert QtSql.QSqlDatabase.isDriverAvailable(SQLITE_DRIVER), 'Драйвер {0} недоступен!'.format(SQLITE_DRIVER)
 
     DATABASE_NAME: str = 'tinkoff_invest.db'
     CONNECTION_NAME: str  # "Абстрактная" переменная класса, должна быть определена в наследуемом классе.
@@ -222,12 +253,12 @@ class MyConnection(ABC):
     VARIABLE_LIMIT: int = _getSQLiteLimitVariableNumber(DATABASE_NAME)  # Лимит на количество переменных в одном запросе.
 
     @staticmethod
-    def __setForeignKeysOn(db: QSqlDatabase):
+    def __setForeignKeysOn(db: QtSql.QSqlDatabase):
         """
         Использование внешних ключей по умолчанию отключено.
         Эта функция включает использование внешних ключей для конкретного соединения.
         """
-        query = QSqlQuery(db)
+        query = QtSql.QSqlQuery(db)
         prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
         assert prepare_flag, query.lastError().text()
         exec_flag: bool = query.exec()
@@ -236,7 +267,7 @@ class MyConnection(ABC):
     @classmethod
     def open(cls):
         """Открывает соединение с базой данных."""
-        db: QSqlDatabase = QSqlDatabase.addDatabase(cls.SQLITE_DRIVER, cls.CONNECTION_NAME)
+        db: QtSql.QSqlDatabase = QtSql.QSqlDatabase.addDatabase(cls.SQLITE_DRIVER, cls.CONNECTION_NAME)
         db.setDatabaseName(cls.DATABASE_NAME)
         open_flag: bool = db.open()
         assert open_flag and db.isOpen()
@@ -245,13 +276,13 @@ class MyConnection(ABC):
     @classmethod
     def removeConnection(cls):
         """Удаляет соединение с базой данных."""
-        db: QSqlDatabase = cls.getDatabase()
+        db: QtSql.QSqlDatabase = cls.getDatabase()
         db.close()  # Для удаления соединения с базой данных, надо сначала закрыть базу данных.
         db.removeDatabase(cls.CONNECTION_NAME)
 
     @classmethod
-    def getDatabase(cls) -> QSqlDatabase:
-        return QSqlDatabase.database(cls.CONNECTION_NAME)
+    def getDatabase(cls) -> QtSql.QSqlDatabase:
+        return QtSql.QSqlDatabase.database(cls.CONNECTION_NAME)
 
     @staticmethod
     def convertDateTimeToText(dt: datetime, sep: str = 'T', timespec: str = 'auto') -> str:
@@ -266,7 +297,10 @@ class MyConnection(ABC):
     @staticmethod
     def extractUnitsAndNanoFromText(text: str) -> tuple[int, int]:
         """Извлекает units и nano из строки Quotation."""
-        units_str, nano_str = text.split('.', 1)
+        try:
+            units_str, nano_str = text.split('.', 1)
+        except AttributeError:
+            raise AttributeError('AttributeError: text = \'{0}\'.'.format(text))
         units: int = int(units_str)
         nano: int = int(nano_str)
         return units, nano
@@ -306,3 +340,217 @@ class MyConnection(ABC):
         """Преобразует значение типа BLOB (1 или 0) в значение типа bool."""
         assert value == 0 or value == 1, 'Значение переменной типа BLOB (в SQLite) должно быть 0 или 1. Вместо этого передано {0}.'.format(value)
         return bool(value)
+
+    @staticmethod
+    def convertCouponsFlagToBool(coupons_flag_str: str) -> bool:
+        """Конвертирует значение поля coupons таблицы облигаций в булевый тип."""
+        if coupons_flag_str:
+            if coupons_flag_str == 'Yes':
+                return True
+            elif coupons_flag_str == 'No':
+                return False
+            else:
+                raise ValueError('Некорректное значение флага наличия купонов ({0})!'.format(coupons_flag_str))
+        else:
+            return False
+
+    @staticmethod
+    def convertDividendsFlagToBool(dividends_flag_str: str) -> bool:
+        """Конвертирует значение поля dividends таблицы акций в булевый тип."""
+        if dividends_flag_str:
+            if dividends_flag_str == 'Yes':
+                return True
+            elif dividends_flag_str == 'No':
+                return False
+            else:
+                raise ValueError('Некорректное значение флага наличия дивидендов ({0})!'.format(dividends_flag_str))
+        else:
+            return False
+
+    @classmethod
+    def getCurrentShare(cls, query: QtSql.QSqlQuery) -> Share:
+        """Создаёт и возвращает экземпляр класса Bond."""
+        figi: str = query.value('figi')
+        ticker: str = query.value('ticker')
+        class_code: str = query.value('class_code')
+        isin: str = query.value('isin')
+        lot: int = query.value('lot')
+        currency: str = query.value('currency')
+        klong: Quotation = cls.convertTextToQuotation(query.value('klong'))
+        kshort: Quotation = cls.convertTextToQuotation(query.value('kshort'))
+        dlong: Quotation = cls.convertTextToQuotation(query.value('dlong'))
+        dshort: Quotation = cls.convertTextToQuotation(query.value('dshort'))
+        dlong_min: Quotation = cls.convertTextToQuotation(query.value('dlong_min'))
+        dshort_min: Quotation = cls.convertTextToQuotation(query.value('dshort_min'))
+        short_enabled_flag: bool = bool(query.value('short_enabled_flag'))
+        name: str = query.value('name')
+        exchange: str = query.value('exchange')
+        ipo_date: datetime = cls.convertTextToDateTime(query.value('ipo_date'))
+        issue_size: int = query.value('issue_size')
+        country_of_risk: str = query.value('country_of_risk')
+        country_of_risk_name: str = query.value('country_of_risk_name')
+        sector: str = query.value('sector')
+        issue_size_plan: int = query.value('issue_size_plan')
+        nominal: MoneyValue = cls.convertTextToMoneyValue(query.value('nominal'))
+        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
+        otc_flag: bool = bool(query.value('otc_flag'))
+        buy_available_flag: bool = bool(query.value('buy_available_flag'))
+        sell_available_flag: bool = bool(query.value('sell_available_flag'))
+        div_yield_flag: bool = bool(query.value('div_yield_flag'))
+        share_type: ShareType = ShareType(query.value('share_type'))
+        min_price_increment: Quotation = cls.convertTextToQuotation(query.value('min_price_increment'))
+        api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
+        uid: str = query.value('uid')
+        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
+        position_uid: str = query.value('position_uid')
+        asset_uid: str = query.value('asset_uid')
+        for_iis_flag: bool = bool(query.value('for_iis_flag'))
+        for_qual_investor_flag: bool = bool(query.value('for_qual_investor_flag'))
+        weekend_flag: bool = bool(query.value('weekend_flag'))
+        blocked_tca_flag: bool = bool(query.value('blocked_tca_flag'))
+        liquidity_flag: bool = bool(query.value('liquidity_flag'))
+        first_1min_candle_date: datetime = cls.convertTextToDateTime(query.value('first_1min_candle_date'))
+        first_1day_candle_date: datetime = cls.convertTextToDateTime(query.value('first_1day_candle_date'))
+        return Share(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency,
+                     klong=klong, kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
+                     short_enabled_flag=short_enabled_flag, name=name, exchange=exchange, ipo_date=ipo_date,
+                     issue_size=issue_size, country_of_risk=country_of_risk, country_of_risk_name=country_of_risk_name,
+                     sector=sector, issue_size_plan=issue_size_plan, nominal=nominal, trading_status=trading_status,
+                     otc_flag=otc_flag, buy_available_flag=buy_available_flag, sell_available_flag=sell_available_flag,
+                     div_yield_flag=div_yield_flag, share_type=share_type, min_price_increment=min_price_increment,
+                     api_trade_available_flag=api_trade_available_flag, uid=uid, real_exchange=real_exchange,
+                     position_uid=position_uid, asset_uid=asset_uid, for_iis_flag=for_iis_flag,
+                     for_qual_investor_flag=for_qual_investor_flag, weekend_flag=weekend_flag,
+                     blocked_tca_flag=blocked_tca_flag, liquidity_flag=liquidity_flag,
+                     first_1min_candle_date=first_1min_candle_date, first_1day_candle_date=first_1day_candle_date)
+
+    @classmethod
+    def getCurrentBond(cls, query: QtSql.QSqlQuery) -> Bond:
+        """Создаёт и возвращает экземпляр класса Bond."""
+        figi: str = query.value('figi')
+        ticker: str = query.value('ticker')
+        class_code: str = query.value('class_code')
+        isin: str = query.value('isin')
+        lot: int = query.value('lot')
+        currency: str = query.value('currency')
+        klong: Quotation = cls.convertTextToQuotation(query.value('klong'))
+        kshort: Quotation = cls.convertTextToQuotation(query.value('kshort'))
+        dlong: Quotation = cls.convertTextToQuotation(query.value('dlong'))
+        dshort: Quotation = cls.convertTextToQuotation(query.value('dshort'))
+        dlong_min: Quotation = cls.convertTextToQuotation(query.value('dlong_min'))
+        dshort_min: Quotation = cls.convertTextToQuotation(query.value('dshort_min'))
+        short_enabled_flag: bool = bool(query.value('short_enabled_flag'))
+        name: str = query.value('name')
+        exchange: str = query.value('exchange')
+        coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
+        maturity_date: datetime = cls.convertTextToDateTime(query.value('maturity_date'))
+        nominal: MoneyValue = cls.convertTextToMoneyValue(query.value('nominal'))
+        initial_nominal: MoneyValue = cls.convertTextToMoneyValue(query.value('initial_nominal'))
+        state_reg_date: datetime = cls.convertTextToDateTime(query.value('state_reg_date'))
+        placement_date: datetime = cls.convertTextToDateTime(query.value('placement_date'))
+        placement_price: MoneyValue = cls.convertTextToMoneyValue(query.value('placement_price'))
+        aci_value: MoneyValue = cls.convertTextToMoneyValue(query.value('aci_value'))
+        country_of_risk: str = query.value('country_of_risk')
+        country_of_risk_name: str = query.value('country_of_risk_name')
+        sector: str = query.value('sector')
+        issue_kind: str = query.value('issue_kind')
+        issue_size: int = query.value('issue_size')
+        issue_size_plan: int = query.value('issue_size_plan')
+        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
+        otc_flag: bool = bool(query.value('otc_flag'))
+        buy_available_flag: bool = bool(query.value('buy_available_flag'))
+        sell_available_flag: bool = bool(query.value('sell_available_flag'))
+        floating_coupon_flag: bool = bool(query.value('floating_coupon_flag'))
+        perpetual_flag: bool = bool(query.value('perpetual_flag'))
+        amortization_flag: bool = bool(query.value('amortization_flag'))
+        min_price_increment: Quotation = cls.convertTextToQuotation(query.value('min_price_increment'))
+        api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
+        uid: str = query.value('uid')
+        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
+        position_uid: str = query.value('position_uid')
+        asset_uid: str = query.value('asset_uid')
+        for_iis_flag: bool = bool(query.value('for_iis_flag'))
+        for_qual_investor_flag: bool = bool(query.value('for_qual_investor_flag'))
+        weekend_flag: bool = bool(query.value('weekend_flag'))
+        blocked_tca_flag: bool = bool(query.value('blocked_tca_flag'))
+        subordinated_flag: bool = bool(query.value('subordinated_flag'))
+        liquidity_flag: bool = bool(query.value('liquidity_flag'))
+        first_1min_candle_date: datetime = cls.convertTextToDateTime(query.value('first_1min_candle_date'))
+        first_1day_candle_date: datetime = cls.convertTextToDateTime(query.value('first_1day_candle_date'))
+        risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
+        return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency, klong=klong,
+                    kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
+                    short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
+                    coupon_quantity_per_year=coupon_quantity_per_year, maturity_date=maturity_date,
+                    nominal=nominal, initial_nominal=initial_nominal, state_reg_date=state_reg_date,
+                    placement_date=placement_date, placement_price=placement_price, aci_value=aci_value,
+                    country_of_risk=country_of_risk, country_of_risk_name=country_of_risk_name, sector=sector,
+                    issue_kind=issue_kind, issue_size=issue_size, issue_size_plan=issue_size_plan,
+                    trading_status=trading_status, otc_flag=otc_flag, buy_available_flag=buy_available_flag,
+                    sell_available_flag=sell_available_flag, floating_coupon_flag=floating_coupon_flag,
+                    perpetual_flag=perpetual_flag, amortization_flag=amortization_flag,
+                    min_price_increment=min_price_increment, api_trade_available_flag=api_trade_available_flag, uid=uid,
+                    real_exchange=real_exchange, position_uid=position_uid, asset_uid=asset_uid,
+                    for_iis_flag=for_iis_flag, for_qual_investor_flag=for_qual_investor_flag, weekend_flag=weekend_flag,
+                    blocked_tca_flag=blocked_tca_flag, subordinated_flag=subordinated_flag,
+                    liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
+                    first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
+
+    @classmethod
+    def getCurrentCoupon(cls, coupons_query: QtSql.QSqlQuery) -> Coupon:
+        figi: str = coupons_query.value('figi')
+        coupon_date: datetime = cls.convertTextToDateTime(coupons_query.value('coupon_date'))
+        coupon_number: int = coupons_query.value('coupon_number')
+        fix_date: datetime = cls.convertTextToDateTime(coupons_query.value('fix_date'))
+        pay_one_bond: MoneyValue = cls.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
+        coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
+        coupon_start_date: datetime = cls.convertTextToDateTime(coupons_query.value('coupon_start_date'))
+        coupon_end_date: datetime = cls.convertTextToDateTime(coupons_query.value('coupon_end_date'))
+        coupon_period: int = coupons_query.value('coupon_period')
+        return Coupon(figi=figi, coupon_date=coupon_date, coupon_number=coupon_number, fix_date=fix_date,
+                      pay_one_bond=pay_one_bond, coupon_type=coupon_type, coupon_start_date=coupon_start_date,
+                      coupon_end_date=coupon_end_date, coupon_period=coupon_period)
+
+    @classmethod
+    def getCurrentDividend(cls, dividends_query: QtSql.QSqlQuery) -> Dividend:
+        dividend_net: MoneyValue = cls.convertTextToMoneyValue(dividends_query.value('dividend_net'))
+        payment_date: datetime = cls.convertTextToDateTime(dividends_query.value('payment_date'))
+        declared_date: datetime = cls.convertTextToDateTime(dividends_query.value('declared_date'))
+        last_buy_date: datetime = cls.convertTextToDateTime(dividends_query.value('last_buy_date'))
+        dividend_type: str = dividends_query.value('dividend_type')
+        record_date: datetime = cls.convertTextToDateTime(dividends_query.value('record_date'))
+        regularity: str = dividends_query.value('regularity')
+        close_price: MoneyValue = cls.convertTextToMoneyValue(dividends_query.value('close_price'))
+        yield_value: Quotation = cls.convertTextToQuotation(dividends_query.value('yield_value'))
+        created_at: datetime = cls.convertTextToDateTime(dividends_query.value('created_at'))
+        return Dividend(dividend_net=dividend_net, payment_date=payment_date, declared_date=declared_date,
+                        last_buy_date=last_buy_date, dividend_type=dividend_type, record_date=record_date,
+                        regularity=regularity, close_price=close_price, yield_value=yield_value, created_at=created_at)
+
+    @classmethod
+    def getCurrentLastPrice(cls, query: QtSql.QSqlQuery) -> LastPrice:
+        figi: str = query.value('figi')
+        price_str: str = query.value('price')
+        time_str: str = query.value('time')
+        instrument_uid: str = query.value('instrument_uid')
+        try:
+            price: Quotation = cls.convertTextToQuotation(price_str)
+        except AttributeError:
+            raise AttributeError('getCurrentLastPrice: figi = \'{0}\', price = \'{1}\', time = \'{2}\', instrument_uid = \'{3}\'.'.format(figi, price_str, time_str, instrument_uid))
+        try:
+            time: datetime = cls.convertTextToDateTime(time_str)
+        except ValueError:
+            raise ValueError('getCurrentLastPrice: figi = \'{0}\', price = \'{1}\', time = \'{2}\', instrument_uid = \'{3}\'.'.format(figi, price_str, time_str, instrument_uid))
+        return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
+
+    @classmethod
+    def getCurrentAccount(cls, query: QtSql.QSqlQuery) -> Account:
+        return Account(
+            id=query.value('id'),
+            type=AccountType.from_string(query.value('type')),
+            name=query.value('name'),
+            status=AccountStatus.from_string(query.value('status')),
+            opened_date=cls.convertTextToDateTime(query.value('opened_date')),
+            closed_date=cls.convertTextToDateTime(query.value('closed_date')),
+            access_level=AccessLevel.from_string(query.value('access_level'))
+        )

@@ -452,10 +452,10 @@ class BondsModel(QAbstractTableModel):
                            data_function=lambda bond_class: bond_class.bond.amortization_flag,
                            display_function=lambda bond_class: "Да" if bond_class.bond.amortization_flag else "Нет"),
             self.Columns.DAYS_TO_MATURITY:
-                BondColumn(header='Дней до погашения',
+                BondColumn(header='До погашения',
                            header_tooltip='Количество дней до погашения облигации.',
                            data_function=lambda bond_class: MyBond.getDaysToMaturityCount(bond_class.bond),
-                           display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else MyBond.getDaysToMaturityCount(bond_class.bond),
+                           display_function=lambda bond_class: 'Нет данных' if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else '{0} дней'.format(MyBond.getDaysToMaturityCount(bond_class.bond)),
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)),
             self.Columns.BOND_MATURITY_DATE:
@@ -504,7 +504,7 @@ class BondsModel(QAbstractTableModel):
                            sort_role=Qt.ItemDataRole.UserRole,
                            lessThan=lessThan_Decimal_or_None),
             self.Columns.DATE_ANNUAL_PROFIT:
-                BondColumn(header='Годовая доходность',
+                BondColumn(header='Годовая дох-ть',
                            header_tooltip='Относительная доходность к выбранной дате в пересчёте на год.',
                            data_function=lambda bond_class, entered_dt: getAnnualProfit(bond_class, entered_dt),
                            display_function=showAnnualProfit,

@@ -9,12 +9,21 @@ from SharesPage import SharesPage
 from TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
 from new_BondsPage import new_BondsPage
+from new_CandlesPage import CandlesPage_new
 
 
 class InvestmentForm(QtWidgets.QMainWindow):
     """Главная форма."""
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
+        self.setObjectName('InvestmentWindow')
+        self.resize(1200, 800)
+        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+        self.setSizePolicy(sizePolicy)
+        self.setWindowTitle('Тинькофф Инвестиции')
 
         self.__database: MainConnection = MainConnection()  # Открываем соединение с базой данных.
 
@@ -26,15 +35,6 @@ class InvestmentForm(QtWidgets.QMainWindow):
         '''====================================Ui_MainWindow===================================='''
         _translate = QtCore.QCoreApplication.translate
 
-        self.setObjectName('InvestmentWindow')
-        self.resize(1200, 800)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
-        self.setWindowTitle(_translate('MainWindow', 'Тинькофф Инвестиции'))
-
         '''------------------------------Создаём CentralWidget------------------------------'''
         central_widget = QtWidgets.QWidget(self)
 
@@ -45,8 +45,7 @@ class InvestmentForm(QtWidgets.QMainWindow):
         '''------------------------------Создаём tabWidget------------------------------'''
         self.tabWidget = QtWidgets.QTabWidget(parent=central_widget)  # Панель вкладок.
 
-        self.tab_tokens = TokensPage('tab_tokens')  # Страница "Токены".
-        self.tab_tokens.setModel(token_model)  # Модель доступа.
+        self.tab_tokens = TokensPage(token_model)  # Страница "Токены".
         self.tabWidget.addTab(self.tab_tokens, _translate('MainWindow', 'Токены'))
 
         self.tab_limits = LimitsPage('tab_limits')  # Страница "Лимиты".
@@ -71,6 +70,9 @@ class InvestmentForm(QtWidgets.QMainWindow):
         self.tab_candles = CandlesPage(parent=self)  # Страница "Свечи".
         self.tab_candles.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_candles, _translate('MainWindow', 'Свечи'))
+
+        self.tab_candles_new = CandlesPage_new(token_model=token_list_model, parent=self)
+        self.tabWidget.addTab(self.tab_candles_new, 'Свечи_new')
 
         self.tab_assets = AssetsPage('tab_assets')  # Страница "Активы".
         self.tab_assets.setTokensModel(token_list_model)

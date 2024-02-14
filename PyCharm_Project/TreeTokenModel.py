@@ -1,40 +1,49 @@
 from __future__ import annotations
 import enum
 import typing
+from PyQt6 import QtCore
 from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtSignal, QCoreApplication
 from PyQt6.QtGui import QBrush
 from PyQt6.QtWidgets import QPushButton, QStyledItemDelegate, QAbstractItemView
 from tinkoff.invest import Account
 from Classes import TokenClass, reportAccountAccessLevel, reportAccountType, reportAccountStatus, Column
+from MyDatabase import MainConnection
 from MyDateTime import reportSignificantInfoFromDateTime
 from TokenModel import TokenModel
 
 
 class TreeItem:
-    def __init__(self, parent: TreeItem | None, data, children: list[TreeItem], row: int):
-        self._parent: TreeItem | None = parent
-        self.data: TokenClass | Account | None = data
-        self._children: list[TreeItem] = children
-        self._row: int = row
+    def __init__(self, row: int, parent: TreeItem | None = None, data: TokenClass | Account | None = None, children: list[TreeItem] | None = None):
+        self.__parent: TreeItem | None = parent
+        self.__data: TokenClass | Account | None = data
+        self.__row: int = row
+        self.__children: list[TreeItem] = [] if children is None else children
 
     def parent(self) -> TreeItem | None:
         """Возвращает родительский элемент."""
-        return self._parent
+        return self.__parent
 
-    def setChildren(self, children: list[TreeItem]):
-        self._children = children
+    @property
+    def children(self) -> list[TreeItem]:
+        return self.__children
 
-    def childrenCount(self) -> int:
-        return len(self._children)
+    @children.setter
+    def children(self, children: list[TreeItem]):
+        self.__children = children
 
     def child(self, row: int) -> TreeItem | None:
-        if 0 <= row < self.childrenCount():
-            return self._children[row]
+        if 0 <= row < len(self.__children):
+            return self.__children[row]
         else:
             return None
 
+    @property
     def row(self) -> int:
-        return self._row
+        return self.__row
+
+    @property
+    def data(self):
+        return self.__data
 
 
 @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
@@ -118,8 +127,8 @@ class TreeProxyModel(QAbstractItemModel):
         ACCOUNT_CLOSED_DATE = 8
         TOKEN_DELETE_BUTTON = 9
 
-    def __init__(self, sourceModel: TokenModel):
-        super().__init__()  # __init__() QAbstractProxyModel.
+    def __init__(self, sourceModel: TokenModel, parent: QtCore.QObject | None = None):
+        super().__init__(parent=parent)
         self.columns: dict[int, (Column, Column)] = {
             self.Columns.TOKEN_NUMBER:
                 (Column(background_function=lambda token_class: self.TOKEN_BACKGROUND_COLOR),
@@ -198,19 +207,20 @@ class TreeProxyModel(QAbstractItemModel):
                         background_function=lambda token_class: self.TOKEN_BACKGROUND_COLOR),
                  Column(background_function=lambda account: self.ACCOUNT_BACKGROUND_COLOR))
         }
-        self._root_item: TreeItem = TreeItem(None, None, [], 0)  # Корневой элемент.
-        self._source_model: TokenModel = sourceModel
-        self._setTokens()
-        self._source_model.dataChanged.connect(self._setTokens)
+        self.__root_item: TreeItem = TreeItem(0)  # Корневой элемент.
+        self.__source_model: TokenModel = sourceModel
+        self.__setTokens()
+        self.__source_model.dataChanged.connect(self.__setTokens)
+        self.__source_model.modelReset.connect(self.__setTokens)
 
-    def _setTokens(self):
+    def __setTokens(self):
         self.beginResetModel()
         token_list: list[TreeItem] = []
-        for row, token in enumerate(self._source_model.getTokens()):
-            token_item: TreeItem = TreeItem(self._root_item, token, [], row)
-            token_item.setChildren([TreeItem(token_item, account, [], j) for j, account in enumerate(token.accounts)])
+        for row, token in enumerate(self.__source_model.getTokens()):
+            token_item: TreeItem = TreeItem(row, self.__root_item, token)
+            token_item.children = [TreeItem(j, token_item, account) for j, account in enumerate(token.accounts)]
             token_list.append(token_item)
-        self._root_item.setChildren(token_list)
+        self.__root_item.children = token_list
         self.endResetModel()
 
     def rowCount(self, parent: QModelIndex = ...) -> int:
@@ -220,8 +230,8 @@ class TreeProxyModel(QAbstractItemModel):
             tree_item: TreeItem = parent.internalPointer()
             assert type(tree_item) == TreeItem
         else:  # Если parent недействителен, то parent - корневой элемент.
-            tree_item: TreeItem = self._root_item
-        return tree_item.childrenCount()
+            tree_item: TreeItem = self.__root_item
+        return len(tree_item.children)
 
     def columnCount(self, parent: QModelIndex = ...) -> int:
         """Возвращает количество дочерних столбцов в текущем элементе."""
@@ -245,8 +255,7 @@ class TreeProxyModel(QAbstractItemModel):
         data_type: int | None = self._checkDataType(item_data)
         assert data_type is not None, 'Недопустимый тип элемента: Тип: {0}, Значение: {1}!'.format(type(item_data), item_data)
         current_column: Column | None = self.columns[index.column()][data_type]
-        if current_column is None: return None
-        return current_column(role, item_data)
+        return None if current_column is None else current_column(role, item_data)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         """Возвращает данные заголовка."""
@@ -271,14 +280,14 @@ class TreeProxyModel(QAbstractItemModel):
         """Возвращает индекс элемента в модели."""
         if parent.isValid():  # Если индекс parent действителен, то parent - это токен.
             token_item: TreeItem = parent.internalPointer()
-            assert type(token_item) == TreeItem and token_item.parent() == self._root_item
+            assert type(token_item) == TreeItem and token_item.parent() == self.__root_item
             account_item: TreeItem | None = token_item.child(row)
             if account_item is None:
                 return QModelIndex()
             else:
                 return self.createIndex(row, column, account_item)
         else:  # Если parent недействителен, то элемент это - корневой элемент.
-            token_item: TreeItem | None = self._root_item.child(row)
+            token_item: TreeItem | None = self.__root_item.child(row)
             if token_item is None:
                 return QModelIndex()
             else:
@@ -292,16 +301,16 @@ class TreeProxyModel(QAbstractItemModel):
             parent_item: TreeItem | None = tree_item.parent()
             if parent_item is None:
                 return QModelIndex()
-            elif parent_item == self._root_item:
+            elif parent_item == self.__root_item:
                 return QModelIndex()
             else:
-                return self.createIndex(parent_item.row(), 0, parent_item)
+                return self.createIndex(parent_item.row, 0, parent_item)
         else:  # Если индекс child недействителен.
             return QModelIndex()
 
     def getTokensCount(self) -> int:
         """Возвращает количество токенов в модели."""
-        return self._source_model.rowCount()
+        return self.__source_model.rowCount()
 
     # def mapToSource(self, index: QModelIndex) -> QModelIndex | None:
     #     """Находит и возвращает индекс исходной модели, соответствующий переданному индексу текущей модели."""
@@ -310,14 +319,11 @@ class TreeProxyModel(QAbstractItemModel):
     #     item_data: TokenClass | Account = tree_item.data
     #     data_type: int | None = self._checkDataType(item_data)
     #     if data_type != TreeLevel.TOKEN: return None
-    #     return self._source_model.index(tree_item.row(), 0)
+    #     return self.__source_model.index(tree_item.row(), 0)
 
-    def addToken(self, token_class: TokenClass):
-        """Добавляет новый токен."""
-        # row_count: int = self.rowCount(QModelIndex())
-        # self.beginInsertRows(QModelIndex(), row_count, row_count)
-        self._source_model.addToken(token_class)
-        # self.endInsertRows()
+    # def addToken(self, token_class: TokenClass):
+    #     """Добавляет новый токен."""
+    #     self.__source_model.addToken(token_class)
 
     def deleteToken(self, token_index: QModelIndex) -> bool:
         """Удаляет токен."""
@@ -329,15 +335,12 @@ class TreeProxyModel(QAbstractItemModel):
         data_type: int | None = self._checkDataType(item_data)
         if data_type != TreeLevel.TOKEN: return False
         assert type(item_data) == TokenClass
-        source_index: QModelIndex = self._source_model.index(tree_item.row(), 0)
+        # source_index: QModelIndex = self.__source_model.index(tree_item.row, 0)
         """-------------------------------------------------------------------"""
 
-        # index_row: int = token_index.row()
-        # self.beginRemoveRows(QModelIndex(), index_row, index_row)
+        # deleted_token: TokenClass = self.__source_model.deleteToken(source_index)
 
-        deleted_token: TokenClass = self._source_model.deleteToken(source_index)
+        MainConnection.deleteToken(item_data.token)  # Удаление токена из базы данных.
 
-        # self.endRemoveRows()
-
-        assert item_data == deleted_token
+        # assert item_data == deleted_token
         return True

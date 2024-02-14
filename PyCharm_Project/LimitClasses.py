@@ -116,29 +116,29 @@ class MyStreamLimit:
 
 class UnaryLimitsManager:
     """Класс для управления лимитами unary-методов."""
-    def __init__(self, unary_limits: list[MyUnaryLimit]):
-        self.unary_limits: list[MyUnaryLimit] = []  # Массив лимитов пользователя по unary-запросам.
+    def __init__(self, unary_limits: list[MyUnaryLimit] | None = None):
+        self.__unary_limits: list[MyUnaryLimit] = []  # Массив лимитов пользователя по unary-запросам.
         self.method_repeat_flag: bool = False  # Флаг повтора полных названий методов.
         self.service_and_name_repeat_flag: bool = False  # Флаг повтора сочетаний сервисов и кратких названий методов.
         self.name_repeat_flag: bool = False  # Флаг повтора кратких названий методов.
-        self.setData(unary_limits)
+        self.setData([] if unary_limits is None else unary_limits)
 
     def setData(self, unary_limits: list[MyUnaryLimit]):
         """Задаёт данные."""
-        self.unary_limits = unary_limits  # Массив лимитов пользователя по unary-запросам.
+        self.__unary_limits = unary_limits  # Массив лимитов пользователя по unary-запросам.
 
         '''
         Наличие повторений внутри списков не проверяется, потому что повторение
         методов внутри одного лимита ни на что не влияет.
         '''
-        N: int = len(self.unary_limits)  # Количество ограничений.
+        N: int = len(self.__unary_limits)  # Количество ограничений.
 
         """---------Проверка на отсутствие повторений полных названий методов---------"""
         self.method_repeat_flag = False  # Флаг повтора полных названий методов.
         for i in range(N - 1):
-            current_methods_set: set[str] = set(self.unary_limits[i].getFullMethodsNames())
+            current_methods_set: set[str] = set(self.__unary_limits[i].getFullMethodsNames())
             for j in range(i + 1, N):
-                if list(current_methods_set & set(self.unary_limits[j].getFullMethodsNames())):
+                if list(current_methods_set & set(self.__unary_limits[j].getFullMethodsNames())):
                     self.method_repeat_flag = True
                     break
             if self.method_repeat_flag:  # Если обнаружено хотя бы одно совпадение.
@@ -151,9 +151,9 @@ class UnaryLimitsManager:
         else:
             self.service_and_name_repeat_flag = False  # Флаг повтора сочетаний сервисов и кратких названий методов.
             for i in range(N - 1):
-                current_services_and_names_set: set[tuple[str, str]] = set(self.unary_limits[i].getMethodsNamesAndServices())
+                current_services_and_names_set: set[tuple[str, str]] = set(self.__unary_limits[i].getMethodsNamesAndServices())
                 for j in range(i + 1, N):
-                    if list(current_services_and_names_set & set(self.unary_limits[j].getMethodsNamesAndServices())):
+                    if list(current_services_and_names_set & set(self.__unary_limits[j].getMethodsNamesAndServices())):
                         self.service_and_name_repeat_flag = True
                         break
                 if self.service_and_name_repeat_flag:  # Если обнаружено хотя бы одно совпадение.
@@ -166,9 +166,9 @@ class UnaryLimitsManager:
         else:
             self.name_repeat_flag = False  # Флаг повтора кратких названий методов.
             for i in range(N - 1):
-                current_names_set: set[str] = set(self.unary_limits[i].getShortMethodsNames())  # Перечисление.
+                current_names_set: set[str] = set(self.__unary_limits[i].getShortMethodsNames())  # Перечисление.
                 for j in range(i + 1, N):
-                    if list(current_names_set & set(self.unary_limits[j].getShortMethodsNames())):
+                    if list(current_names_set & set(self.__unary_limits[j].getShortMethodsNames())):
                         self.name_repeat_flag = True
                         break
                 if self.name_repeat_flag:  # Если обнаружено хотя бы одно совпадение.
@@ -188,19 +188,19 @@ class UnaryLimitsManager:
             if service is None:
                 return None
             else:
-                for my_unary_limit in self.unary_limits:
+                for my_unary_limit in self.__unary_limits:
                     for my_method in my_unary_limit.methods:
                         if my_method.method_name == method_name:
                             if my_method.service == service:
                                 return my_unary_limit
         else:
             if service is None:
-                for my_unary_limit in self.unary_limits:
+                for my_unary_limit in self.__unary_limits:
                     for my_method in my_unary_limit.methods:
                         if my_method.method_name == method_name:
                             return my_unary_limit
             else:
-                for my_unary_limit in self.unary_limits:
+                for my_unary_limit in self.__unary_limits:
                     for my_method in my_unary_limit.methods:
                         if my_method.method_name == method_name:
                             if my_method.service == service:
@@ -211,3 +211,7 @@ class UnaryLimitsManager:
         """Находит и возвращает семафор, соответствующий переданным параметрам."""
         my_unary_limit: MyUnaryLimit | None = self.getMyUnaryLimit(method_name, service)
         return None if my_unary_limit is None else my_unary_limit.semaphore
+
+    @property
+    def unary_limits(self) -> list[MyUnaryLimit]:
+        return self.__unary_limits

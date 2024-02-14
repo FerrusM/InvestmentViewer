@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
 import typing
 from enum import Enum
-from PyQt6 import QtWidgets, QtCore, QtGui, QtSql
+from PyQt6 import QtWidgets, QtCore, QtSql
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesView import CandlesChartView, CandlesSceneView
-from Classes import MyConnection, TokenClass, print_slot, Column
+from Classes import MyConnection, TokenClass, print_slot, Column, TITLE_FONT
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -15,12 +15,8 @@ from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation
 from MyRequests import getCandles, MyResponse, RequestTryClass
 from MyShareClass import MyShareClass
-from PagesClasses import ProgressBar_DataReceiving
+from PagesClasses import ProgressBar_DataReceiving, GroupBox_InstrumentInfo, TitleLabel
 from TokenModel import TokenListModel
-
-TITLE_FONT = QtGui.QFont()
-TITLE_FONT.setPointSize(9)
-TITLE_FONT.setBold(True)
 
 
 class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
@@ -536,82 +532,6 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
         self.tableView.model().setCandles(candles)
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
         self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество облигаций.
-
-
-class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
-    """Панель отображения информации об инструменте."""
-    class Label_InstrumentInfo(QtWidgets.QLabel):
-        def __init__(self, parent: QtWidgets.QWidget | None = ...):
-            super().__init__(parent)
-            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
-            sizePolicy.setHorizontalStretch(0)
-            sizePolicy.setVerticalStretch(0)
-            sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-            self.setSizePolicy(sizePolicy)
-            self.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-
-        def setInstrument(self, instrument: MyBondClass | MyShareClass):
-            if isinstance(instrument, MyBondClass):
-                self.__reportBond(instrument)
-            elif isinstance(instrument, MyShareClass):
-                self.__reportShare(instrument)
-            else:
-                raise TypeError('Некорректный тип параметра!')
-
-        def reset(self):
-            self.setText(None)
-
-        def __reportBond(self, bond: MyBondClass):
-            text: str = \
-                'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
-                'Первая дневная свеча: {6}\nАмортизация: {7}\nНоминал: {8}\nПервоначальный номинал: {9}'.format(
-                    'Облигация',
-                    bond.bond.name,
-                    bond.bond.uid,
-                    bond.bond.figi,
-                    bond.bond.isin,
-                    bond.bond.first_1min_candle_date,
-                    bond.bond.first_1day_candle_date,
-                    bond.bond.amortization_flag,
-                    MyMoneyValue.__str__(bond.bond.nominal, delete_decimal_zeros=True),
-                    MyMoneyValue.__str__(bond.bond.initial_nominal, delete_decimal_zeros=True)
-                )
-            self.setText(text)
-
-        def __reportShare(self, share: MyShareClass):
-            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
-                'Акция',
-                share.share.name,
-                share.share.uid,
-                share.share.figi,
-                share.share.isin,
-                share.share.first_1min_candle_date,
-                share.share.first_1day_candle_date
-            )
-            self.setText(text)
-
-    def __init__(self, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)
-
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-
-        self.label_title = QtWidgets.QLabel(self)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_title.setText('ИНФОРМАЦИЯ ОБ ИНСТРУМЕНТЕ')
-        self.verticalLayout_main.addWidget(self.label_title)
-
-        self.label_info = self.Label_InstrumentInfo(self)
-        self.verticalLayout_main.addWidget(self.label_info)
-
-    def setInstrument(self, instrument: MyBondClass | MyShareClass):
-        self.label_info.setInstrument(instrument)
-
-    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def reset(self):
-        self.label_info.reset()
 
 
 def getMaxInterval(interval: CandleInterval) -> timedelta:
@@ -1209,11 +1129,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         self.verticalLayout_main.setSpacing(2)
 
-        self.label_title = QtWidgets.QLabel(self)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_title.setText('ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ')
-        self.verticalLayout_main.addWidget(self.label_title)
+        self.verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ', parent=self))
 
         '''-----------Выбор токена для получения исторических свечей-----------'''
         self.horizontalLayout_token = QtWidgets.QHBoxLayout(self)

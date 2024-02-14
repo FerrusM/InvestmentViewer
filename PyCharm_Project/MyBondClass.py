@@ -109,7 +109,7 @@ class MyBond:
                 self.min_price_increment == other.min_price_increment and \
                 self.api_trade_available_flag == other.api_trade_available_flag and self.uid == other.uid and \
                 self.real_exchange == other.real_exchange and self.position_uid == other.position_uid and \
-                self.for_iis_flag == other.for_iis_flag and \
+                self.asset_uid == other.asset_uid and self.for_iis_flag == other.for_iis_flag and \
                 self.for_qual_investor_flag == other.for_qual_investor_flag and \
                 self.weekend_flag == other.weekend_flag and self.blocked_tca_flag == other.blocked_tca_flag and \
                 self.subordinated_flag == other.subordinated_flag and self.liquidity_flag == other.liquidity_flag and \

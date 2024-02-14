@@ -1,19 +1,13 @@
 import typing
 from datetime import datetime
-
-from PyQt6 import QtCore, QtWidgets, QtGui, QtSql
+from PyQt6 import QtCore, QtWidgets, QtSql
 from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType
-
-from Classes import MyConnection
+from Classes import MyConnection, TITLE_FONT
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
 from MyShareClass import MyShareClass
 from TokenModel import TokenListModel
-
-TITLE_FONT = QtGui.QFont()
-TITLE_FONT.setPointSize(9)
-TITLE_FONT.setBold(True)
 
 
 class InstrumentsStatusModel(QtCore.QAbstractListModel):

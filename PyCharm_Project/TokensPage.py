@@ -1,110 +1,82 @@
 import typing
-from PyQt6 import QtCore, QtGui, QtWidgets
-from PyQt6.QtCore import QModelIndex, pyqtSignal, pyqtSlot
-from PyQt6.QtWidgets import QMessageBox
-from tinkoff.invest import Account, UnaryLimit, StreamLimit
+from PyQt6 import QtCore, QtWidgets
+from tinkoff.invest import Account
 from Classes import TokenClass, MyTreeView, reportAccountType, reportAccountStatus, reportAccountAccessLevel
 from LimitClasses import MyUnaryLimit, MyStreamLimit
+from MyDatabase import MainConnection
 from MyDateTime import reportSignificantInfoFromDateTime
 from MyRequests import MyResponse, getUserTariff, getAccounts, RequestTryClass
+from PagesClasses import TitleLabel
 from TokenModel import TokenModel
 from TreeTokenModel import TreeProxyModel, TreeItem
 
 
 class GroupBox_SavedTokens(QtWidgets.QGroupBox):
     """Панель отображения сохранённых токенов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
-        self.setObjectName(object_name)
+    def __init__(self, token_model: TokenModel, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 3)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 3)
+        verticalLayout_main.setSpacing(2)
 
         """------------Заголовок над отображением токенов------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
+        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title.setSpacing(0)
 
-        spacerItem8 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem8)
+        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_title.addWidget(TitleLabel(text='СОХРАНЁННЫЕ ТОКЕНЫ', parent=self))
 
-        spacerItem9 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem9)
-
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(self)
+        self.label_count = QtWidgets.QLabel(text='0', parent=self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
-        self.horizontalLayout_title.addWidget(self.label_count)
+        horizontalLayout_title.addWidget(self.label_count)
 
-        spacerItem10 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem10)
+        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        verticalLayout_main.addLayout(horizontalLayout_title)
         """----------------------------------------------------------"""
 
-        """------------------Отображение токенов------------------"""
-        self.treeView_saved_tokens = MyTreeView(self)
-        self.treeView_saved_tokens.setObjectName('treeView_saved_tokens')
-        self.verticalLayout_main.addWidget(self.treeView_saved_tokens)
-        """-------------------------------------------------------"""
+        self.treeView_saved_tokens = MyTreeView(self)  # Отображение токенов.
+        tree_model: TreeProxyModel = TreeProxyModel(token_model)
 
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'СОХРАНЁННЫЕ ТОКЕНЫ'))
-        self.label_count.setText(_translate('MainWindow', '0'))
-
-    def setModel(self, token_model: TokenModel):
-        """Подключает модель сохранённых токенов."""
-        tree_token_model: TreeProxyModel = TreeProxyModel(token_model)
-        self.treeView_saved_tokens.setModel(tree_token_model)
-
+        """=================================Подключаем модель сохранённых токенов================================="""
         '''------------------Создаём делегат кнопки удаления токенов------------------'''
-        delete_button_delegate: TreeProxyModel.DeleteButtonDelegate = tree_token_model.DeleteButtonDelegate(self.treeView_saved_tokens)
-        # delete_button_delegate.clicked.connect(lambda index: print('Номер строки: {0}'.format(str(index.row()))))
+        delete_button_delegate: TreeProxyModel.DeleteButtonDelegate = tree_model.DeleteButtonDelegate(self.treeView_saved_tokens)
 
-        @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def deleteTokenDialog(token: str) -> QMessageBox.StandardButton:
-            """Диалоговое окно удаления токена."""
-            msgBox = QMessageBox()
-            msgBox.setIcon(QMessageBox.Icon.Warning)  # Задаёт значок окна сообщения.
-            msgBox.setWindowTitle('Удаление токена')  # Заголовок окна сообщения.
-            msgBox.setText('Вы уверены, что хотите удалить токен {0}?'.format(token))  # Текст окна сообщения.
-            msgBox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            msgBox.setDefaultButton(QMessageBox.StandardButton.No)
-            return msgBox.exec()
+        def deleteButtonFunction(index: QtCore.QModelIndex):
+            def getTokenFromIndex(index: QtCore.QModelIndex) -> str:
+                """Получает и возвращает токен, соответствующий индексу."""
+                tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
+                assert type(tree_item) == TreeItem
+                token_class: TokenClass = tree_item.data
+                assert type(token_class) == TokenClass
+                return token_class.token
 
-        def getTokenFromIndex(index: QModelIndex) -> str:
-            """Получает и возвращает токен, соответствующий индексу."""
-            tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(tree_item) == TreeItem
-            token_class: TokenClass = tree_item.data
-            assert type(token_class) == TokenClass
-            return token_class.token
+            @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+            def deleteTokenDialog(token: str) -> QtWidgets.QMessageBox.StandardButton:
+                """Диалоговое окно удаления токена."""
+                msgBox = QtWidgets.QMessageBox()
+                msgBox.setIcon(QtWidgets.QMessageBox.Icon.Warning)  # Задаёт значок окна сообщения.
+                msgBox.setWindowTitle('Удаление токена')  # Заголовок окна сообщения.
+                msgBox.setText('Вы уверены, что хотите удалить токен {0}?'.format(token))  # Текст окна сообщения.
+                msgBox.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
+                msgBox.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
+                return msgBox.exec()
 
-        def deleteButtonFunction(index: QModelIndex):
             token: str = getTokenFromIndex(index)
-            clicked_button: QMessageBox.StandardButton = deleteTokenDialog(token)
+            clicked_button: QtWidgets.QMessageBox.StandardButton = deleteTokenDialog(token)
             match clicked_button:
-                case QMessageBox.StandardButton.No:
+                case QtWidgets.QMessageBox.StandardButton.No:
                     return
-                case QMessageBox.StandardButton.Yes:
+                case QtWidgets.QMessageBox.StandardButton.Yes:
                     """------------------------------Удаление токена------------------------------"""
-                    deleted_flag: bool = tree_token_model.deleteToken(index)
+                    deleted_flag: bool = tree_model.deleteToken(index)
                     # assert not deleted_flag, 'Проблема с удалением токена!'
                     if not deleted_flag:
                         raise ValueError('Проблема с удалением токена!')
@@ -116,10 +88,13 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
         delete_button_delegate.clicked.connect(lambda index: deleteButtonFunction(index))
         '''---------------------------------------------------------------------------'''
 
-        self.treeView_saved_tokens.setItemDelegateForColumn(tree_token_model.Columns.TOKEN_DELETE_BUTTON, delete_button_delegate)
+        self.treeView_saved_tokens.setItemDelegateForColumn(tree_model.Columns.TOKEN_DELETE_BUTTON, delete_button_delegate)
+        """======================================================================================================="""
 
+        self.treeView_saved_tokens.setModel(tree_model)
+        verticalLayout_main.addWidget(self.treeView_saved_tokens)
         self.onUpdateView()  # Обновление отображения модели.
-        tree_token_model.modelReset.connect(self.onUpdateView)
+        tree_model.modelReset.connect(self.onUpdateView)
 
     def model(self):
         """Возвращает модель."""
@@ -137,86 +112,65 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
 
 class GroupBox_NewToken(QtWidgets.QGroupBox):
     """Панель добавления нового токена."""
+    add_token_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(TokenClass)  # Сигнал, испускаемый при необходимости добавить токен в модель.
 
-    """------------------------Сигналы------------------------"""
-    add_token_signal: pyqtSignal = pyqtSignal(TokenClass)  # Сигнал, испускаемый при необходимости добавить токен в модель.
-    """-------------------------------------------------------"""
-
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
-
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
-        self.setTitle('')
-        self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 3)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        """------------------Заголовок "Новый токен"------------------"""
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.verticalLayout_main.addWidget(self.label_title)
-        """-----------------------------------------------------------"""
+        verticalLayout_main.addWidget(TitleLabel(text='НОВЫЙ ТОКЕН', parent=self))  # Заголовок "Новый токен".
 
         """-------------Строка добавления нового токена-------------"""
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
-        self.horizontalLayout.setSpacing(2)
-        self.horizontalLayout.setObjectName('horizontalLayout')
+        horizontalLayout = QtWidgets.QHBoxLayout(self)
+        horizontalLayout.setSpacing(2)
 
-        self.lineEdit_new_token = QtWidgets.QLineEdit(self)
-        self.lineEdit_new_token.setObjectName('lineEdit_new_token')
-        self.horizontalLayout.addWidget(self.lineEdit_new_token)
+        self.lineEdit_new_token = QtWidgets.QLineEdit(parent=self)
+        self.lineEdit_new_token.setPlaceholderText('Введите токен')
+        horizontalLayout.addWidget(self.lineEdit_new_token)
 
-        self.pushButton_save_token = QtWidgets.QPushButton(self)
+        self.lineEdit_token_name = QtWidgets.QLineEdit(parent=self)
+        self.lineEdit_token_name.setPlaceholderText('Введите имя токена')
+        horizontalLayout.addWidget(self.lineEdit_token_name)
+
+        self.pushButton_save_token = QtWidgets.QPushButton(text='Сохранить', parent=self)
         self.pushButton_save_token.setEnabled(False)  # Кнопка "Сохранить" для нового токена д.б. неактивна по умолчанию.
-        self.pushButton_save_token.setObjectName('pushButton_save_token')
-        self.horizontalLayout.addWidget(self.pushButton_save_token)
+        horizontalLayout.addWidget(self.pushButton_save_token)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout)
+        verticalLayout_main.addLayout(horizontalLayout)
         """---------------------------------------------------------"""
 
         """---------Отображение аккаунтов добавляемого токена---------"""
         self.tabWidget_accounts = QtWidgets.QTabWidget(self)
         self.tabWidget_accounts.setMinimumSize(QtCore.QSize(0, 100))
         self.tabWidget_accounts.setBaseSize(QtCore.QSize(0, 0))
-        self.tabWidget_accounts.setObjectName('tabWidget_accounts')
-        self.verticalLayout_main.addWidget(self.tabWidget_accounts)
+        verticalLayout_main.addWidget(self.tabWidget_accounts)
         """-----------------------------------------------------------"""
 
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'НОВЫЙ ТОКЕН'))
-        self.lineEdit_new_token.setPlaceholderText(_translate('MainWindow', 'Введите токен'))
-        self.pushButton_save_token.setText(_translate('MainWindow', 'Сохранить'))
+        self.__current_token: TokenClass | None = None
 
-        self.current_token_class: TokenClass = TokenClass(token='',
-                                                          accounts=[],
-                                                          unary_limits=[],
-                                                          stream_limits=[])
         """---------------------Подключение слотов токенов---------------------"""
-        self.lineEdit_new_token.textChanged.connect(self.addedTokenChanged_slot)  # При изменении токена.
-        self.pushButton_save_token.clicked.connect(self._addToken)  # При сохранении нового токена.
+        self.lineEdit_new_token.textChanged.connect(self.__addedTokenChanged_slot)  # При изменении токена.
+        self.pushButton_save_token.clicked.connect(self.__addToken)  # При сохранении нового токена.
         """--------------------------------------------------------------------"""
 
-    def _clearAccountsTabWidget(self):
+    def __clearAccountsTabWidget(self):
         """Очищает tabWidget счетов добавляемого токена."""
         tabs_count: int = self.tabWidget_accounts.count()
         for i in range(tabs_count):
             self.tabWidget_accounts.removeTab(i)
 
-    @pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def addedTokenChanged_slot(self, text: str):
+    @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def __addedTokenChanged_slot(self, text: str):
         """Событие при изменении добавляемого токена."""
-        self._clearAccountsTabWidget()  # Очищаем tabWidget счетов добавляемого токена.
+        self.__clearAccountsTabWidget()  # Очищаем tabWidget счетов добавляемого токена.
 
         if not text:  # Если строка токена пустая.
             self.pushButton_save_token.setEnabled(False)
@@ -233,164 +187,80 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         accounts_list: list[Account] = accounts_response.response_data if accounts_response.ifDataSuccessfullyReceived() else []
         '''----------------------------------------------------------------'''
 
-        # accounts_response: MyResponse = getAccounts(text, False)
-        # assert accounts_response.request_occurred, 'Запрос счетов не был произведён.'
-        # accounts_list: list[Account] = accounts_response.response_data  # Получаем список счетов.
-
-        self.current_token_class = TokenClass(token=text,
-                                              accounts=accounts_list,
-                                              unary_limits=[],
-                                              stream_limits=[])
+        self.__current_token = TokenClass(token=text, accounts=accounts_list, name='')
         for i, account in enumerate(accounts_list):
             account_tab = QtWidgets.QWidget()
-            tab_name: str = 'tab_account_' + str(i)
-            account_tab.setObjectName(tab_name)
-
-            # Идентификатор счёта.
-            label_account_id_text = QtWidgets.QLabel(account_tab)
-            label_account_id_text.setObjectName(tab_name + '_label_account_id_text')
-            label_account_id_text.setText('Идентификатор:')
-            label_account_id = QtWidgets.QLabel(account_tab)
-            label_account_id.setObjectName(tab_name + '_label_account_id')
-            label_account_id.setText(account.id)
-
-            # Тип счёта.
-            label_account_type_text = QtWidgets.QLabel(account_tab)
-            label_account_type_text.setObjectName(tab_name + '_label_account_type_text')
-            label_account_type_text.setText('Тип счёта:')
-            label_account_type = QtWidgets.QLabel(account_tab)
-            label_account_type.setObjectName(tab_name + '_label_account_type')
-            label_account_type.setText(reportAccountType(account.type))
-
-            # Название счёта.
-            label_account_name_text = QtWidgets.QLabel(account_tab)
-            label_account_name_text.setObjectName(tab_name + '_label_account_name_text')
-            label_account_name_text.setText('Название счёта:')
-            label_account_name = QtWidgets.QLabel(account_tab)
-            label_account_name.setObjectName(tab_name + '_label_account_name')
-            label_account_name.setText(account.name)
-
-            # Статус счёта.
-            label_account_status_text = QtWidgets.QLabel(account_tab)
-            label_account_status_text.setObjectName(tab_name + '_label_account_status_text')
-            label_account_status_text.setText('Статус счёта:')
-            label_account_status = QtWidgets.QLabel(account_tab)
-            label_account_status.setObjectName(tab_name + '_label_account_status')
-            label_account_status.setText(reportAccountStatus(account.status))
-
-            # Дата открытия счёта.
-            label_account_opened_date_text = QtWidgets.QLabel(account_tab)
-            label_account_opened_date_text.setObjectName(tab_name + '_label_account_opened_date_text')
-            label_account_opened_date_text.setText('Дата открытия:')
-            label_account_opened_date = QtWidgets.QLabel(account_tab)
-            label_account_opened_date.setObjectName(tab_name + '_label_account_opened_date')
-            label_account_opened_date.setText(reportSignificantInfoFromDateTime(account.opened_date))
-
-            # Дата закрытия счёта.
-            label_account_closed_date_text = QtWidgets.QLabel(account_tab)
-            label_account_closed_date_text.setObjectName(tab_name + '_label_account_closed_date_text')
-            label_account_closed_date_text.setText('Дата закрытия:')
-            label_account_closed_date = QtWidgets.QLabel(account_tab)
-            label_account_closed_date.setObjectName(tab_name + '_label_account_closed_date')
-            label_account_closed_date.setText(reportSignificantInfoFromDateTime(account.closed_date))
-
-            # Уровень доступа к счёту.
-            label_account_access_level_text = QtWidgets.QLabel(account_tab)
-            label_account_access_level_text.setObjectName(tab_name + '_label_account_access_level_text')
-            label_account_access_level_text.setText('Уровень доступа:')
-            label_account_access_level = QtWidgets.QLabel(account_tab)
-            label_account_access_level.setObjectName(tab_name + '_label_account_access_level')
-            label_account_access_level.setText(reportAccountAccessLevel(account.access_level))
 
             '''------------------------Компоновка------------------------'''
             gridLayout = QtWidgets.QGridLayout(account_tab)
             gridLayout.setHorizontalSpacing(10)
             gridLayout.setVerticalSpacing(1)
-            gridLayout.setObjectName(tab_name + "_gridLayout")
 
-            gridLayout.addWidget(label_account_id_text, 0, 0)
-            gridLayout.addWidget(label_account_id, 0, 1)
-            gridLayout.addWidget(label_account_name_text, 1, 0)
-            gridLayout.addWidget(label_account_name, 1, 1)
-            gridLayout.addWidget(label_account_type_text, 2, 0)
-            gridLayout.addWidget(label_account_type, 2, 1)
-            gridLayout.addWidget(label_account_access_level_text, 3, 0)
-            gridLayout.addWidget(label_account_access_level, 3, 1)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Идентификатор:', parent=account_tab), 0, 0)
+            gridLayout.addWidget(QtWidgets.QLabel(text=account.id, parent=account_tab), 0, 1)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Название счёта:', parent=account_tab), 1, 0)
+            gridLayout.addWidget(QtWidgets.QLabel(text=account.name, parent=account_tab), 1, 1)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Тип счёта:', parent=account_tab), 2, 0)
+            gridLayout.addWidget(QtWidgets.QLabel(text=reportAccountType(account.type), parent=account_tab), 2, 1)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Уровень доступа:', parent=account_tab), 3, 0)
+            gridLayout.addWidget(QtWidgets.QLabel(text=reportAccountAccessLevel(account.access_level), parent=account_tab), 3, 1)
 
-            gridLayout.addWidget(label_account_status_text, 0, 2)
-            gridLayout.addWidget(label_account_status, 0, 3)
-            gridLayout.addWidget(label_account_opened_date_text, 1, 2)
-            gridLayout.addWidget(label_account_opened_date, 1, 3)
-            gridLayout.addWidget(label_account_closed_date_text, 2, 2)
-            gridLayout.addWidget(label_account_closed_date, 2, 3)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Статус счёта:', parent=account_tab), 0, 2)
+            gridLayout.addWidget(QtWidgets.QLabel(text=reportAccountStatus(account.status), parent=account_tab), 0, 3)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Дата открытия:', parent=account_tab), 1, 2)
+            gridLayout.addWidget(QtWidgets.QLabel(text=reportSignificantInfoFromDateTime(account.opened_date), parent=account_tab), 1, 3)
+            gridLayout.addWidget(QtWidgets.QLabel(text='Дата закрытия:', parent=account_tab), 2, 2)
+            gridLayout.addWidget(QtWidgets.QLabel(text=reportSignificantInfoFromDateTime(account.closed_date), parent=account_tab), 2, 3)
             '''----------------------------------------------------------'''
 
-            self.tabWidget_accounts.addTab(account_tab, '')  # Добавляем страницу.
-            self.tabWidget_accounts.setTabText(i, 'Счёт ' + str(i + 1))
+            self.tabWidget_accounts.addTab(account_tab, 'Счёт {0}'.format(str(i + 1)))  # Добавляем страницу.
 
-    @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-    def _addToken(self):
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def __addToken(self):
         """Добавляет токен в модель."""
-        new_token: str = self.lineEdit_new_token.text()  # Извлекаем текст из lineEdit.
-        assert new_token == self.current_token_class.token
+        self.lineEdit_new_token.setEnabled(False)
+        assert self.__current_token is not None and self.lineEdit_new_token.text() == self.__current_token.token
 
         '''---------------------------Получение лимитов---------------------------'''
         limits_try_count: RequestTryClass = RequestTryClass(1)
         limits_response: MyResponse = MyResponse()
         while limits_try_count and not limits_response.ifDataSuccessfullyReceived():
-            limits_response = getUserTariff(self.current_token_class.token)
+            limits_response = getUserTariff(self.__current_token.token)
             assert limits_response.request_occurred, 'Запрос лимитов не был произведён.'
             limits_try_count += 1
 
         if limits_response.ifDataSuccessfullyReceived():
-            unary_limits: list[UnaryLimit]
-            stream_limits: list[StreamLimit]
             unary_limits, stream_limits = limits_response.response_data
-            my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
-            my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
+            self.__current_token.unary_limits = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
+            self.__current_token.stream_limits = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
         else:
-            my_unary_limits: list[MyUnaryLimit] = []  # Массив лимитов пользователя по unary-запросам.
-            my_stream_limits: list[MyStreamLimit] = []  # Массив лимитов пользователя по stream-соединениям.
+            self.__current_token.unary_limits = []  # Массив лимитов пользователя по unary-запросам.
+            self.__current_token.stream_limits = []  # Массив лимитов пользователя по stream-соединениям.
         '''-----------------------------------------------------------------------'''
 
-        # unary_limits, stream_limits = getUserTariff(self.current_token_class.token).response_data
-        # my_unary_limits: list[MyUnaryLimit] = [MyUnaryLimit(unary_limit) for unary_limit in unary_limits]  # Массив лимитов пользователя по unary-запросам.
-        # my_stream_limits: list[MyStreamLimit] = [MyStreamLimit(stream_limit) for stream_limit in stream_limits]  # Массив лимитов пользователя по stream-соединениям.
-
-        added_token: TokenClass = TokenClass(token=self.current_token_class.token,
-                                             accounts=self.current_token_class.accounts,
-                                             unary_limits=my_unary_limits,
-                                             stream_limits=my_stream_limits)
-        self.add_token_signal.emit(added_token)
-        self.current_token_class: TokenClass = TokenClass(token='',
-                                                          accounts=[],
-                                                          unary_limits=[],
-                                                          stream_limits=[])
+        self.add_token_signal.emit(self.__current_token)
+        self.__current_token = None
         self.lineEdit_new_token.clear()  # Очищает содержимое lineEdit.
+        self.lineEdit_new_token.setEnabled(True)
 
 
 class TokensPage(QtWidgets.QWidget):
     """Страница токенов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent)  # QWidget __init__().
-        self.setObjectName(object_name)
+    def __init__(self, token_model: TokenModel, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         """------------Панель отображения сохранённых токенов------------"""
-        self.groupBox_saved_tokens: GroupBox_SavedTokens = GroupBox_SavedTokens('groupBox_saved_tokens', self)
-        self.verticalLayout_main.addWidget(self.groupBox_saved_tokens)
+        self.groupBox_saved_tokens: GroupBox_SavedTokens = GroupBox_SavedTokens(token_model, self)
+        verticalLayout_main.addWidget(self.groupBox_saved_tokens)
         """--------------------------------------------------------------"""
 
         """----------------Панель добавления нового токена----------------"""
-        self.groupBox_new_token: GroupBox_NewToken = GroupBox_NewToken('groupBox_new_token', self)
-        self.verticalLayout_main.addWidget(self.groupBox_new_token)
+        self.groupBox_new_token: GroupBox_NewToken = GroupBox_NewToken(self)
+        # self.groupBox_new_token.add_token_signal.connect(token_model.addToken)
+        self.groupBox_new_token.add_token_signal.connect(MainConnection.addNewToken)
+        verticalLayout_main.addWidget(self.groupBox_new_token)
         """---------------------------------------------------------------"""
-
-    def setModel(self, token_model: TokenModel):
-        """Устанавливает модель токенов для TreeView."""
-        self.groupBox_saved_tokens.setModel(token_model)
-        self.groupBox_new_token.add_token_signal.connect(token_model.addToken)
