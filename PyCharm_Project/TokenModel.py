@@ -178,31 +178,6 @@ class TokenModel(QAbstractItemModel):
     def getTokens(self) -> list[TokenClass]:
         return self.__tokens
 
-    # def addToken(self, token: TokenClass):
-    #     """Добавляет токен."""
-    #     row_count: int = self.rowCount()
-    #     self.beginInsertRows(QModelIndex(), row_count, row_count)
-    #     MainConnection.addNewToken(token)  # Добавляет новый токен в базу данных.
-    #     self.__tokens.append(token)
-    #     self.endInsertRows()
-    #     new_index: QModelIndex = self.index(row=row_count, column=0, parent=QModelIndex())
-    #     self.dataChanged.emit(new_index, new_index)  # Испускаем сигнал о том, что данные модели были изменены.
-
-    # def deleteToken(self, token_index: QModelIndex) -> TokenClass:
-    #     """Удаляет токен."""
-    #     token_row: int = token_index.row()
-    #     self.beginRemoveRows(QModelIndex(), token_row, token_row)
-    #
-    #     token: str = token_index.data(role=Qt.ItemDataRole.DisplayRole)
-    #     MainConnection.deleteToken(token)  # Удаление токена из базы данных.
-    #
-    #     model_token: TokenClass = self.__tokens.pop(token_row)
-    #     if not token == model_token.token:
-    #         raise ValueError('Несоответствие удаляемого токена ({0} и {1})!'.format(token, model_token))
-    #     self.endRemoveRows()
-    #     self.dataChanged.emit(token_index, token_index)  # Испускаем сигнал о том, что данные модели были изменены.
-    #     return model_token
-
 
 class TokenListModel(QIdentityProxyModel):
     """Модель для отображения токенов в ComboBox'ах."""

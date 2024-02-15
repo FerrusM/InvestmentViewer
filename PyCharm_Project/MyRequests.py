@@ -76,7 +76,6 @@ def getAccounts(token: str, show_unauthenticated_error: bool = True) -> MyRespon
         else:  # Если исключения не было.
             exception_flag = False  # Флаг наличия исключения.
             request_error_flag = False  # Флаг наличия RequestError.
-            # self.statusbar.clearMessage()  # Очищает statusbar.
         request_occurred = True  # Флаг произведённого запроса.
     return MyResponse('get_accounts()', request_occurred, accounts, exception_flag, exception, request_error_flag, request_error)
 
@@ -109,7 +108,6 @@ def getUserTariff(token: str, show_unauthenticated_error: bool = True) -> MyResp
             stream_limits = user_tariff_response.stream_limits
             exception_flag = False  # Флаг наличия исключения.
             request_error_flag = False  # Флаг наличия RequestError.
-            # self.statusbar.clearMessage()  # Очищает statusbar.
         request_occurred = True  # Флаг произведённого запроса.
     return MyResponse('get_user_tariff()', request_occurred, (unary_limits, stream_limits), exception_flag, exception, request_error_flag, request_error)
 

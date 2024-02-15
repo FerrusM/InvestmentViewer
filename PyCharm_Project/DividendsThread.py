@@ -20,8 +20,7 @@ class DividendsThread(QtCore.QThread):
         def setDividends(cls, uid: str, dividends: list[Dividend]):
             """Обновляет купоны с переданным figi в таблице купонов."""
             db: QtSql.QSqlDatabase = cls.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 def setDividendsColumnValue(value: str):
                     """Заполняет столбец dividends значением."""
                     update_dividends_query_str: str = 'UPDATE \"{0}\" SET \"dividends\" = :dividends WHERE \"uid\" = :uid;'.format(MyConnection.SHARES_TABLE)
@@ -58,15 +57,15 @@ class DividendsThread(QtCore.QThread):
 
                         add_dividends_query.bindValue(':share_uid', uid)
                         add_dividends_query.bindValue(':dividend_net', MyMoneyValue.__repr__(dividend.dividend_net))
-                        add_dividends_query.bindValue(':payment_date', MyConnection.convertDateTimeToText(dividend.payment_date, sep='T'))
-                        add_dividends_query.bindValue(':declared_date', MyConnection.convertDateTimeToText(dividend.declared_date, sep='T'))
-                        add_dividends_query.bindValue(':last_buy_date', MyConnection.convertDateTimeToText(dividend.last_buy_date, sep='T'))
+                        add_dividends_query.bindValue(':payment_date', MyConnection.convertDateTimeToText(dividend.payment_date))
+                        add_dividends_query.bindValue(':declared_date', MyConnection.convertDateTimeToText(dividend.declared_date))
+                        add_dividends_query.bindValue(':last_buy_date', MyConnection.convertDateTimeToText(dividend.last_buy_date))
                         add_dividends_query.bindValue(':dividend_type', dividend.dividend_type)
-                        add_dividends_query.bindValue(':record_date', MyConnection.convertDateTimeToText(dividend.record_date, sep='T'))
+                        add_dividends_query.bindValue(':record_date', MyConnection.convertDateTimeToText(dividend.record_date))
                         add_dividends_query.bindValue(':regularity', dividend.regularity)
                         add_dividends_query.bindValue(':close_price', MyMoneyValue.__repr__(dividend.close_price))
                         add_dividends_query.bindValue(':yield_value', MyQuotation.__repr__(dividend.yield_value))
-                        add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dt=dividend.created_at, sep='T', timespec='microseconds'))
+                        add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dt=dividend.created_at, timespec='microseconds'))
 
                         add_dividends_exec_flag: bool = add_dividends_query.exec()
                         assert add_dividends_exec_flag, add_dividends_query.lastError().text()
@@ -79,7 +78,7 @@ class DividendsThread(QtCore.QThread):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     receive_dividends_method_name: str = 'GetDividends'
 
@@ -96,7 +95,6 @@ class DividendsThread(QtCore.QThread):
     """--------------------Сигналы ошибок--------------------"""
     showRequestError_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str, RequestError)  # Сигнал для отображения исключения RequestError.
     showException_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str, Exception)  # Сигнал для отображения исключения.
-    clearStatusBar_signal: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал выключения отображения ошибки.
     """------------------------------------------------------"""
 
     releaseSemaphore_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
@@ -116,6 +114,8 @@ class DividendsThread(QtCore.QThread):
         self.end_time: datetime | None = None  # Время завершения потока.
 
         self.control_point: datetime | None = None  # Начальная точка отсчёта времени.
+
+        self.requests_time: float = 0.0
         """-------------------------------------------------"""
 
     def run(self) -> None:
@@ -156,7 +156,12 @@ class DividendsThread(QtCore.QThread):
                     self.control_point = getUtcDateTime()  # Промежуточная точка отсчёта времени.
                     '''-----------------------------------------------------------------'''
 
+                    before_dt: datetime = getUtcDateTime()
                     dividends_response = getDividends(token=self.token.token, instrument_id=share_class.share.uid)
+                    delta: float = (getUtcDateTime() - before_dt).total_seconds()
+                    self.requests_time += delta
+                    printInConsole('delta: {0} с.'.format(delta))
+
                     assert dividends_response.request_occurred, 'Запрос дивидендов не был произведён!'
                     self.request_count += 1  # Подсчитываем запрос.
                     self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора.
@@ -179,3 +184,5 @@ class DividendsThread(QtCore.QThread):
                 self.DatabaseConnection.setDividends(share_class.share.uid, dividends)  # Добавляем дивиденды в таблицу дивидендов.
 
             self.DatabaseConnection.removeConnection()  # Удаляем соединение с БД.
+
+            printInConsole('seconds: {0}'.format(self.requests_time / shares_count))

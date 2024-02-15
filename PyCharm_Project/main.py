@@ -1,6 +1,5 @@
 from PyQt6 import QtWidgets
-# from old_Form import InvestmentForm
-from new_Form import InvestmentForm
+from Form import InvestmentForm
 
 
 if __name__ == '__main__':

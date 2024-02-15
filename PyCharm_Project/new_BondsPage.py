@@ -7,7 +7,7 @@ from Classes import TokenClass, MyConnection
 from CouponsModel import CouponsModel, CouponsProxyModel
 from MyBondClass import MyBondClass
 from MyDateTime import getUtcDateTime
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving, TitleLabel
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
 
@@ -31,20 +31,13 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         _translate = QtCore.QCoreApplication.translate
 
         '''----------------------------------Заголовок----------------------------------'''
-        self.label_title = QtWidgets.QLabel(self)
+        label_title = TitleLabel(text='ПОЛУЧЕНИЕ КУПОНОВ', parent=self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        self.label_title.setMaximumSize(QtCore.QSize(16777215, 16777215))
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ КУПОНОВ'))
-        self.verticalLayout_main.addWidget(self.label_title)
+        sizePolicy.setHeightForWidth(label_title.sizePolicy().hasHeightForWidth())
+        label_title.setSizePolicy(sizePolicy)
+        self.verticalLayout_main.addWidget(label_title)
         '''-----------------------------------------------------------------------------'''
 
         '''-------------------------ProgressBar-------------------------'''
@@ -68,8 +61,7 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.label_coupons_type.setText(_translate('MainWindow', 'Тип купонов:'))
         self.horizontalLayout_coupons_type.addWidget(self.label_coupons_type)
 
-        spacerItem_1 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_coupons_type.addItem(spacerItem_1)
+        self.horizontalLayout_coupons_type.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.comboBox_coupons_type = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -92,8 +84,7 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Разные купоны'))
         self.horizontalLayout_coupons_type.addWidget(self.comboBox_coupons_type)
 
-        spacerItem_2 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_coupons_type.addItem(spacerItem_2)
+        self.horizontalLayout_coupons_type.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
         '''-----------------------------------------------------------------------------------'''
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_coupons_type)
@@ -149,8 +140,8 @@ class FilterModel(QAbstractListModel):
 
 class BoolFilterComboBox(FilterComboBox):
     class BoolFilterModel(FilterModel):
-        def __init__(self, parameter_name: str, parent: QObject | None = ...):
-            super().__init__(parent)  # __init__() FilterModel.
+        def __init__(self, parameter_name: str, parent: QObject | None = None):
+            super().__init__(parent=parent)
 
             Item = self.Item  # Даём псевдоним классу.
             self._items: tuple[Item, Item, Item] = (
@@ -159,7 +150,7 @@ class BoolFilterComboBox(FilterComboBox):
                 Item('False', '\"{0}\".\"{1}\" = {2}'.format(MyConnection.BONDS_TABLE, parameter_name, MyConnection.convertBoolToBlob(False)))
             )
 
-    def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
+    def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parameter_name, parent)  # FilterComboBox __init__().
         model = self.BoolFilterModel(parameter_name, self)
         self.setModel(model)
@@ -218,16 +209,16 @@ class CurrencyFilterComboBox(FilterComboBox):
 
 class RiskFilterComboBox(FilterComboBox):
     class RiskFilterModel(FilterModel):
-        def __init__(self, parameter_name: str, parent: QObject | None = ...):
-            super().__init__(parent)  # __init__() FilterModel.
+        def __init__(self, parameter_name: str, parent: QObject | None = None):
+            super().__init__(parent=parent)
 
             Item = self.Item  # Даём псевдоним классу.
             self._items: tuple[Item, ...] = (
                 Item('Любой', None),
-                Item('Низкий', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_LOW)),
-                Item('Средний', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_MODERATE)),
-                Item('Высокий', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_HIGH)),
-                Item('Неизвестен', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_UNSPECIFIED))
+                Item('Низкий', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_LOW.name)),
+                Item('Средний', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_MODERATE.name)),
+                Item('Высокий', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_HIGH.name)),
+                Item('Неизвестен', '\"{0}\".\"{1}\" = \'{2}\''.format(MyConnection.BONDS_TABLE, parameter_name, RiskLevel.RISK_LEVEL_UNSPECIFIED.name))
             )
 
     def __init__(self, parameter_name: str, parent: QtWidgets.QWidget | None = ...):
@@ -457,11 +448,10 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
     """GroupBox с фильтрами облигаций."""
     filtersChanged: pyqtSignal = pyqtSignal()  # Сигнал испускается при изменении фильтров.
 
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(title='Фильтры облигаций', parent=parent)
         self.setObjectName(object_name)
         _translate = QtCore.QCoreApplication.translate
-        self.setTitle(_translate('MainWindow', 'Фильтры облигаций'))
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)

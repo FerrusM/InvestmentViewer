@@ -50,24 +50,23 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
         delete_button_delegate: TreeProxyModel.DeleteButtonDelegate = tree_model.DeleteButtonDelegate(self.treeView_saved_tokens)
 
         def deleteButtonFunction(index: QtCore.QModelIndex):
-            def getTokenFromIndex(index: QtCore.QModelIndex) -> str:
+            def getTokenFromIndex(model_index: QtCore.QModelIndex) -> str:
                 """Получает и возвращает токен, соответствующий индексу."""
-                tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
+                tree_item: TreeItem = model_index.internalPointer()  # Указатель на внутреннюю структуру данных.
                 assert type(tree_item) == TreeItem
                 token_class: TokenClass = tree_item.data
                 assert type(token_class) == TokenClass
                 return token_class.token
 
             @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-            def deleteTokenDialog(token: str) -> QtWidgets.QMessageBox.StandardButton:
+            def deleteTokenDialog(deleting_token: str) -> QtWidgets.QMessageBox.StandardButton:
                 """Диалоговое окно удаления токена."""
-                msgBox = QtWidgets.QMessageBox()
-                msgBox.setIcon(QtWidgets.QMessageBox.Icon.Warning)  # Задаёт значок окна сообщения.
-                msgBox.setWindowTitle('Удаление токена')  # Заголовок окна сообщения.
-                msgBox.setText('Вы уверены, что хотите удалить токен {0}?'.format(token))  # Текст окна сообщения.
+                msgBox = QtWidgets.QMessageBox(icon=QtWidgets.QMessageBox.Icon.Warning,
+                                               text='Вы уверены, что хотите удалить токен {0}?'.format(deleting_token))
+                msgBox.setWindowTitle('Удаление токена')
                 msgBox.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No)
                 msgBox.setDefaultButton(QtWidgets.QMessageBox.StandardButton.No)
-                return msgBox.exec()
+                return QtWidgets.QMessageBox.StandardButton(msgBox.exec())
 
             token: str = getTokenFromIndex(index)
             clicked_button: QtWidgets.QMessageBox.StandardButton = deleteTokenDialog(token)
@@ -77,7 +76,6 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
                 case QtWidgets.QMessageBox.StandardButton.Yes:
                     """------------------------------Удаление токена------------------------------"""
                     deleted_flag: bool = tree_model.deleteToken(index)
-                    # assert not deleted_flag, 'Проблема с удалением токена!'
                     if not deleted_flag:
                         raise ValueError('Проблема с удалением токена!')
                     """---------------------------------------------------------------------------"""

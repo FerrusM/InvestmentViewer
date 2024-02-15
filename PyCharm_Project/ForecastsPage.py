@@ -1,5 +1,6 @@
 from PyQt6 import QtWidgets, QtCore
-from DatabaseWidgets import GroupBox_InstrumentSelection, TITLE_FONT
+from DatabaseWidgets import GroupBox_InstrumentSelection
+from PagesClasses import TitleLabel
 from TokenModel import TokenListModel
 
 
@@ -19,26 +20,17 @@ class MyTableViewGroupBoxWidget(QtWidgets.QGroupBox):
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
 
-        spacerItem_title_first = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, vPolicy)
-        self.horizontalLayout_title.addItem(spacerItem_title_first)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, vPolicy))
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, vPolicy))
 
-        spacerItem_title_expanding = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, vPolicy)
-        self.horizontalLayout_title.addItem(spacerItem_title_expanding)
+        self.horizontalLayout_title.addWidget(TitleLabel(text='ПРОГНОЗЫ', parent=self))
 
-        self.label_title = QtWidgets.QLabel(self)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setText('ПРОГНОЗЫ')
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(self)
+        self.label_count = QtWidgets.QLabel(text='0', parent=self)
         self.label_count.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, vPolicy))
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setText('0')
         self.horizontalLayout_title.addWidget(self.label_count)
 
-        spacerItem_title_last = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, vPolicy)
-        self.horizontalLayout_title.addItem(spacerItem_title_last)
+        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, vPolicy))
 
         self.verticalLayout_main.addLayout(self.horizontalLayout_title)
         '''---------------------------------------------------------------------'''

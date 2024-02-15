@@ -855,7 +855,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
     def instrument(self) -> MyShareClass | MyBondClass | None:
         return self.__current_instrument
 
-    def __onCurrentInstrumentChanged(self, uid: str | None):
+    def __onCurrentInstrumentChanged(self, uid: str | None = None):
         if uid is None:
             if self.__current_instrument is not None:
                 self.__current_instrument = None
@@ -864,9 +864,9 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
             instrument: MyShareClass | MyBondClass | None = MainConnection.getMyInstrument(uid)
             self.__current_instrument = instrument
             if type(self.__current_instrument) == MyBondClass:
-                self.bondSelected.emit()
+                self.bondSelected.emit(self.__current_instrument)
             elif type(self.__current_instrument) == MyShareClass:
-                self.shareSelected.emit()
+                self.shareSelected.emit(self.__current_instrument)
             else:
                 '''Такого не должно происходить.'''
                 if self.__current_instrument is not None:
@@ -887,12 +887,19 @@ class CandlesPage_new(QtWidgets.QWidget):
 
         """========================Верхняя часть========================"""
         splitter_horizontal = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Horizontal, parent=splitter_vertical)
+        splitter_vertical.setStretchFactor(0, 0)
         self.groupBox_instrument = GroupBox_InstrumentSelection(token_model=token_model, parent=splitter_horizontal)
+        splitter_horizontal.setStretchFactor(0, 0)
         self.groupBox_instrument_info = GroupBox_InstrumentInfo(parent=splitter_horizontal)
+        splitter_horizontal.setStretchFactor(1, 1)
+        self.groupBox_instrument.shareSelected.connect(self.groupBox_instrument_info.setInstrument)
+        self.groupBox_instrument.bondSelected.connect(self.groupBox_instrument_info.setInstrument)
+        self.groupBox_instrument.instrumentReset.connect(self.groupBox_instrument_info.reset)
         """============================================================="""
 
         """========================Нижняя часть========================"""
-        self.groupBox = QtWidgets.QGroupBox(splitter_vertical)
+        self.groupBox = QtWidgets.QGroupBox(parent=splitter_vertical)
+        splitter_vertical.setStretchFactor(1, 1)
         """============================================================"""
 
         self.layout().addWidget(splitter_vertical)

@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 import typing
 from enum import Enum
 from PyQt6 import QtWidgets, QtCore, QtSql
-from tinkoff.invest import Bond, Quotation, MoneyValue, SecurityTradingStatus, RealExchange
-from tinkoff.invest.schemas import RiskLevel, Share, ShareType, HistoricCandle, CandleInterval
+from tinkoff.invest import Bond, Quotation
+from tinkoff.invest.schemas import Share, HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesView import CandlesChartView, CandlesSceneView
 from Classes import MyConnection, TokenClass, print_slot, Column, TITLE_FONT
@@ -247,83 +247,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 rows_count: int = 0
                 while query.next():
                     rows_count += 1
-
-                    def getBond() -> Bond:
-                        """Создаёт и возвращает экземпляр класса Bond."""
-                        figi: str = query.value('figi')
-                        ticker: str = query.value('ticker')
-                        class_code: str = query.value('class_code')
-                        isin: str = query.value('isin')
-                        lot: int = query.value('lot')
-                        currency: str = query.value('currency')
-                        klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
-                        kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
-                        dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
-                        dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
-                        dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
-                        dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
-                        short_enabled_flag: bool = MyConnection.convertBlobToBool(query.value('short_enabled_flag'))
-                        name: str = query.value('name')
-                        exchange: str = query.value('exchange')
-                        coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
-                        maturity_date: datetime = MyConnection.convertTextToDateTime(query.value('maturity_date'))
-                        nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
-                        initial_nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('initial_nominal'))
-                        state_reg_date: datetime = MyConnection.convertTextToDateTime(query.value('state_reg_date'))
-                        placement_date: datetime = MyConnection.convertTextToDateTime(query.value('placement_date'))
-                        placement_price: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('placement_price'))
-                        aci_value: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('aci_value'))
-                        country_of_risk: str = query.value('country_of_risk')
-                        country_of_risk_name: str = query.value('country_of_risk_name')
-                        sector: str = query.value('sector')
-                        issue_kind: str = query.value('issue_kind')
-                        issue_size: int = query.value('issue_size')
-                        issue_size_plan: int = query.value('issue_size_plan')
-                        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
-                        otc_flag: bool = MyConnection.convertBlobToBool(query.value('otc_flag'))
-                        buy_available_flag: bool = MyConnection.convertBlobToBool(query.value('buy_available_flag'))
-                        sell_available_flag: bool = MyConnection.convertBlobToBool(query.value('sell_available_flag'))
-                        floating_coupon_flag: bool = MyConnection.convertBlobToBool(query.value('floating_coupon_flag'))
-                        perpetual_flag: bool = MyConnection.convertBlobToBool(query.value('perpetual_flag'))
-                        amortization_flag: bool = MyConnection.convertBlobToBool(query.value('amortization_flag'))
-                        min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
-                        api_trade_available_flag: bool = MyConnection.convertBlobToBool(query.value('api_trade_available_flag'))
-                        uid: str = query.value('uid')
-                        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
-                        position_uid: str = query.value('position_uid')
-                        for_iis_flag: bool = MyConnection.convertBlobToBool(query.value('for_iis_flag'))
-                        for_qual_investor_flag: bool = MyConnection.convertBlobToBool(query.value('for_qual_investor_flag'))
-                        weekend_flag: bool = MyConnection.convertBlobToBool(query.value('weekend_flag'))
-                        blocked_tca_flag: bool = MyConnection.convertBlobToBool(query.value('blocked_tca_flag'))
-                        subordinated_flag: bool = MyConnection.convertBlobToBool(query.value('subordinated_flag'))
-                        liquidity_flag: bool = MyConnection.convertBlobToBool(query.value('liquidity_flag'))
-                        first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
-                        first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
-                        risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
-                        return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency,
-                                    klong=klong,
-                                    kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
-                                    short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
-                                    coupon_quantity_per_year=coupon_quantity_per_year, maturity_date=maturity_date,
-                                    nominal=nominal,
-                                    initial_nominal=initial_nominal, state_reg_date=state_reg_date,
-                                    placement_date=placement_date,
-                                    placement_price=placement_price, aci_value=aci_value, country_of_risk=country_of_risk,
-                                    country_of_risk_name=country_of_risk_name, sector=sector, issue_kind=issue_kind,
-                                    issue_size=issue_size, issue_size_plan=issue_size_plan, trading_status=trading_status,
-                                    otc_flag=otc_flag, buy_available_flag=buy_available_flag,
-                                    sell_available_flag=sell_available_flag,
-                                    floating_coupon_flag=floating_coupon_flag, perpetual_flag=perpetual_flag,
-                                    amortization_flag=amortization_flag, min_price_increment=min_price_increment,
-                                    api_trade_available_flag=api_trade_available_flag, uid=uid, real_exchange=real_exchange,
-                                    position_uid=position_uid, for_iis_flag=for_iis_flag,
-                                    for_qual_investor_flag=for_qual_investor_flag,
-                                    weekend_flag=weekend_flag, blocked_tca_flag=blocked_tca_flag,
-                                    subordinated_flag=subordinated_flag,
-                                    liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
-                                    first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
-
-                    bond = getBond()
+                    bond = MyConnection.getCurrentBond(query)
                 assert rows_count == 1
 
                 bond_class: MyBondClass = MyBondClass(bond)
@@ -333,67 +257,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 rows_count: int = 0
                 while query.next():
                     rows_count += 1
-
-                    def getShare() -> Share:
-                        """Создаёт и возвращает экземпляр класса Share."""
-                        figi: str = query.value('figi')
-                        ticker: str = query.value('ticker')
-                        class_code: str = query.value('class_code')
-                        isin: str = query.value('isin')
-                        lot: int = query.value('lot')
-                        currency: str = query.value('currency')
-                        klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
-                        kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
-                        dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
-                        dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
-                        dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
-                        dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
-                        short_enabled_flag: bool = MyConnection.convertBlobToBool(query.value('short_enabled_flag'))
-                        name: str = query.value('name')
-                        exchange: str = query.value('exchange')
-                        ipo_date: datetime = MyConnection.convertTextToDateTime(query.value('ipo_date'))
-                        issue_size: int = query.value('issue_size')
-                        country_of_risk: str = query.value('country_of_risk')
-                        country_of_risk_name: str = query.value('country_of_risk_name')
-                        sector: str = query.value('sector')
-                        issue_size_plan: int = query.value('issue_size_plan')
-                        nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
-                        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
-                        otc_flag: bool = MyConnection.convertBlobToBool(query.value('otc_flag'))
-                        buy_available_flag: bool = MyConnection.convertBlobToBool(query.value('buy_available_flag'))
-                        sell_available_flag: bool = MyConnection.convertBlobToBool(query.value('sell_available_flag'))
-                        div_yield_flag: bool = MyConnection.convertBlobToBool(query.value('div_yield_flag'))
-                        share_type: ShareType = ShareType(query.value('share_type'))
-                        min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
-                        api_trade_available_flag: bool = MyConnection.convertBlobToBool(query.value('api_trade_available_flag'))
-                        uid: str = query.value('uid')
-                        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
-                        position_uid: str = query.value('position_uid')
-                        for_iis_flag: bool = MyConnection.convertBlobToBool(query.value('for_iis_flag'))
-                        for_qual_investor_flag: bool = MyConnection.convertBlobToBool(query.value('for_qual_investor_flag'))
-                        weekend_flag: bool = MyConnection.convertBlobToBool(query.value('weekend_flag'))
-                        blocked_tca_flag: bool = MyConnection.convertBlobToBool(query.value('blocked_tca_flag'))
-                        liquidity_flag: bool = MyConnection.convertBlobToBool(query.value('liquidity_flag'))
-                        first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
-                        first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
-                        return Share(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot,
-                                     currency=currency, klong=klong, kshort=kshort, dlong=dlong, dshort=dshort,
-                                     dlong_min=dlong_min, dshort_min=dshort_min, short_enabled_flag=short_enabled_flag,
-                                     name=name, exchange=exchange, ipo_date=ipo_date, issue_size=issue_size,
-                                     country_of_risk=country_of_risk, country_of_risk_name=country_of_risk_name,
-                                     sector=sector, issue_size_plan=issue_size_plan, nominal=nominal,
-                                     trading_status=trading_status, otc_flag=otc_flag,
-                                     buy_available_flag=buy_available_flag, sell_available_flag=sell_available_flag,
-                                     div_yield_flag=div_yield_flag, share_type=share_type,
-                                     min_price_increment=min_price_increment,
-                                     api_trade_available_flag=api_trade_available_flag, uid=uid,
-                                     real_exchange=real_exchange, position_uid=position_uid, for_iis_flag=for_iis_flag,
-                                     for_qual_investor_flag=for_qual_investor_flag, weekend_flag=weekend_flag,
-                                     blocked_tca_flag=blocked_tca_flag, liquidity_flag=liquidity_flag,
-                                     first_1min_candle_date=first_1min_candle_date,
-                                     first_1day_candle_date=first_1day_candle_date)
-
-                    share = getShare()
+                    share = MyConnection.getCurrentShare(query)
                 assert rows_count == 1
 
                 share_class: MyShareClass = MyShareClass(share)
@@ -647,7 +511,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                         query.bindValue(':low{0}'.format(i), MyQuotation.__repr__(candle.low))
                         query.bindValue(':close{0}'.format(i), MyQuotation.__repr__(candle.close))
                         query.bindValue(':volume{0}'.format(i), candle.volume)
-                        query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(candle.time, sep='T'))
+                        query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(candle.time))
                         query.bindValue(':is_complete{0}'.format(i), MyConnection.convertBoolToBlob(candle.is_complete))
 
                     exec_flag: bool = query.exec()
@@ -1245,15 +1109,11 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        self.label_title = QtWidgets.QLabel(self)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_title.setText('ГРАФИК')
-        self.verticalLayout_main.addWidget(self.label_title)
+        verticalLayout_main.addWidget(TitleLabel(text='ГРАФИК', parent=self))
 
         '''------------------QGraphicsScene------------------'''
         # self.chart_view = CandlesSceneView(parent=self)
@@ -1266,7 +1126,7 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
         # scrollBar = QtWidgets.QScrollBar(QtCore.Qt.Orientation.Horizontal)
         # scrollBar.setValue(0)
 
-        self.verticalLayout_main.addWidget(self.chart_view)
+        verticalLayout_main.addWidget(self.chart_view)
         # self.verticalLayout_main.addWidget(scrollBar)
         '''----------------------------------------------------'''
 
@@ -1280,7 +1140,7 @@ class CandlesPage(QtWidgets.QWidget):
         self.__instrument: MyBondClass | MyShareClass | None = None
         self.__candles: list[HistoricCandle] = []
 
-        super().__init__(parent)
+        super().__init__(parent=parent)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -1357,19 +1217,7 @@ class CandlesPage(QtWidgets.QWidget):
 
             candles: list[HistoricCandle] = []
             while query.next():
-                def getHistoricCandle() -> HistoricCandle:
-                    """Создаёт и возвращает экземпляр класса HistoricCandle."""
-                    open_: Quotation = MyConnection.convertTextToQuotation(query.value('open'))
-                    high: Quotation = MyConnection.convertTextToQuotation(query.value('high'))
-                    low: Quotation = MyConnection.convertTextToQuotation(query.value('low'))
-                    close: Quotation = MyConnection.convertTextToQuotation(query.value('close'))
-                    volume: int = query.value('volume')
-                    time: datetime = MyConnection.convertTextToDateTime(query.value('time'))
-                    is_complete: bool = MyConnection.convertBlobToBool(query.value('is_complete'))
-                    return HistoricCandle(open=open_, high=high, low=low, close=close, volume=volume, time=time,
-                                          is_complete=is_complete)
-
-                candles.append(getHistoricCandle())
+                candles.append(MyConnection.getHistoricCandle(query))
             return candles
 
         def onInstrumentChanged(instrument: MyBondClass | MyShareClass):

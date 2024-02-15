@@ -2,7 +2,9 @@ from enum import EnumType
 from PyQt6 import QtSql
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
-    InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel
+    InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
+from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType
+
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -168,7 +170,19 @@ class MainConnection(MyConnection):
             assert brands_data_exec_flag, brands_data_query.lastError().text()
             '''------------------------------------------------------------------------'''
 
+            trading_status_column_name: str = '\"trading_status\"'
+            trading_status_check_str: str | None = getCheckConstraintForColumnFromEnum(trading_status_column_name, SecurityTradingStatus)
+            trading_status_column: str = '{0} TEXT NOT NULL{1}'.format(trading_status_column_name, '' if trading_status_check_str is None else ' {0}'.format(trading_status_check_str))
+
+            real_exchange_column_name: str = '\"real_exchange\"'
+            real_exchange_check_str: str | None = getCheckConstraintForColumnFromEnum(real_exchange_column_name, RealExchange)
+            real_exchange_column: str = '{0} TEXT NOT NULL{1}'.format(real_exchange_column_name, '' if real_exchange_check_str is None else ' {0}'.format(real_exchange_check_str))
+
             '''------------------Создание таблицы облигаций------------------'''
+            risk_level_column_name: str = '\"risk_level\"'
+            risk_level_check_str: str | None = getCheckConstraintForColumnFromEnum(risk_level_column_name, RiskLevel)
+            risk_level_column: str = '{0} TEXT NOT NULL{1}'.format(risk_level_column_name, '' if risk_level_check_str is None else ' {0}'.format(risk_level_check_str))
+
             bonds_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"figi\" TEXT NOT NULL,
@@ -200,7 +214,7 @@ class MainConnection(MyConnection):
             \"issue_kind\" TEXT NOT NULL,
             \"issue_size\" INTEGER NOT NULL,
             \"issue_size_plan\" INTEGER NOT NULL,
-            \"trading_status\" INTEGER NOT NULL,
+            {2},
             \"otc_flag\" BLOB NOT NULL,
             \"buy_available_flag\" BLOB NOT NULL,
             \"sell_available_flag\" BLOB NOT NULL,
@@ -210,7 +224,7 @@ class MainConnection(MyConnection):
             \"min_price_increment\" TEXT NOT NULL,
             \"api_trade_available_flag\" BLOB NOT NULL,
             \"uid\" TEXT NOT NULL,
-            \"real_exchange\" INTEGER NOT NULL,
+            {3},
             \"position_uid\" TEXT NOT NULL,
             \"asset_uid\" TEXT NOT NULL,
             \"for_iis_flag\" BLOB NOT NULL,
@@ -221,11 +235,17 @@ class MainConnection(MyConnection):
             \"liquidity_flag\" BLOB NOT NULL,
             \"first_1min_candle_date\" TEXT NOT NULL,
             \"first_1day_candle_date\" TEXT NOT NULL,
-            \"risk_level\" INTEGER NOT NULL,
+            {4},
             \"coupons\" TEXT CHECK(\"coupons\" = \'Yes\' OR \"coupons\" = \'No\'),
             UNIQUE (\"uid\"),
             FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(MyConnection.BONDS_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
+            );'''.format(
+                MyConnection.BONDS_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE,
+                trading_status_column,
+                real_exchange_column,
+                risk_level_column
+            )
             bonds_query = QSqlQuery(db)
             bonds_prepare_flag: bool = bonds_query.prepare(bonds_query_str)
             assert bonds_prepare_flag, bonds_query.lastError().text()
@@ -253,6 +273,10 @@ class MainConnection(MyConnection):
             '''-----------------------------------------------------------------'''
 
             '''-------------------Создание таблицы купонов-------------------'''
+            coupon_type_column_name: str = '\"coupon_type\"'
+            coupon_type_check_str: str | None = getCheckConstraintForColumnFromEnum(coupon_type_column_name, CouponType)
+            coupon_type_column: str = '{0} TEXT NOT NULL{1}'.format(coupon_type_column_name, '' if coupon_type_check_str is None else ' {0}'.format(coupon_type_check_str))
+
             coupons_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"instrument_uid\" TEXT NOT NULL,
@@ -261,13 +285,17 @@ class MainConnection(MyConnection):
             \"coupon_number\" INTEGER NOT NULL,
             \"fix_date\" TEXT NOT NULL,
             \"pay_one_bond\" TEXT NOT NULL,
-            \"coupon_type\" INTEGER NOT NULL,
+            {2},
             \"coupon_start_date\" TEXT NOT NULL,
             \"coupon_end_date\" TEXT NOT NULL,
             \"coupon_period\" INTEGER NOT NULL,
             UNIQUE (\"instrument_uid\", \"coupon_number\"),
             FOREIGN KEY (\"instrument_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(MyConnection.COUPONS_TABLE, MyConnection.BONDS_TABLE)
+            );'''.format(
+                MyConnection.COUPONS_TABLE,
+                MyConnection.BONDS_TABLE,
+                coupon_type_column
+            )
             coupons_query = QSqlQuery(db)
             coupons_prepare_flag: bool = coupons_query.prepare(coupons_query_str)
             assert coupons_prepare_flag, coupons_query.lastError().text()
@@ -276,6 +304,10 @@ class MainConnection(MyConnection):
             '''--------------------------------------------------------------'''
 
             '''--------------------Создание таблицы акций--------------------'''
+            share_type_column_name: str = '\"share_type\"'
+            share_type_check_str: str | None = getCheckConstraintForColumnFromEnum(share_type_column_name, ShareType)
+            share_type_column: str = '{0} TEXT NOT NULL{1}'.format(share_type_column_name, '' if share_type_check_str is None else ' {0}'.format(share_type_check_str))
+
             shares_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
             \"figi\" TEXT NOT NULL,
@@ -300,16 +332,16 @@ class MainConnection(MyConnection):
             \"sector\" TEXT NOT NULL,
             \"issue_size_plan\" INTEGER NOT NULL,
             \"nominal\" TEXT NOT NULL,
-            \"trading_status\" INTEGER NOT NULL,
+            {2},
             \"otc_flag\" BLOB NOT NULL,
             \"buy_available_flag\" BLOB NOT NULL,
             \"sell_available_flag\" BLOB NOT NULL,
             \"div_yield_flag\" BLOB NOT NULL,
-            \"share_type\" INTEGER NOT NULL,
+            {4},
             \"min_price_increment\" TEXT NOT NULL,
             \"api_trade_available_flag\" BLOB NOT NULL,
             \"uid\" TEXT NOT NULL,
-            \"real_exchange\" INTEGER NOT NULL,
+            {3},
             \"position_uid\" TEXT NOT NULL,
             \"asset_uid\" TEXT NOT NULL,
             \"for_iis_flag\" BLOB NOT NULL,
@@ -322,7 +354,13 @@ class MainConnection(MyConnection):
             \"dividends\" TEXT CHECK(\"dividends\" = \'Yes\' OR \"dividends\" = \'No\'),
             UNIQUE (\"uid\"),
             FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(MyConnection.SHARES_TABLE, MyConnection.INSTRUMENT_UIDS_TABLE)
+            );'''.format(
+                MyConnection.SHARES_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE,
+                trading_status_column,
+                real_exchange_column,
+                share_type_column
+            )
             shares_query = QSqlQuery(db)
             shares_prepare_flag: bool = shares_query.prepare(shares_query_str)
             assert shares_prepare_flag, shares_query.lastError().text()
@@ -778,8 +816,7 @@ class MainConnection(MyConnection):
         """Добавляет облигации в таблицу облигаций."""
         if bonds:  # Если список облигаций не пуст.
             db: QSqlDatabase = cls.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 VARIABLES_COUNT: int = 51  # Количество variables в каждом insert.
                 bonds_in_pack: int = int(cls.VARIABLE_LIMIT / VARIABLES_COUNT)
                 assert bonds_in_pack > 0
@@ -890,11 +927,11 @@ class MainConnection(MyConnection):
                         query.bindValue(':name{0}'.format(i), bond.name)
                         query.bindValue(':exchange{0}'.format(i), bond.exchange)
                         query.bindValue(':coupon_quantity_per_year{0}'.format(i), bond.coupon_quantity_per_year)
-                        query.bindValue(':maturity_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.maturity_date, sep=' '))
+                        query.bindValue(':maturity_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.maturity_date))
                         query.bindValue(':nominal{0}'.format(i), MyMoneyValue.__repr__(bond.nominal))
                         query.bindValue(':initial_nominal{0}'.format(i), MyMoneyValue.__repr__(bond.initial_nominal))
-                        query.bindValue(':state_reg_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.state_reg_date, sep=' '))
-                        query.bindValue(':placement_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.placement_date, sep=' '))
+                        query.bindValue(':state_reg_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.state_reg_date))
+                        query.bindValue(':placement_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.placement_date))
                         query.bindValue(':placement_price{0}'.format(i), MyMoneyValue.__repr__(bond.placement_price))
                         query.bindValue(':aci_value{0}'.format(i), MyMoneyValue.__repr__(bond.aci_value))
                         query.bindValue(':country_of_risk{0}'.format(i), bond.country_of_risk)
@@ -903,7 +940,7 @@ class MainConnection(MyConnection):
                         query.bindValue(':issue_kind{0}'.format(i), bond.issue_kind)
                         query.bindValue(':issue_size{0}'.format(i), bond.issue_size)
                         query.bindValue(':issue_size_plan{0}'.format(i), bond.issue_size_plan)
-                        query.bindValue(':trading_status{0}'.format(i), int(bond.trading_status))
+                        query.bindValue(':trading_status{0}'.format(i), bond.trading_status.name)
                         query.bindValue(':otc_flag{0}'.format(i), bond.otc_flag)
                         query.bindValue(':buy_available_flag{0}'.format(i), bond.buy_available_flag)
                         query.bindValue(':sell_available_flag{0}'.format(i), bond.sell_available_flag)
@@ -913,7 +950,7 @@ class MainConnection(MyConnection):
                         query.bindValue(':min_price_increment{0}'.format(i), MyQuotation.__repr__(bond.min_price_increment))
                         query.bindValue(':api_trade_available_flag{0}'.format(i), bond.api_trade_available_flag)
                         query.bindValue(':uid{0}'.format(i), bond.uid)
-                        query.bindValue(':real_exchange{0}'.format(i), int(bond.real_exchange))
+                        query.bindValue(':real_exchange{0}'.format(i), bond.real_exchange.name)
                         query.bindValue(':position_uid{0}'.format(i), bond.position_uid)
                         query.bindValue(':asset_uid{0}'.format(i), bond.asset_uid)
                         query.bindValue(':for_iis_flag{0}'.format(i), bond.for_iis_flag)
@@ -922,9 +959,9 @@ class MainConnection(MyConnection):
                         query.bindValue(':blocked_tca_flag{0}'.format(i), bond.blocked_tca_flag)
                         query.bindValue(':subordinated_flag{0}'.format(i), bond.subordinated_flag)
                         query.bindValue(':liquidity_flag{0}'.format(i), bond.liquidity_flag)
-                        query.bindValue(':first_1min_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1min_candle_date, sep=' '))
-                        query.bindValue(':first_1day_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1day_candle_date, sep=' '))
-                        query.bindValue(':risk_level{0}'.format(i), int(bond.risk_level))
+                        query.bindValue(':first_1min_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1min_candle_date))
+                        query.bindValue(':first_1day_candle_date{0}'.format(i), MyConnection.convertDateTimeToText(bond.first_1day_candle_date))
+                        query.bindValue(':risk_level{0}'.format(i), bond.risk_level.name)
 
                     bonds_insert_exec_flag: bool = query.exec()
                     assert bonds_insert_exec_flag, query.lastError().text()
@@ -953,13 +990,14 @@ class MainConnection(MyConnection):
 
                 """===============Добавляем облигации в таблицу запросов инструментов==============="""
                 '''--------------Удаляем облигации из таблицы запросов инструментов--------------'''
-                bonds_uids_select: str = '''
-                SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\'
+                bonds_uids_select: str = '''SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\'
                 '''.format(MyConnection.INSTRUMENT_UIDS_TABLE, 'bond')
 
-                instruments_status_delete_sql_command: str = '''
-                DELETE FROM \"{0}\" WHERE \"token\" = :token AND \"status\" = :status AND \"uid\" in ({1});
-                '''.format(MyConnection.INSTRUMENT_STATUS_TABLE, bonds_uids_select)
+                instruments_status_delete_sql_command: str = '''DELETE FROM \"{0}\" WHERE \"token\" = :token AND 
+                \"status\" = :status AND \"uid\" in ({1});'''.format(
+                    MyConnection.INSTRUMENT_STATUS_TABLE,
+                    bonds_uids_select
+                )
 
                 instruments_status_delete_query = QSqlQuery(db)
                 instruments_status_delete_prepare_flag: bool = instruments_status_delete_query.prepare(instruments_status_delete_sql_command)
@@ -971,9 +1009,8 @@ class MainConnection(MyConnection):
                 '''------------------------------------------------------------------------------'''
 
                 '''-------------Добавляем облигации в таблицу запросов инструментов-------------'''
-                instruments_status_insert_sql_command: str = '''
-                INSERT INTO \"{0}\" (\"token\", \"status\", \"uid\") VALUES (:token, :status, :uid);
-                '''.format(MyConnection.INSTRUMENT_STATUS_TABLE)
+                instruments_status_insert_sql_command: str = '''INSERT INTO \"{0}\" (\"token\", \"status\", \"uid\") 
+                VALUES (:token, :status, :uid);'''.format(MyConnection.INSTRUMENT_STATUS_TABLE)
 
                 for bond in bonds:
                     instruments_status_insert_query = QSqlQuery(db)
@@ -990,14 +1027,13 @@ class MainConnection(MyConnection):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def getInstrument(cls, uid: str) -> Share | Bond | None:
         type_sql_command: str = 'SELECT {0}.\"instrument_type\" FROM {0} WHERE {0}.\"uid\" = :uid;'.format('\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE))
         db: QtSql.QSqlDatabase = cls.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             type_query = QtSql.QSqlQuery(db)
             type_prepare_flag: bool = type_query.prepare(type_sql_command)
             assert type_prepare_flag, type_query.lastError().text()
@@ -1090,7 +1126,7 @@ class MainConnection(MyConnection):
             else:
                 raise SystemError('В таблице {0} не должно быть несколько одинаковых uid (\'{1}\')!'.format(MyConnection.INSTRUMENT_UIDS_TABLE, uid))
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def getMyInstrument(cls, uid: str) -> MyShareClass | MyBondClass | None:
@@ -1098,8 +1134,7 @@ class MainConnection(MyConnection):
             '\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE)
         )
         db: QtSql.QSqlDatabase = cls.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             type_query = QtSql.QSqlQuery(db)
             type_prepare_flag: bool = type_query.prepare(type_sql_command)
             assert type_prepare_flag, type_query.lastError().text()
@@ -1173,10 +1208,9 @@ class MainConnection(MyConnection):
 
                     '''--------------------------Получаем дивиденды акций--------------------------'''
                     if dividends_flag:
-                        dividends_sql_command: str = '''SELECT {0}.\"dividend_net\", {0}.\"payment_date\", {0}.\"declared_date\", 
-                        {0}.\"last_buy_date\", {0}.\"dividend_type\", {0}.\"record_date\", {0}.\"regularity\", 
-                        {0}.\"close_price\", {0}.\"yield_value\", {0}.\"created_at\", 
-                        FROM {0} WHERE {0}.\"instrument_uid\" = :share_uid;
+                        dividends_sql_command: str = '''SELECT \"dividend_net\", \"payment_date\", \"declared_date\", 
+                        \"last_buy_date\", \"dividend_type\", \"record_date\", \"regularity\", \"close_price\", 
+                        \"yield_value\", \"created_at\" FROM {0} WHERE {0}.\"instrument_uid\" = :share_uid;
                         '''.format('\"{0}\"'.format(MyConnection.DIVIDENDS_TABLE))
 
                         dividends_query = QtSql.QSqlQuery(db)
@@ -1272,7 +1306,7 @@ class MainConnection(MyConnection):
                 assert commit_flag, db.lastError().text()
                 raise SystemError('В таблице {0} не должно быть несколько одинаковых uid (\'{1}\')!'.format(MyConnection.INSTRUMENT_UIDS_TABLE, uid))
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def addShares(cls, token: str, instrument_status: InstrumentStatus, shares: list[Share]):
@@ -1323,8 +1357,7 @@ class MainConnection(MyConnection):
             )
 
             db: QSqlDatabase = cls.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 for share in shares:
                     query = QSqlQuery(db)
                     prepare_flag: bool = query.prepare(sql_command)
@@ -1345,23 +1378,23 @@ class MainConnection(MyConnection):
                     query.bindValue(':short_enabled_flag', share.short_enabled_flag)
                     query.bindValue(':name', share.name)
                     query.bindValue(':exchange', share.exchange)
-                    query.bindValue(':ipo_date', MyConnection.convertDateTimeToText(share.ipo_date, sep=' '))
+                    query.bindValue(':ipo_date', MyConnection.convertDateTimeToText(share.ipo_date))
                     query.bindValue(':issue_size', share.issue_size)
                     query.bindValue(':country_of_risk', share.country_of_risk)
                     query.bindValue(':country_of_risk_name', share.country_of_risk_name)
                     query.bindValue(':sector', share.sector)
                     query.bindValue(':issue_size_plan', share.issue_size_plan)
                     query.bindValue(':nominal', MyMoneyValue.__repr__(share.nominal))
-                    query.bindValue(':trading_status', int(share.trading_status))
+                    query.bindValue(':trading_status', share.trading_status.name)
                     query.bindValue(':otc_flag', share.otc_flag)
                     query.bindValue(':buy_available_flag', share.buy_available_flag)
                     query.bindValue(':sell_available_flag', share.sell_available_flag)
                     query.bindValue(':div_yield_flag', share.div_yield_flag)
-                    query.bindValue(':share_type', int(share.share_type))
+                    query.bindValue(':share_type', share.share_type.name)
                     query.bindValue(':min_price_increment', MyQuotation.__repr__(share.min_price_increment))
                     query.bindValue(':api_trade_available_flag', share.api_trade_available_flag)
                     query.bindValue(':uid', share.uid)
-                    query.bindValue(':real_exchange', int(share.real_exchange))
+                    query.bindValue(':real_exchange', share.real_exchange.name)
                     query.bindValue(':position_uid', share.position_uid)
                     query.bindValue(':asset_uid', share.asset_uid)
                     query.bindValue(':for_iis_flag', share.for_iis_flag)
@@ -1369,8 +1402,8 @@ class MainConnection(MyConnection):
                     query.bindValue(':weekend_flag', share.weekend_flag)
                     query.bindValue(':blocked_tca_flag', share.blocked_tca_flag)
                     query.bindValue(':liquidity_flag', share.liquidity_flag)
-                    query.bindValue(':first_1min_candle_date', MyConnection.convertDateTimeToText(share.first_1min_candle_date, sep=' '))
-                    query.bindValue(':first_1day_candle_date', MyConnection.convertDateTimeToText(share.first_1day_candle_date, sep=' '))
+                    query.bindValue(':first_1min_candle_date', MyConnection.convertDateTimeToText(share.first_1min_candle_date))
+                    query.bindValue(':first_1day_candle_date', MyConnection.convertDateTimeToText(share.first_1day_candle_date))
 
                     exec_flag: bool = query.exec()
                     assert exec_flag, query.lastError().text()
@@ -1389,13 +1422,14 @@ class MainConnection(MyConnection):
 
                 """=================Добавляем акции в таблицу запросов инструментов================="""
                 '''----------------Удаляем акции из таблицы запросов инструментов----------------'''
-                shares_uids_select: str = '''
-                SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\'
+                shares_uids_select: str = '''SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\'
                 '''.format(MyConnection.INSTRUMENT_UIDS_TABLE, 'share')
 
-                instruments_status_delete_sql_command: str = '''
-                DELETE FROM \"{0}\" WHERE \"token\" = :token AND \"status\" = :status AND \"uid\" in ({1});
-                '''.format(MyConnection.INSTRUMENT_STATUS_TABLE, shares_uids_select)
+                instruments_status_delete_sql_command: str = '''DELETE FROM \"{0}\" WHERE \"token\" = :token AND 
+                \"status\" = :status AND \"uid\" in ({1});'''.format(
+                    MyConnection.INSTRUMENT_STATUS_TABLE,
+                    shares_uids_select
+                )
 
                 instruments_status_delete_query = QSqlQuery(db)
                 instruments_status_delete_prepare_flag: bool = instruments_status_delete_query.prepare(instruments_status_delete_sql_command)
@@ -1407,9 +1441,8 @@ class MainConnection(MyConnection):
                 '''------------------------------------------------------------------------------'''
 
                 '''---------------Добавляем акции в таблицу запросов инструментов---------------'''
-                instruments_status_insert_sql_command: str = '''
-                INSERT INTO \"{0}\" (\"token\", \"status\", \"uid\") VALUES (:token, :status, :uid);
-                '''.format(MyConnection.INSTRUMENT_STATUS_TABLE)
+                instruments_status_insert_sql_command: str = '''INSERT INTO \"{0}\" (\"token\", \"status\", \"uid\") 
+                VALUES (:token, :status, :uid);'''.format(MyConnection.INSTRUMENT_STATUS_TABLE)
 
                 for share in shares:
                     instruments_status_insert_query = QSqlQuery(db)
@@ -1426,21 +1459,12 @@ class MainConnection(MyConnection):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def addLastPrices(cls, last_prices: list[LastPrice]):
         """Добавляет последние цены в таблицу последних цен."""
         if last_prices:  # Если список последних цен не пуст.
-            # '''---------------------Создание SQL-строки---------------------'''
-            # sql_command_middle: str = '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'
-            # sql_command: str = 'INSERT INTO \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") VALUES '.format(MyConnection.LAST_PRICES_TABLE)
-            # for i in range(len(last_prices)):
-            #     if i > 0: sql_command += ', '  # Если добавляемая последняя цена не первая.
-            #     sql_command += sql_command_middle.format(i)
-            # sql_command += ' ON CONFLICT(\"time\", \"instrument_uid\") DO UPDATE SET \"figi\" = \"excluded\".\"figi\", \"price\" = \"excluded\".\"price\";'
-            # '''-------------------------------------------------------------'''
-
             '''---------------------Создание SQL-строки---------------------'''
             sql_command_middle: str = '(:figi{0}, :price{0}, :time{0}, :instrument_uid{0})'
             sql_command: str = 'INSERT INTO \"{0}\" (\"figi\", \"price\", \"time\", \"instrument_uid\") VALUES '.format(MyConnection.LAST_PRICES_TABLE)
@@ -1452,8 +1476,7 @@ class MainConnection(MyConnection):
             '''-------------------------------------------------------------'''
 
             db: QSqlDatabase = cls.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 query = QSqlQuery(db)
                 prepare_flag: bool = query.prepare(sql_command)
                 assert prepare_flag, query.lastError().text()
@@ -1461,7 +1484,7 @@ class MainConnection(MyConnection):
                 for i, lp in enumerate(last_prices):
                     query.bindValue(':figi{0}'.format(i), lp.figi)
                     query.bindValue(':price{0}'.format(i), MyQuotation.__repr__(lp.price))
-                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(dt=lp.time, sep=' ', timespec='microseconds'))
+                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(dt=lp.time, timespec='microseconds'))
                     query.bindValue(':instrument_uid{0}'.format(i), lp.instrument_uid)
 
                 exec_flag: bool = query.exec()
@@ -1470,7 +1493,7 @@ class MainConnection(MyConnection):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @staticmethod
     def addAssetInstrument(db: QSqlDatabase, asset_uid: str, instrument: AssetInstrument):
@@ -1480,7 +1503,7 @@ class MainConnection(MyConnection):
             """Добавляет связанные инструменты в таблицу связей инструментов."""
             if links:  # Если список связанных инструментов не пуст.
                 '''---------------------Создание SQL-запроса---------------------'''
-                insert_link_sql_command: str = 'INSERT INTO \"{0}\" (\"asset_uid\", \"asset_instrument_uid\", \"type\", \"linked_instrument_uid\") VALUES '.format(MyConnection.INSTRUMENT_LINKS_TABLE)
+                insert_link_sql_command: str = 'INSERT OR IGNORE INTO \"{0}\" (\"asset_uid\", \"asset_instrument_uid\", \"type\", \"linked_instrument_uid\") VALUES '.format(MyConnection.INSTRUMENT_LINKS_TABLE)
                 for j in range(len(links)):
                     if j > 0: insert_link_sql_command += ', '  # Если добавляемая связь не первая.
                     insert_link_sql_command += '(:asset_uid{0}, :asset_instrument_uid{0}, :type{0}, :linked_instrument_uid{0})'.format(j)
@@ -1501,9 +1524,10 @@ class MainConnection(MyConnection):
                 assert insert_link_exec_flag, insert_link_query.lastError().text()
 
         insert_ai_query_str: str = '''INSERT INTO \"{0}\" (\"asset_uid\", \"uid\", \"figi\", \"instrument_type\", 
-            \"ticker\", \"class_code\", \"instrument_kind\", \"position_uid\") VALUES (:asset_uid, :uid, :figi, 
-            :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);
-            '''.format(MyConnection.ASSET_INSTRUMENTS_TABLE)
+        \"ticker\", \"class_code\", \"instrument_kind\", \"position_uid\") VALUES (:asset_uid, :uid, :figi, 
+        :instrument_type, :ticker, :class_code, :instrument_kind, :position_uid);'''.format(
+            MyConnection.ASSET_INSTRUMENTS_TABLE
+        )
 
         insert_ai_query = QSqlQuery(db)
         insert_ai_prepare_flag: bool = insert_ai_query.prepare(insert_ai_query_str)

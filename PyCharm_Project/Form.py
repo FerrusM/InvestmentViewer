@@ -85,7 +85,4 @@ class InvestmentForm(QtWidgets.QMainWindow):
         '''---------------------------------------------------------------------------------'''
 
         self.setCentralWidget(central_widget)
-
-        statusbar = QtWidgets.QStatusBar(parent=self)
-        self.setStatusBar(statusbar)
         '''====================================================================================='''

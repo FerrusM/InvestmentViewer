@@ -3,7 +3,7 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtSql
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, pyqtSlot
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
-from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend
+from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
 
@@ -258,11 +258,17 @@ class MyConnection(ABC):
         Использование внешних ключей по умолчанию отключено.
         Эта функция включает использование внешних ключей для конкретного соединения.
         """
-        query = QtSql.QSqlQuery(db)
-        prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
-        assert prepare_flag, query.lastError().text()
-        exec_flag: bool = query.exec()
-        assert exec_flag, query.lastError().text()
+        if db.transaction():
+            query = QtSql.QSqlQuery(db)
+            prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
+            assert prepare_flag, query.lastError().text()
+            exec_flag: bool = query.exec()
+            assert exec_flag, query.lastError().text()
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def open(cls):
@@ -392,16 +398,16 @@ class MyConnection(ABC):
         sector: str = query.value('sector')
         issue_size_plan: int = query.value('issue_size_plan')
         nominal: MoneyValue = cls.convertTextToMoneyValue(query.value('nominal'))
-        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
+        trading_status: SecurityTradingStatus = SecurityTradingStatus.from_string(query.value('trading_status'))
         otc_flag: bool = bool(query.value('otc_flag'))
         buy_available_flag: bool = bool(query.value('buy_available_flag'))
         sell_available_flag: bool = bool(query.value('sell_available_flag'))
         div_yield_flag: bool = bool(query.value('div_yield_flag'))
-        share_type: ShareType = ShareType(query.value('share_type'))
+        share_type: ShareType = ShareType.from_string(query.value('share_type'))
         min_price_increment: Quotation = cls.convertTextToQuotation(query.value('min_price_increment'))
         api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
         uid: str = query.value('uid')
-        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
+        real_exchange: RealExchange = RealExchange.from_string(query.value('real_exchange'))
         position_uid: str = query.value('position_uid')
         asset_uid: str = query.value('asset_uid')
         for_iis_flag: bool = bool(query.value('for_iis_flag'))
@@ -456,7 +462,7 @@ class MyConnection(ABC):
         issue_kind: str = query.value('issue_kind')
         issue_size: int = query.value('issue_size')
         issue_size_plan: int = query.value('issue_size_plan')
-        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
+        trading_status: SecurityTradingStatus = SecurityTradingStatus.from_string(query.value('trading_status'))
         otc_flag: bool = bool(query.value('otc_flag'))
         buy_available_flag: bool = bool(query.value('buy_available_flag'))
         sell_available_flag: bool = bool(query.value('sell_available_flag'))
@@ -466,7 +472,7 @@ class MyConnection(ABC):
         min_price_increment: Quotation = cls.convertTextToQuotation(query.value('min_price_increment'))
         api_trade_available_flag: bool = bool(query.value('api_trade_available_flag'))
         uid: str = query.value('uid')
-        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
+        real_exchange: RealExchange = RealExchange.from_string(query.value('real_exchange'))
         position_uid: str = query.value('position_uid')
         asset_uid: str = query.value('asset_uid')
         for_iis_flag: bool = bool(query.value('for_iis_flag'))
@@ -477,7 +483,7 @@ class MyConnection(ABC):
         liquidity_flag: bool = bool(query.value('liquidity_flag'))
         first_1min_candle_date: datetime = cls.convertTextToDateTime(query.value('first_1min_candle_date'))
         first_1day_candle_date: datetime = cls.convertTextToDateTime(query.value('first_1day_candle_date'))
-        risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
+        risk_level: RiskLevel = RiskLevel.from_string(query.value('risk_level'))
         return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency, klong=klong,
                     kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
                     short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
@@ -503,7 +509,7 @@ class MyConnection(ABC):
         coupon_number: int = coupons_query.value('coupon_number')
         fix_date: datetime = cls.convertTextToDateTime(coupons_query.value('fix_date'))
         pay_one_bond: MoneyValue = cls.convertTextToMoneyValue(coupons_query.value('pay_one_bond'))
-        coupon_type: CouponType = CouponType(coupons_query.value('coupon_type'))
+        coupon_type: CouponType = CouponType.from_string(coupons_query.value('coupon_type'))
         coupon_start_date: datetime = cls.convertTextToDateTime(coupons_query.value('coupon_start_date'))
         coupon_end_date: datetime = cls.convertTextToDateTime(coupons_query.value('coupon_end_date'))
         coupon_period: int = coupons_query.value('coupon_period')
@@ -554,3 +560,15 @@ class MyConnection(ABC):
             closed_date=cls.convertTextToDateTime(query.value('closed_date')),
             access_level=AccessLevel.from_string(query.value('access_level'))
         )
+
+    @classmethod
+    def getHistoricCandle(cls, query: QtSql.QSqlQuery) -> HistoricCandle:
+        """Создаёт и возвращает экземпляр класса HistoricCandle."""
+        open_: Quotation = cls.convertTextToQuotation(query.value('open'))
+        high: Quotation = cls.convertTextToQuotation(query.value('high'))
+        low: Quotation = cls.convertTextToQuotation(query.value('low'))
+        close: Quotation = cls.convertTextToQuotation(query.value('close'))
+        volume: int = query.value('volume')
+        time: datetime = cls.convertTextToDateTime(query.value('time'))
+        is_complete: bool = cls.convertBlobToBool(query.value('is_complete'))
+        return HistoricCandle(open=open_, high=high, low=low, close=close, volume=volume, time=time, is_complete=is_complete)

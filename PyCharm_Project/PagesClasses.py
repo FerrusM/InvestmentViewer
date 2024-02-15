@@ -180,8 +180,8 @@ class GroupBox_Request(QtWidgets.QGroupBox):
     currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass)  # Сигнал испускается при изменении текущего токена.
     currentTokenReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при выборе пустого значения.
 
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)  # QGroupBox __init__().
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -323,28 +323,26 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         '''-----------------------------------------------------------'''
 
         '''--------------------------Статус--------------------------'''
-        self.horizontalLayout_status = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_status.setSpacing(0)
-        self.horizontalLayout_status.setObjectName('horizontalLayout_status')
+        horizontalLayout_status = QtWidgets.QHBoxLayout()
+        horizontalLayout_status.setSpacing(0)
+        horizontalLayout_status.setObjectName('horizontalLayout_status')
 
         self.label_status = QtWidgets.QLabel(self)
         self.label_status.setObjectName('label_status')
-        self.horizontalLayout_status.addWidget(self.label_status)
+        horizontalLayout_status.addWidget(self.label_status)
 
-        spacerItem13 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_status.addItem(spacerItem13)
+        horizontalLayout_status.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
 
         self.comboBox_status = QtWidgets.QComboBox(self)
         self.comboBox_status.setObjectName('comboBox_status')
         self.comboBox_status.addItem('')
         self.comboBox_status.addItem('')
         self.comboBox_status.addItem('')
-        self.horizontalLayout_status.addWidget(self.comboBox_status)
+        horizontalLayout_status.addWidget(self.comboBox_status)
 
-        spacerItem14 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_status.addItem(spacerItem14)
+        horizontalLayout_status.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_status)
+        self.verticalLayout_main.addLayout(horizontalLayout_status)
         '''----------------------------------------------------------'''
 
         _translate = QtCore.QCoreApplication.translate

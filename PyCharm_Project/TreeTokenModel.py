@@ -321,10 +321,6 @@ class TreeProxyModel(QAbstractItemModel):
     #     if data_type != TreeLevel.TOKEN: return None
     #     return self.__source_model.index(tree_item.row(), 0)
 
-    # def addToken(self, token_class: TokenClass):
-    #     """Добавляет новый токен."""
-    #     self.__source_model.addToken(token_class)
-
     def deleteToken(self, token_index: QModelIndex) -> bool:
         """Удаляет токен."""
 
@@ -335,12 +331,7 @@ class TreeProxyModel(QAbstractItemModel):
         data_type: int | None = self._checkDataType(item_data)
         if data_type != TreeLevel.TOKEN: return False
         assert type(item_data) == TokenClass
-        # source_index: QModelIndex = self.__source_model.index(tree_item.row, 0)
         """-------------------------------------------------------------------"""
 
-        # deleted_token: TokenClass = self.__source_model.deleteToken(source_index)
-
         MainConnection.deleteToken(item_data.token)  # Удаление токена из базы данных.
-
-        # assert item_data == deleted_token
         return True

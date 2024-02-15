@@ -1,8 +1,7 @@
 from datetime import datetime
 from PyQt6.QtCore import QThread, pyqtSignal, QObject
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from tinkoff.invest import Asset, AssetFull, Brand, AssetCurrency, AssetType, AssetInstrument, InstrumentLink, \
-    AssetSecurity
+from tinkoff.invest import Asset, AssetFull, Brand, AssetCurrency, AssetType, AssetSecurity
 from Classes import TokenClass, MyConnection
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
@@ -100,14 +99,14 @@ class AssetsThread(QThread):
                 insert_asset_query.bindValue(':name', assetfull.name)
                 insert_asset_query.bindValue(':name_brief', assetfull.name_brief)
                 insert_asset_query.bindValue(':description', assetfull.description)
-                insert_asset_query.bindValue(':deleted_at', MyConnection.convertDateTimeToText(assetfull.deleted_at, sep='T'))
+                insert_asset_query.bindValue(':deleted_at', MyConnection.convertDateTimeToText(assetfull.deleted_at))
                 insert_asset_query.bindValue(':required_tests', MyConnection.convertStrListToStr(assetfull.required_tests))
                 insert_asset_query.bindValue(':gos_reg_code', assetfull.gos_reg_code)
                 insert_asset_query.bindValue(':cfi', assetfull.cfi)
                 insert_asset_query.bindValue(':code_nsd', assetfull.code_nsd)
                 insert_asset_query.bindValue(':status', assetfull.status)
                 insert_asset_query.bindValue(':brand_uid', assetfull.brand.uid)
-                insert_asset_query.bindValue(':updated_at', MyConnection.convertDateTimeToText(dt=assetfull.updated_at, sep='T', timespec='microseconds'))
+                insert_asset_query.bindValue(':updated_at', MyConnection.convertDateTimeToText(dt=assetfull.updated_at, timespec='microseconds'))
                 insert_asset_query.bindValue(':br_code', assetfull.br_code)
                 insert_asset_query.bindValue(':br_code_name', assetfull.br_code_name)
 
@@ -126,11 +125,13 @@ class AssetsThread(QThread):
                 if assetfull.type is AssetType.ASSET_TYPE_SECURITY:
                     def insertAssetSecurity(asset_uid: str, security: AssetSecurity):
                         """Добавляет ценную бумагу в таблицу ценных бумаг активов."""
-                        insert_asset_security_sql_command: str = '''
-                        INSERT INTO \"{0}\" (\"asset_uid\", \"isin\", \"type\", \"instrument_kind\") VALUES 
-                        (:asset_uid, :isin, :type, :instrument_kind) ON CONFLICT(\"asset_uid\") DO UPDATE SET 
-                        \"isin\" = {1}.\"isin\", \"type\" = {1}.\"type\", \"instrument_kind\" = {1}.\"instrument_kind\"
-                        ;'''.format(MyConnection.ASSET_SECURITIES_TABLE, '\"excluded\"')
+                        insert_asset_security_sql_command: str = '''INSERT INTO \"{0}\" (\"asset_uid\", \"isin\", 
+                        \"type\", \"instrument_kind\") VALUES (:asset_uid, :isin, :type, :instrument_kind) ON 
+                        CONFLICT(\"asset_uid\") DO UPDATE SET \"isin\" = {1}.\"isin\", \"type\" = {1}.\"type\", 
+                        \"instrument_kind\" = {1}.\"instrument_kind\";'''.format(
+                            MyConnection.ASSET_SECURITIES_TABLE,
+                            '\"excluded\"'
+                        )
                         insert_asset_security_query = QSqlQuery(db)
                         insert_asset_security_prepare_flag: bool = insert_asset_security_query.prepare(insert_asset_security_sql_command)
                         assert insert_asset_security_prepare_flag, insert_asset_security_query.lastError().text()

@@ -3,8 +3,8 @@ from datetime import datetime
 from PyQt6 import QtSql, QtCore, QtGui
 from PyQt6.QtCore import QAbstractTableModel, QObject, QModelIndex, QSortFilterProxyModel, Qt, QVariant
 from decimal import Decimal
-from tinkoff.invest import InstrumentStatus, Bond, Quotation, SecurityTradingStatus, RealExchange
-from tinkoff.invest.schemas import RiskLevel, LastPrice, Coupon, CouponType, MoneyValue
+from tinkoff.invest import InstrumentStatus, Bond, Quotation
+from tinkoff.invest.schemas import RiskLevel, LastPrice, Coupon
 from Classes import MyConnection, Column, TokenClass, reportTradingStatus
 from MyBondClass import MyBondClass, MyBond, TINKOFF_COMMISSION, MyCoupon, NDFL, DAYS_IN_YEAR
 from MyDatabase import MainConnection
@@ -646,7 +646,7 @@ class BondsModel(QAbstractTableModel):
                                 '''-----------Извлекаем купоны из SQL-запроса-----------'''
                                 coupons_list: list[Coupon] = []
                                 while coupons_query.next():
-                                    coupon: Coupon = self._getCurrentCoupon(coupons_query)
+                                    coupon: Coupon = MyConnection.getCurrentCoupon(coupons_query)
                                     coupons_list.append(coupon)
 
                                 assert len(coupons_list) > 0, 'Столбец \"coupons\" в таблице {0} имеет значение \'Yes\' для uid = \'{2}\', но таблица {1} не содержит купонов с этим uid!'.format(

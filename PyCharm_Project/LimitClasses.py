@@ -7,40 +7,50 @@ class LimitPerMinuteSemaphore(QObject):
     availableChanged_signal: pyqtSignal = pyqtSignal()
 
     def __init__(self, limit_per_minute: int, parent: QObject | None = None):
-        super().__init__(parent)  # __init__() QObject.
-        self._semaphore: QSemaphore = QSemaphore(limit_per_minute)
-        self.limit_per_minute: int = limit_per_minute  # Максимальное количество запросов в минуту.
-
-    # def _getPeriod(self) -> int:
-    #     """Определяет минимальный промежуток времени [мс] между запросами."""
-    #     return round(60000 / self.limit_per_minute)
+        super().__init__(parent=parent)
+        self.__limit_per_minute: int = limit_per_minute  # Максимальное количество запросов в минуту.
+        self.__semaphore: QSemaphore = QSemaphore(self.__limit_per_minute)
 
     def available(self) -> int:
         """Возвращает количество ресурсов, доступных в данный момент семафору."""
-        return self._semaphore.available()
+        return self.__semaphore.available()
 
     def acquire(self, n: int = ...) -> None:
-        self._semaphore.acquire(n)
+        self.__semaphore.acquire(n)
         self.availableChanged_signal.emit()
 
     def release(self, n: int = ...) -> None:
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def onRelease():
-            self._semaphore.release(n)
+        def __onRelease():
+            self.__semaphore.release(n)
             self.availableChanged_signal.emit()
 
-        timer: QTimer = QTimer(self)
+        timer: QTimer = QTimer(parent=self)
         timer.setSingleShot(True)  # Без повторений.
-        timer.timeout.connect(onRelease)
+        timer.timeout.connect(__onRelease)
         timer.start(60000)  # Запускаем таймер на одну минуту.
 
 
 class MyMethod:
     """Класс метода."""
     def __init__(self, full_method: str):
-        self.full_method: str = full_method
+        self.__full_method: str = full_method
 
-        split_method: dict[str: str, str: str, str: str] | None = self.splitFullMethod()
+        def __splitFullMethod() -> dict[str: str, str: str, str: str] | None:
+            """Разделяет строку на префикс, сервис и имя метода. Шаблон метода выглядит следующим образом:
+            prefix + service + '/' + method_name. Префикс должен оканчиваться точкой. Если метод не удаётся разделить, то
+            возвращает None. Иначе возвращает словарь {'prefix': prefix, 'service': service, 'method_name': method_name}."""
+            last_slash_index: int = self.__full_method.rfind('/')  # Порядковый номер последнего символа '/' в полном названии метода.
+            if last_slash_index == -1: return None  # Если символ '/' не найден.
+            method_name: str = self.__full_method[(last_slash_index + 1):]
+            method_without_name: str = self.__full_method[:last_slash_index]
+            last_dot_index: int = method_without_name.rfind('.')  # Порядковый номер последнего символа '.'.
+            if last_dot_index == -1: return None  # Если символ '.' не найден.
+            service: str = method_without_name[(last_dot_index + 1):]  # Сервис.
+            prefix: str = method_without_name[:(last_dot_index + 1)]  # Префикс.
+            return {'prefix': prefix, 'service': service, 'method_name': method_name}
+
+        split_method: dict[str: str, str: str, str: str] | None = __splitFullMethod()
         if split_method is None:
             self.correctness: bool = False
             self.prefix: str = ''
@@ -52,19 +62,9 @@ class MyMethod:
             self.service: str = split_method['service']
             self.method_name: str = split_method['method_name']
 
-    def splitFullMethod(self) -> dict[str: str, str: str, str: str] | None:
-        """Разделяет строку на префикс, сервис и имя метода. Шаблон метода выглядит следующим образом:
-        prefix + service + '/' + method_name. Префикс должен оканчиваться точкой. Если метод не удаётся разделить, то
-        возвращает None. Иначе возвращает словарь {'prefix': prefix, 'service': service, 'method_name': method_name}."""
-        last_slash_index: int = self.full_method.rfind('/')  # Порядковый номер последнего символа '/' в полном названии метода.
-        if last_slash_index == -1: return None  # Если символ '/' не найден.
-        method_name: str = self.full_method[(last_slash_index + 1):]
-        method_without_name: str = self.full_method[:last_slash_index]
-        last_dot_index: int = method_without_name.rfind('.')  # Порядковый номер последнего символа '.'.
-        if last_dot_index == -1: return None  # Если символ '.' не найден.
-        service: str = method_without_name[(last_dot_index + 1):]  # Сервис.
-        prefix: str = method_without_name[:(last_dot_index + 1)]  # Префикс.
-        return {'prefix': prefix, 'service': service, 'method_name': method_name}
+    @property
+    def full_method(self) -> str:
+        return self.__full_method
 
 
 class MyUnaryLimit:

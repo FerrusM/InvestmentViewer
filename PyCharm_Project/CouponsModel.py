@@ -129,11 +129,6 @@ class CouponsModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if self._bond_class is not None:
-            # coupon: Coupon | None = self._bond_class.getCoupon(index.row())
-            # if coupon is not None:
-            #     column: CouponColumn = self.columns[index.column()]
-            #     return column(role, self._bond_class, coupon)
-
             coupon: Coupon = self._bond_class.coupons[index.row()]
             column: CouponColumn = self.columns[index.column()]
             return column(role, self._bond_class, coupon)
@@ -141,8 +136,8 @@ class CouponsModel(QAbstractTableModel):
 
 class CouponsProxyModel(QSortFilterProxyModel):
     """Прокси-модель купонов."""
-    def __init__(self, parent: QObject | None = ...):
-        super().__init__(parent)  # __init__() QSortFilterProxyModel.
+    def __init__(self, parent: QObject | None = None):
+        super().__init__(parent=parent)
         source_model: CouponsModel = CouponsModel(self)  # Создаём исходную модель.
         self.setSourceModel(source_model)  # Подключаем исходную модель к прокси-модели.
 
