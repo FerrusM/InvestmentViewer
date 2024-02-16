@@ -160,7 +160,7 @@ class DividendsThread(QtCore.QThread):
                     dividends_response = getDividends(token=self.token.token, instrument_id=share_class.share.uid)
                     delta: float = (getUtcDateTime() - before_dt).total_seconds()
                     self.requests_time += delta
-                    printInConsole('delta: {0} с.'.format(delta))
+                    # printInConsole('delta: {0} с.'.format(delta))
 
                     assert dividends_response.request_occurred, 'Запрос дивидендов не был произведён!'
                     self.request_count += 1  # Подсчитываем запрос.

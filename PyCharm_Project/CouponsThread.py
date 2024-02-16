@@ -140,10 +140,10 @@ class CouponsThread(QtCore.QThread):
                 bond_number: int = i + 1  # Номер текущей облигации.
                 self.setProgressBarValue_signal.emit(bond_number)  # Отображаем прогресс в progressBar.
 
-                '------------Выбор временного интервала------------'
-                qdt_from: datetime = bond_class.bond.state_reg_date
-                qdt_to: datetime = getUtcDateTime() if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else bond_class.bond.maturity_date
-                '--------------------------------------------------'
+                # '------------Выбор временного интервала------------'
+                # qdt_from: datetime = bond_class.bond.state_reg_date
+                # qdt_to: datetime = getUtcDateTime() if ifDateTimeIsEmpty(bond_class.bond.maturity_date) else bond_class.bond.maturity_date
+                # '--------------------------------------------------'
 
                 coupons_try_count: RequestTryClass = RequestTryClass()
                 coupons_response: MyResponse = MyResponse()
@@ -172,7 +172,7 @@ class CouponsThread(QtCore.QThread):
                     coupons_response = getCoupons(token=self.token.token, instrument_id=bond_class.bond.uid)
                     delta: float = (getUtcDateTime() - before_dt).total_seconds()
                     self.requests_time += delta
-                    printInConsole('delta: {0} с.'.format(delta))
+                    # printInConsole('delta: {0} с.'.format(delta))
 
                     assert coupons_response.request_occurred, 'Запрос купонов не был произведён!'
                     self.request_count += 1  # Подсчитываем запрос.

@@ -11,6 +11,10 @@ class MyShareClass:
         self.dividends: list[Dividend] | None = dividends  # Дивиденды.
         self.candles: list[HistoricCandle] | None = candles
 
+    @property
+    def uid(self) -> str:
+        return self.share.uid
+
     def instrument(self) -> Share:
         """Возвращает инструмент (акцию), хранящийся в классе."""
         return self.share

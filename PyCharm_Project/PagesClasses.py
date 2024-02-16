@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, date, timezone
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
 from Classes import TokenClass, partition, TITLE_FONT
@@ -23,9 +23,55 @@ class TitleLabel(QtWidgets.QLabel):
 
 class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
     """Панель отображения информации об инструменте."""
+    class InstrumentInfoText(QtWidgets.QPlainTextEdit):
+        def __init__(self, parent: QtWidgets.QWidget | None = None):
+            super().__init__(parent=parent)
+            self.setReadOnly(True)
+            self.setWordWrapMode(QtGui.QTextOption.WrapMode.NoWrap)
+
+        def __reportShare(self, share: MyShareClass):
+            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
+                        'Первая дневная свеча: {6}'.format(
+                            'Акция',
+                            share.share.name,
+                            share.share.uid,
+                            share.share.figi,
+                            share.share.isin,
+                            share.share.first_1min_candle_date,
+                            share.share.first_1day_candle_date
+                        )
+            self.setPlainText(text)
+
+        def __reportBond(self, bond: MyBondClass):
+            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
+                        'Первая дневная свеча: {6}\nАмортизация: {7}\nНоминал: {8}\nПервоначальный номинал: {9}'.format(
+                            'Облигация',
+                            bond.bond.name,
+                            bond.bond.uid,
+                            bond.bond.figi,
+                            bond.bond.isin,
+                            bond.bond.first_1min_candle_date,
+                            bond.bond.first_1day_candle_date,
+                            bond.bond.amortization_flag,
+                            MyMoneyValue.__str__(bond.bond.nominal, delete_decimal_zeros=True),
+                            MyMoneyValue.__str__(bond.bond.initial_nominal, delete_decimal_zeros=True)
+                        )
+            self.setPlainText(text)
+
+        def reset(self):
+            self.setPlainText(None)
+
+        def setInstrument(self, instrument: MyBondClass | MyShareClass):
+            if isinstance(instrument, MyBondClass):
+                self.__reportBond(instrument)
+            elif isinstance(instrument, MyShareClass):
+                self.__reportShare(instrument)
+            else:
+                raise TypeError('Некорректный тип параметра!')
+
     class Label_InstrumentInfo(QtWidgets.QLabel):
-        def __init__(self, parent: QtWidgets.QWidget | None = ...):
-            super().__init__(parent)
+        def __init__(self, parent: QtWidgets.QWidget | None = None):
+            super().__init__(parent=parent)
             sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
             sizePolicy.setHorizontalStretch(0)
             sizePolicy.setVerticalStretch(0)
@@ -76,19 +122,26 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        self.verticalLayout_main.addWidget(TitleLabel(text='ИНФОРМАЦИЯ ОБ ИНСТРУМЕНТЕ', parent=self))
+        verticalLayout_main.addWidget(TitleLabel(text='ИНФОРМАЦИЯ ОБ ИНСТРУМЕНТЕ', parent=self))
 
-        self.label_info = self.Label_InstrumentInfo(self)
-        self.verticalLayout_main.addWidget(self.label_info)
+        # self.label_info = self.Label_InstrumentInfo(self)
+        self.label_info = self.InstrumentInfoText(parent=self)
+        verticalLayout_main.addWidget(self.label_info)
 
-    def setInstrument(self, instrument: MyBondClass | MyShareClass):
-        self.label_info.setInstrument(instrument)
+    def setInstrument(self, instrument: MyShareClass | MyBondClass | None = None):
+        if instrument is None:
+            self.label_info.reset()
+        else:
+            instrument_type = type(instrument)
+            if instrument_type == MyShareClass or instrument_type == MyBondClass:
+                self.label_info.setInstrument(instrument)
+            else:
+                raise TypeError('Некорректный тип инструмента ({0})!'.format(instrument_type))
 
-    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def reset(self):
         self.label_info.reset()
 

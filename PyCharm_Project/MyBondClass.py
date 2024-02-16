@@ -148,6 +148,10 @@ class MyBondClass(QObject):
         self.coupons: list[Coupon] | None = coupons  # Список купонов.
         self.candles: list[HistoricCandle] | None = candles
 
+    @property
+    def uid(self) -> str:
+        return self.bond.uid
+
     def instrument(self) -> Bond:
         """Возвращает инструмент (облигацию), хранящийся в классе."""
         return self.bond

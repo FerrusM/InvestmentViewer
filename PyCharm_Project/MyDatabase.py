@@ -3,7 +3,7 @@ from PyQt6 import QtSql
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
-from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType
+from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval
 
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
@@ -1030,105 +1030,6 @@ class MainConnection(MyConnection):
                 raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
-    def getInstrument(cls, uid: str) -> Share | Bond | None:
-        type_sql_command: str = 'SELECT {0}.\"instrument_type\" FROM {0} WHERE {0}.\"uid\" = :uid;'.format('\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE))
-        db: QtSql.QSqlDatabase = cls.getDatabase()
-        if db.transaction():
-            type_query = QtSql.QSqlQuery(db)
-            type_prepare_flag: bool = type_query.prepare(type_sql_command)
-            assert type_prepare_flag, type_query.lastError().text()
-            type_query.bindValue(':uid', uid)
-            type_exec_flag: bool = type_query.exec()
-            assert type_exec_flag, type_query.lastError().text()
-
-            instrument_type: str
-            types_count: int = 0
-            while type_query.next():
-                types_count += 1
-                instrument_type = type_query.value('instrument_type')
-
-            if types_count == 0:
-                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                assert commit_flag, db.lastError().text()
-                return None
-            elif types_count == 1:
-                if instrument_type == 'share':
-                    share_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
-                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
-                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
-                    {0}.\"ipo_date\", {0}.\"issue_size\", {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", 
-                    {0}.\"sector\", {0}.\"issue_size_plan\", {0}.\"nominal\", {0}.\"trading_status\", {0}.\"otc_flag\", 
-                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"div_yield_flag\", {0}.\"share_type\", 
-                    {0}.\"min_price_increment\", {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", 
-                    {0}.\"position_uid\", {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\",
-                    {0}.\"weekend_flag\", {0}.\"blocked_tca_flag\", {0}.\"liquidity_flag\", 
-                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\"
-                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.SHARES_TABLE))
-
-                    share_query = QtSql.QSqlQuery(db)
-                    share_prepare_flag: bool = share_query.prepare(share_sql_command)
-                    assert share_prepare_flag, share_query.lastError().text()
-                    share_query.bindValue(':uid', uid)
-                    share_exec_flag: bool = share_query.exec()
-                    assert share_exec_flag, share_query.lastError().text()
-
-                    share: Share
-                    shares_count: int = 0
-                    while share_query.next():
-                        shares_count += 1
-                        share = MyConnection.getCurrentShare(share_query)
-
-                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                    assert commit_flag, db.lastError().text()
-
-                    if shares_count != 1:
-                        raise SystemError('Таблица {0} должна содержать одну акцию с uid = \'{1}\'!'.format(MyConnection.SHARES_TABLE, uid))
-
-                    return share
-                elif instrument_type == 'bond':
-                    bond_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
-                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
-                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
-                    {0}.\"coupon_quantity_per_year\", {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", 
-                    {0}.\"state_reg_date\", {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", 
-                    {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", 
-                    {0}.\"issue_size\", {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", 
-                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", 
-                    {0}.\"perpetual_flag\", {0}.\"amortization_flag\", {0}.\"min_price_increment\", 
-                    {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", {0}.\"position_uid\", 
-                    {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\", {0}.\"weekend_flag\", 
-                    {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
-                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\"
-                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.BONDS_TABLE))
-
-                    bond_query = QtSql.QSqlQuery(db)
-                    bond_prepare_flag: bool = bond_query.prepare(bond_sql_command)
-                    assert bond_prepare_flag, bond_query.lastError().text()
-                    bond_query.bindValue(':uid', uid)
-                    bond_exec_flag: bool = bond_query.exec()
-                    assert bond_exec_flag, bond_query.lastError().text()
-
-                    bond: Bond
-                    bonds_count: int = 0
-                    while bond_query.next():
-                        bonds_count += 1
-                        bond = MyConnection.getCurrentBond(bond_query)
-
-                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                    assert commit_flag, db.lastError().text()
-
-                    if bonds_count != 1:
-                        raise SystemError('Таблица {0} должна содержать одну облигацию с uid = \'{1}\'!'.format(MyConnection.BONDS_TABLE, uid))
-
-                    return bond
-                else:
-                    raise ValueError('Неизвестный тип инструмента ({0})!'.format(instrument_type))
-            else:
-                raise SystemError('В таблице {0} не должно быть несколько одинаковых uid (\'{1}\')!'.format(MyConnection.INSTRUMENT_UIDS_TABLE, uid))
-        else:
-            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-
-    @classmethod
     def getMyInstrument(cls, uid: str) -> MyShareClass | MyBondClass | None:
         type_sql_command: str = 'SELECT {0}.\"instrument_type\" FROM {0} WHERE {0}.\"uid\" = :uid;'.format(
             '\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE)
@@ -1552,8 +1453,7 @@ class MainConnection(MyConnection):
         """Добавляет активы в таблицу активов."""
         if assets:  # Если список активов не пуст.
             db: QSqlDatabase = cls.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 def insertAsset(asset: Asset):
                     """Добавляет актив в таблицу активов."""
                     insert_asset_sql_command: str = '''
@@ -1581,4 +1481,32 @@ class MainConnection(MyConnection):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def getCandles(cls, uid: str, interval: CandleInterval) -> list[HistoricCandle]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __select_candles_command: str = '''SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", 
+            \"is_complete\" FROM \"{0}\" WHERE \"instrument_id\" = :uid and \"interval\" = :interval;'''.format(
+                MyConnection.CANDLES_TABLE
+            )
+
+            candles_query = QtSql.QSqlQuery(db)
+            candles_prepare_flag: bool = candles_query.prepare(__select_candles_command)
+            assert candles_prepare_flag, candles_query.lastError().text()
+            candles_query.bindValue(':uid', uid)
+            candles_query.bindValue(':interval', interval.name)
+            candles_exec_flag: bool = candles_query.exec()
+            assert candles_exec_flag, candles_query.lastError().text()
+
+            candles: list[HistoricCandle] = []
+            while candles_query.next():
+                candles.append(MyConnection.getHistoricCandle(candles_query))
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return candles
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))

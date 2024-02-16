@@ -13,6 +13,9 @@ TITLE_FONT.setPointSize(9)
 TITLE_FONT.setBold(True)
 
 
+VERTICAL_SPACING: int = 3
+
+
 def partition(array: list, length: int) -> list[list]:
     """Разбивает список на части длиной до length элементов и возвращает полученный список списков."""
     def __splitIntoParts():
@@ -252,24 +255,6 @@ class MyConnection(ABC):
 
     VARIABLE_LIMIT: int = _getSQLiteLimitVariableNumber(DATABASE_NAME)  # Лимит на количество переменных в одном запросе.
 
-    @staticmethod
-    def __setForeignKeysOn(db: QtSql.QSqlDatabase):
-        """
-        Использование внешних ключей по умолчанию отключено.
-        Эта функция включает использование внешних ключей для конкретного соединения.
-        """
-        if db.transaction():
-            query = QtSql.QSqlQuery(db)
-            prepare_flag: bool = query.prepare('PRAGMA foreign_keys = ON;')
-            assert prepare_flag, query.lastError().text()
-            exec_flag: bool = query.exec()
-            assert exec_flag, query.lastError().text()
-
-            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-            assert commit_flag, db.lastError().text()
-        else:
-            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-
     @classmethod
     def open(cls):
         """Открывает соединение с базой данных."""
@@ -277,7 +262,32 @@ class MyConnection(ABC):
         db.setDatabaseName(cls.DATABASE_NAME)
         open_flag: bool = db.open()
         assert open_flag and db.isOpen()
-        cls.__setForeignKeysOn(db)  # Включаем использование внешних ключей.
+
+        if db.transaction():
+            '''----Включаем использование внешних ключей для соединения----'''
+            """
+            Использование внешних ключей по умолчанию отключено.
+            Эта функция включает использование внешних ключей для конкретного соединения.
+            """
+            fk_query = QtSql.QSqlQuery(db)
+            fk_prepare_flag: bool = fk_query.prepare('PRAGMA foreign_keys = ON;')
+            assert fk_prepare_flag, fk_query.lastError().text()
+            fk_exec_flag: bool = fk_query.exec()
+            assert fk_exec_flag, fk_query.lastError().text()
+            '''------------------------------------------------------------'''
+
+            '''------------------Задаём тайм-аут занятости------------------'''
+            bt_query = QtSql.QSqlQuery(db)
+            bt_prepare_flag: bool = bt_query.prepare('PRAGMA busy_timeout = 60000;')
+            assert bt_prepare_flag, bt_query.lastError().text()
+            bt_exec_flag: bool = bt_query.exec()
+            assert bt_exec_flag, bt_query.lastError().text()
+            '''-------------------------------------------------------------'''
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def removeConnection(cls):
