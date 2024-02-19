@@ -13,9 +13,6 @@ TITLE_FONT.setPointSize(9)
 TITLE_FONT.setBold(True)
 
 
-VERTICAL_SPACING: int = 3
-
-
 def partition(array: list, length: int) -> list[list]:
     """Разбивает список на части длиной до length элементов и возвращает полученный список списков."""
     def __splitIntoParts():

@@ -1,5 +1,5 @@
 import typing
-from PyQt6 import QtSql
+from PyQt6 import QtSql, QtCore
 from PyQt6.QtCore import QObject, QAbstractItemModel, QModelIndex, Qt, QVariant, QIdentityProxyModel
 from tinkoff.invest import Account, UnaryLimit, StreamLimit
 from Classes import TokenClass, MyConnection
@@ -22,52 +22,93 @@ class TokenModel(QAbstractItemModel):
         self.__tokens: list[TokenClass] = []  # Список класса TokenClass.
         self.update()
 
-        def notificationSlot(name: str, source: QtSql.QSqlDriver.NotificationSource, payload: int):
-            assert source == QtSql.QSqlDriver.NotificationSource.UnknownSource
-            print('notificationSlot: name = {0}, payload = {1}.'.format(name, payload))
+        # def notificationSlot(name: str, source: QtSql.QSqlDriver.NotificationSource, payload: int):
+        #     assert source == QtSql.QSqlDriver.NotificationSource.UnknownSource
+        #     print('notificationSlot: name = {0}, payload = {1}.'.format(name, payload))
+        #
+        #     if name == MyConnection.TOKENS_TABLE:
+        #         rowid_select: str = '''SELECT \"token\", \"name\" FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format(
+        #             '\"{0}\"'.format(MyConnection.TOKENS_TABLE)
+        #         )
+        #
+        #         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+        #         if db.transaction():
+        #             token_query = QtSql.QSqlQuery(db)
+        #             token_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+        #             token_prepare_flag: bool = token_query.prepare(rowid_select)
+        #             assert token_prepare_flag, token_query.lastError().text()
+        #             token_query.bindValue(':rowid', payload)
+        #             token_exec_flag: bool = token_query.exec()
+        #             assert token_exec_flag, token_query.lastError().text()
+        #
+        #             rowid_count: int = 0
+        #             while token_query.next():
+        #                 rowid_count += 1
+        #                 token: str = token_query.value('token')  # Токен.
+        #                 name: str = token_query.value('name')  # Название токена.
+        #
+        #             ...
+        #
+        #             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+        #             assert commit_flag, db.lastError().text()
+        #         else:
+        #             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+        #
+        #         if rowid_count == 0:
+        #             """Если токен был удалён, то необходимо удалить соответствующий токен из модели (если он там есть)."""
+        #             self.update()
+        #         elif rowid_count == 1:
+        #             """Если токен был обновлён или добавлен, то необходимо добавить или обновить имеющийся токен."""
+        #             self.update()
+        #         else:
+        #             raise SystemError('Таблица {0} может содержать только 0 или 1 строку с rowid = \'{1}\', а получено {2} строк(-и)!'.format(MyConnection.TOKENS_TABLE, payload, rowid_count))
+        #
+        # db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+        # driver = db.driver()
+        # driver.notification.connect(notificationSlot)
+        #
+        # subscribe_tokens_flag: bool = driver.subscribeToNotification(MyConnection.TOKENS_TABLE)
+        # assert subscribe_tokens_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}! driver.lastError().text(): \'{1}\'.'.format(MyConnection.TOKENS_TABLE, driver.lastError().text())
 
-            if name == MyConnection.TOKENS_TABLE:
-                rowid_select: str = '''SELECT \"token\", \"name\" FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format(
-                    '\"{0}\"'.format(MyConnection.TOKENS_TABLE)
-                )
-
-                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-                if db.transaction():
-                    token_query = QtSql.QSqlQuery(db)
-                    token_prepare_flag: bool = token_query.prepare(rowid_select)
-                    assert token_prepare_flag, token_query.lastError().text()
-                    token_query.bindValue(':rowid', payload)
-                    token_exec_flag: bool = token_query.exec()
-                    assert token_exec_flag, token_query.lastError().text()
-
-                    rowid_count: int = 0
-                    while token_query.next():
-                        rowid_count += 1
-                        token: str = token_query.value('token')  # Токен.
-                        name: str = token_query.value('name')  # Название токена.
-
-                    ...
-
-                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                    assert commit_flag, db.lastError().text()
-                else:
-                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-
-                if rowid_count == 0:
-                    """Если токен был удалён, то необходимо удалить соответствующий токен из модели (если он там есть)."""
-                    self.update()
-                elif rowid_count == 1:
-                    """Если токен был обновлён или добавлен, то необходимо добавить или обновить имеющийся токен."""
-                    self.update()
-                else:
-                    raise SystemError('Таблица {0} может содержать только 0 или 1 строку с rowid = \'{1}\', а получено {2} строк(-и)!'.format(MyConnection.TOKENS_TABLE, payload, rowid_count))
+    @QtCore.pyqtSlot(int)
+    def onTokensChanged(self, rowid: int):
+        rowid_select: str = '''SELECT \"token\", \"name\" FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format(
+            '\"{0}\"'.format(MyConnection.TOKENS_TABLE)
+        )
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        driver = db.driver()
-        driver.notification.connect(notificationSlot)
+        if db.transaction():
+            token_query = QtSql.QSqlQuery(db)
+            token_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            token_prepare_flag: bool = token_query.prepare(rowid_select)
+            assert token_prepare_flag, token_query.lastError().text()
+            token_query.bindValue(':rowid', rowid)
+            token_exec_flag: bool = token_query.exec()
+            assert token_exec_flag, token_query.lastError().text()
 
-        subscribe_tokens_flag: bool = driver.subscribeToNotification(MyConnection.TOKENS_TABLE)
-        assert subscribe_tokens_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}! driver.lastError().text(): \'{1}\'.'.format(MyConnection.TOKENS_TABLE, driver.lastError().text())
+            rowid_count: int = 0
+            while token_query.next():
+                rowid_count += 1
+                token: str = token_query.value('token')  # Токен.
+                name: str = token_query.value('name')  # Название токена.
+
+            ...
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError(
+                'Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+        if rowid_count == 0:
+            """Если токен был удалён, то необходимо удалить соответствующий токен из модели (если он там есть)."""
+            self.update()
+        elif rowid_count == 1:
+            """Если токен был обновлён или добавлен, то необходимо добавить или обновить имеющийся токен."""
+            self.update()
+        else:
+            raise SystemError(
+                'Таблица {0} может содержать только 0 или 1 строку с rowid = \'{1}\', а получено {2} строк(-и)!'.format(MyConnection.TOKENS_TABLE, rowid, rowid_count))
 
     def update(self):
         """Обновляет данные модели."""
@@ -76,6 +117,7 @@ class TokenModel(QAbstractItemModel):
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
         if db.transaction():
             tokens_query = QtSql.QSqlQuery(db)
+            tokens_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             tokens_prepare_flag: bool = tokens_query.prepare(self.__select_tokens_command)
             assert tokens_prepare_flag, tokens_query.lastError().text()
             tokens_exec_flag: bool = tokens_query.exec()
@@ -87,6 +129,7 @@ class TokenModel(QAbstractItemModel):
 
                 '''------------------------Получение счетов------------------------'''
                 accounts_query = QtSql.QSqlQuery(db)
+                accounts_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 accounts_prepare_flag: bool = accounts_query.prepare(self.__select_accounts_command)
                 assert accounts_prepare_flag, accounts_query.lastError().text()
                 accounts_query.bindValue(':token', token)
@@ -100,6 +143,7 @@ class TokenModel(QAbstractItemModel):
 
                 '''---------Получение unary-лимитов---------'''
                 unary_limits_query = QtSql.QSqlQuery(db)
+                unary_limits_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 unary_limits_prepare_flag: bool = unary_limits_query.prepare(self.__select_unary_limits_command)
                 assert unary_limits_prepare_flag, unary_limits_query.lastError().text()
                 unary_limits_query.bindValue(':token', token)
@@ -117,6 +161,7 @@ class TokenModel(QAbstractItemModel):
 
                 '''---------Получение stream-соединений---------'''
                 stream_limits_query = QtSql.QSqlQuery(db)
+                stream_limits_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 stream_limits_prepare_flag: bool = stream_limits_query.prepare(self.__select_stream_limits_command)
                 assert stream_limits_prepare_flag, stream_limits_query.lastError().text()
                 stream_limits_query.bindValue(':token', token)

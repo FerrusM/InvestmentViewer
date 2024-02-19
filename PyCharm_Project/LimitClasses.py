@@ -28,7 +28,7 @@ class LimitPerMinuteSemaphore(QObject):
         timer: QTimer = QTimer(parent=self)
         timer.setSingleShot(True)  # Без повторений.
         timer.timeout.connect(__onRelease)
-        timer.start(60000)  # Запускаем таймер на одну минуту.
+        timer.start(120000)  # Запускаем таймер на одну минуту.
 
 
 class MyMethod:

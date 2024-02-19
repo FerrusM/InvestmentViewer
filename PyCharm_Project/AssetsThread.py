@@ -85,8 +85,7 @@ class AssetsThread(QThread):
             \"br_code\" = {1}.\"br_code\", \"br_code_name\" = {1}.\"br_code_name\";
             '''.format(MyConnection.ASSETS_TABLE, '\"excluded\"')
             db: QSqlDatabase = cls.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 cls.insertBrand(assetfull.brand)  # Добавляем брэнд в таблицу брэндов.
 
                 '''------------------Добавляем AssetFull в таблицу активов------------------'''
@@ -153,7 +152,7 @@ class AssetsThread(QThread):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     receive_assetfulls_method_name: str = 'GetAssetBy'
 

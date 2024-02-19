@@ -1,12 +1,12 @@
+from __future__ import annotations
 import typing
 from datetime import datetime, timedelta
 from enum import Enum
-from PyQt6 import QtCore, QtWidgets, QtSql
-from tinkoff.invest import HistoricCandle, CandleInterval
+from PyQt6 import QtCore, QtWidgets, QtSql, QtCharts
+from tinkoff.invest import HistoricCandle, CandleInterval, Quotation
 from tinkoff.invest.utils import candle_interval_to_timedelta
-
 from CandlesView import CandlesChartView
-from Classes import TokenClass, MyConnection, TITLE_FONT, Column, print_slot, VERTICAL_SPACING
+from Classes import TokenClass, MyConnection, TITLE_FONT, Column, print_slot
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -148,10 +148,10 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 self.__instrument_statuses.clear()
                 if self.__token is not None:
                     db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-                    transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-                    if transaction_flag:
+                    if db.transaction():
                         '''---------------Получение статусов инструментов из бд---------------'''
                         statuses_query = QtSql.QSqlQuery(db)
+                        statuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                         statuses_prepare_flag: bool = statuses_query.prepare(self.sql_command)
                         assert statuses_prepare_flag, statuses_query.lastError().text()
                         statuses_query.bindValue(':token', self.__token.token)
@@ -165,7 +165,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                         assert commit_flag, db.lastError().text()
                     else:
-                        assert transaction_flag, db.lastError().text()
+                        raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
                 self.endResetModel()
 
             def setToken(self, token: TokenClass | None):
@@ -285,9 +285,9 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                     )
 
                     db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-                    transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-                    if transaction_flag:
+                    if db.transaction():
                         types_query = QtSql.QSqlQuery(db)
+                        types_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                         types_prepare_flag: bool = types_query.prepare(sql_command)
                         assert types_prepare_flag, types_query.lastError().text()
                         types_exec_flag: bool = types_query.exec()
@@ -299,7 +299,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                         assert commit_flag, db.lastError().text()
                     else:
-                        assert transaction_flag, db.lastError().text()
+                        raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
                 else:
                     if self.__status is None:
                         """Находим все типы инструментов, полученных с помощью переданного токена."""
@@ -314,9 +314,9 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         )
 
                         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-                        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-                        if transaction_flag:
+                        if db.transaction():
                             types_query = QtSql.QSqlQuery(db)
+                            types_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                             types_prepare_flag: bool = types_query.prepare(sql_command)
                             assert types_prepare_flag, types_query.lastError().text()
                             types_query.bindValue(':token', self.__token.token)
@@ -329,7 +329,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                             assert commit_flag, db.lastError().text()
                         else:
-                            assert transaction_flag, db.lastError().text()
+                            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
                     else:
                         """Находим все типы инструментов, соответствующих текущим токену и статусу."""
                         select_uids_str: str = '''SELECT {0}.\"uid\" FROM {0} WHERE {0}.\"token\" = :token AND {0}.\"status\" = :status'''.format(
@@ -343,9 +343,9 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         )
 
                         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-                        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-                        if transaction_flag:
+                        if db.transaction():
                             types_query = QtSql.QSqlQuery(db)
+                            types_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                             types_prepare_flag: bool = types_query.prepare(sql_command)
                             assert types_prepare_flag, types_query.lastError().text()
                             types_query.bindValue(':token', self.__token.token)
@@ -359,7 +359,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                             assert commit_flag, db.lastError().text()
                         else:
-                            assert transaction_flag, db.lastError().text()
+                            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
                 self.endResetModel()
 
@@ -472,6 +472,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                         if db.transaction():
                             instruments_query = QtSql.QSqlQuery(db)
+                            instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                             instruments_prepare_flag: bool = instruments_query.prepare(sql_command)
                             assert instruments_prepare_flag, instruments_query.lastError().text()
                             instruments_exec_flag: bool = instruments_query.exec()
@@ -525,6 +526,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                             if db.transaction():
                                 instruments_query = QtSql.QSqlQuery(db)
+                                instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                                 instruments_prepare_flag: bool = instruments_query.prepare(sql_command)
                                 assert instruments_prepare_flag, instruments_query.lastError().text()
                                 instruments_query.bindValue(':token', token.token)
@@ -578,6 +580,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                             if db.transaction():
                                 instruments_query = QtSql.QSqlQuery(db)
+                                instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                                 instruments_prepare_flag: bool = instruments_query.prepare(sql_command)
                                 assert instruments_prepare_flag, instruments_query.lastError().text()
                                 instruments_query.bindValue(':token', token.token)
@@ -609,6 +612,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                         if db.transaction():
                             instruments_query = QtSql.QSqlQuery(db)
+                            instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                             instruments_prepare_flag: bool = instruments_query.prepare(sql_command)
                             assert instruments_prepare_flag, instruments_query.lastError().text()
                             instruments_exec_flag: bool = instruments_query.exec()
@@ -646,6 +650,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                             if db.transaction():
                                 instruments_query = QtSql.QSqlQuery(db)
+                                instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                                 instruments_prepare_flag: bool = instruments_query.prepare(sql_command)
                                 assert instruments_prepare_flag, instruments_query.lastError().text()
                                 instruments_query.bindValue(':token', token.token)
@@ -683,6 +688,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                             if db.transaction():
                                 instruments_query = QtSql.QSqlQuery(db)
+                                instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                                 instruments_prepare_flag: bool = instruments_query.prepare(sql_command)
                                 assert instruments_prepare_flag, instruments_query.lastError().text()
                                 instruments_query.bindValue(':token', token.token)
@@ -997,52 +1003,7 @@ def getMaxInterval(interval: CandleInterval) -> timedelta:
 class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
     class CandlesThread(QtCore.QThread):
         """Поток получения исторических свечей."""
-        class CandlesConnection(MyConnection):
-            CONNECTION_NAME: str = 'InvestmentViewer_CandlesThread'
-
-            @classmethod
-            def insertHistoricCandles(cls, uid: str, interval: CandleInterval, candles: list[HistoricCandle]):
-                """Добавляет свечи в таблицу исторических свечей."""
-                if candles:  # Если список не пуст.
-                    '''------------------------Добавляем свечи в таблицу исторических свечей------------------------'''
-                    db: QtSql.QSqlDatabase = cls.getDatabase()
-                    if db.transaction():
-                        query = QtSql.QSqlQuery(db)
-
-                        sql_command: str = '''INSERT OR IGNORE INTO \"{0}\" (\"instrument_id\", \"interval\", \"open\", 
-                        \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\") VALUES '''.format(
-                            MyConnection.CANDLES_TABLE
-                        )
-                        for i in range(len(candles)):
-                            if i > 0: sql_command += ', '  # Если добавляемая свеча не первая.
-                            sql_command += '(:uid, :interval, :open{0}, :high{0}, :low{0}, :close{0}, :volume{0}, :time{0}, :is_complete{0})'.format(i)
-                        sql_command += ''' ON CONFLICT (\"instrument_id\", \"interval\", \"time\") DO UPDATE SET \"open\" = 
-                        \"excluded\".\"open\", \"high\" = \"excluded\".\"high\", \"low\" = \"excluded\".\"low\", \"close\" = 
-                        \"excluded\".\"close\", \"volume\" = \"excluded\".\"volume\", \"is_complete\" = 
-                        \"excluded\".\"is_complete\";'''
-
-                        prepare_flag: bool = query.prepare(sql_command)
-                        assert prepare_flag, query.lastError().text()
-
-                        query.bindValue(':uid', uid)
-                        query.bindValue(':interval', interval.name)
-                        for i, candle in enumerate(candles):
-                            query.bindValue(':open{0}'.format(i), MyQuotation.__repr__(candle.open))
-                            query.bindValue(':high{0}'.format(i), MyQuotation.__repr__(candle.high))
-                            query.bindValue(':low{0}'.format(i), MyQuotation.__repr__(candle.low))
-                            query.bindValue(':close{0}'.format(i), MyQuotation.__repr__(candle.close))
-                            query.bindValue(':volume{0}'.format(i), candle.volume)
-                            query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(candle.time))
-                            query.bindValue(':is_complete{0}'.format(i), MyConnection.convertBoolToBlob(candle.is_complete))
-
-                        exec_flag: bool = query.exec()
-                        assert exec_flag, query.lastError().text()
-
-                        commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                        assert commit_flag, db.lastError().text()
-                    else:
-                        raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-                    '''---------------------------------------------------------------------------------------------'''
+        candlesReceived: QtCore.pyqtSignal = QtCore.pyqtSignal(str, CandleInterval, list)
 
         receive_candles_method_name: str = 'GetCandles'
 
@@ -1057,9 +1018,9 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         def __init__(self, token_class: TokenClass, instrument: MyBondClass | MyShareClass, interval: CandleInterval, parent: QtCore.QObject | None = None):
             super().__init__(parent=parent)
             self.__mutex: QtCore.QMutex = QtCore.QMutex()
-            self.token: TokenClass = token_class
-            self.instrument: MyBondClass | MyShareClass = instrument
-            self._interval: CandleInterval = interval
+            self.__token: TokenClass = token_class
+            self.__instrument: MyBondClass | MyShareClass = instrument
+            self.__interval: CandleInterval = interval
             self.semaphore: LimitPerMinuteSemaphore | None = self.token.unary_limits_manager.getSemaphore(self.receive_candles_method_name)
 
             if self.semaphore is not None:
@@ -1081,6 +1042,18 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             self.printText_signal.connect(print_slot)  # Сигнал для отображения сообщений в консоли.
             self.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
             self.finished.connect(lambda: print('{0}: Поток завершён. ({1})'.format(GroupBox_CandlesReceiving.CandlesThread.__name__, getMoscowDateTime())))
+
+        @property
+        def token(self) -> TokenClass:
+            return self.__token
+
+        @property
+        def instrument(self) -> MyShareClass | MyBondClass:
+            return self.__instrument
+
+        @property
+        def interval(self) -> CandleInterval:
+            return self.__interval
 
         def pause(self):
             """Приостанавливает прогресс."""
@@ -1116,7 +1089,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
             if self.semaphore is None:
                 printInConsole('Лимит для метода {0} не найден.'.format(self.receive_candles_method_name))
             else:
-                match self._interval:
+                match self.interval:
                     case CandleInterval.CANDLE_INTERVAL_1_MIN:
                         dt_from: datetime = self.instrument.instrument().first_1min_candle_date
                     case CandleInterval.CANDLE_INTERVAL_DAY:
@@ -1125,12 +1098,11 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                         printInConsole('Получение исторических свечей для выбранного интервала ещё не реализовано.')
                         return
 
-                uid: str = self.instrument.instrument().uid
                 if ifDateTimeIsEmpty(dt_from):
-                    printInConsole('Время первой минутной свечи инструмента {0} пустое. Получение исторических свечей для таких инструментов пока не реализовано.'.format(uid))
+                    printInConsole('Время первой минутной свечи инструмента {0} пустое. Получение исторических свечей для таких инструментов пока не реализовано.'.format(self.instrument.uid))
                     return
                 else:
-                    max_interval: timedelta = getMaxInterval(self._interval)
+                    max_interval: timedelta = getMaxInterval(self.interval)
                     request_number: int = 0
 
                     def requestCandles(from_: datetime, to: datetime, interval: CandleInterval):
@@ -1156,7 +1128,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                             '''-----------------------------------------------------------------'''
 
                             response = getCandles(token=self.token.token,
-                                                  uid=uid,
+                                                  uid=self.instrument.uid,
                                                   interval=interval,
                                                   from_=from_,
                                                   to=to)
@@ -1174,19 +1146,10 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                             """=============================================================================="""
                             try_count += 1
 
-                        candles: list[HistoricCandle] | None
                         if response.ifDataSuccessfullyReceived():
                             self._success_request_count += 1  # Подсчитываем успешный запрос.
-                            candles = response.response_data
-                        else:
-                            candles = None
-
-                        if candles is not None:  # Если поток был прерван или если информация не была получена.
-                            if self.instrument.candles is None:
-                                self.instrument.candles = candles
-                            else:
-                                self.instrument.candles.extend(candles)
-                            self.CandlesConnection.insertHistoricCandles(uid, self._interval, candles)
+                            candles: list[HistoricCandle] = response.response_data
+                            self.candlesReceived.emit(self.instrument.uid, self.interval, candles)
 
                         self.setProgressBarValue_signal.emit(request_number)  # Отображаем прогресс в progressBar.
 
@@ -1194,13 +1157,11 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                     '''--Рассчитываем требуемое количество запросов--'''
                     dt_delta: timedelta = current_dt - dt_from
                     requests_count: int = dt_delta // max_interval
-                    if dt_delta % max_interval > candle_interval_to_timedelta(self._interval):
+                    if dt_delta % max_interval > candle_interval_to_timedelta(self.interval):
                         requests_count += 1
                     '''----------------------------------------------'''
                     self.setProgressBarRange_signal.emit(0, requests_count)  # Задаёт минимум и максимум progressBar'а.
                     dt_to: datetime = dt_from + max_interval
-
-                    self.CandlesConnection.open()  # Открываем соединение с БД.
 
                     while dt_to < current_dt:
                         if self.isInterruptionRequested():
@@ -1208,7 +1169,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                             break
 
                         request_number += 1
-                        requestCandles(dt_from, dt_to, self._interval)
+                        requestCandles(dt_from, dt_to, self.interval)
 
                         dt_from = dt_to
                         dt_to += max_interval
@@ -1223,7 +1184,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                             if request_number > requests_count:
                                 requests_count = request_number
                                 self.setProgressBarRange_signal.emit(0, request_number)  # Увеличиваем максимум progressBar'а.
-                            requestCandles(dt_from, dt_to, self._interval)
+                            requestCandles(dt_from, dt_to, self.interval)
 
                             dt_from = dt_to
                             dt_to += max_interval
@@ -1233,9 +1194,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
                             if request_number > requests_count:
                                 requests_count = request_number
                                 self.setProgressBarRange_signal.emit(0, request_number)  # Увеличиваем максимум progressBar'а.
-                            requestCandles(dt_from, current_dt, self._interval)
-
-                    self.CandlesConnection.removeConnection()  # Удаляем соединение с БД.
+                            requestCandles(dt_from, current_dt, self.interval)
 
     class ThreadStatus(Enum):
         """Статус потока."""
@@ -1409,6 +1368,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
                         self.__candles_receiving_thread.setProgressBarValue_signal.connect(__setValue)
 
+                        self.__candles_receiving_thread.candlesReceived.connect(MainConnection.insertHistoricCandles)
+
                         self.thread_finished_connection = self.__candles_receiving_thread.finished.connect(lambda: self.setStatus(token=self.token, instrument=self.instrument, interval=self.interval, status=self.ThreadStatus.FINISHED))
                         '''----------------------------------------------------------------------------'''
 
@@ -1514,26 +1475,30 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         verticalLayout_main.setSpacing(2)
 
-        verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ', parent=self))
+        verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ', parent=self), 0)
 
         '''-----------Выбор токена для получения исторических свечей-----------'''
         horizontalLayout_token = QtWidgets.QHBoxLayout(self)
-        horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self))
-        horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self), 0)
+        # horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_token.addSpacing(4)
         self.comboBox_token = ComboBox_Token(token_model=token_model, parent=self)
-        horizontalLayout_token.addWidget(self.comboBox_token)
-        horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-        verticalLayout_main.addLayout(horizontalLayout_token)
+        horizontalLayout_token.addWidget(self.comboBox_token, 0)
+        # horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_token.addStretch(1)
+        verticalLayout_main.addLayout(horizontalLayout_token, 0)
         '''--------------------------------------------------------------------'''
 
         '''-----------------------Выбор интервала свечей-----------------------'''
         horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
-        horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self))
-        horizontalLayout_interval.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self), 0)
+        horizontalLayout_interval.addSpacing(4)
+        # horizontalLayout_interval.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
         self.comboBox_interval = ComboBox_Interval(parent=self)
-        horizontalLayout_interval.addWidget(self.comboBox_interval)
-        horizontalLayout_interval.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-        verticalLayout_main.addLayout(horizontalLayout_interval)
+        horizontalLayout_interval.addWidget(self.comboBox_interval, 0)
+        # horizontalLayout_interval.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_interval.addStretch(1)
+        verticalLayout_main.addLayout(horizontalLayout_interval, 0)
         '''--------------------------------------------------------------------'''
 
         '''---------------Прогресс получения исторических свечей---------------'''
@@ -1541,16 +1506,16 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
         self.play_button = QtWidgets.QPushButton(text=self.PLAY, parent=self)
         self.play_button.setEnabled(False)
-        horizontalLayout.addWidget(self.play_button)
+        horizontalLayout.addWidget(self.play_button, 0)
 
         self.stop_button = QtWidgets.QPushButton(text=self.STOP, parent=self)
         self.stop_button.setEnabled(False)
-        horizontalLayout.addWidget(self.stop_button)
+        horizontalLayout.addWidget(self.stop_button, 0)
 
         self.progressBar = ProgressBar_DataReceiving('progressBar_candles', self)
-        horizontalLayout.addWidget(self.progressBar)
+        horizontalLayout.addWidget(self.progressBar, 1)
 
-        verticalLayout_main.addLayout(horizontalLayout)
+        verticalLayout_main.addLayout(horizontalLayout, 0)
         '''--------------------------------------------------------------------'''
 
         verticalLayout_main.addStretch(1)
@@ -1612,9 +1577,289 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.instrument = instrument
 
 
-class GroupBox_CandlesView(QtWidgets.QGroupBox):
-    """Панель отображения свечей."""
-    class CandlesModel(QtCore.QAbstractTableModel):
+class CandlesChart(QtCharts.QChart):
+    def __init__(self, interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent: QtWidgets.QGraphicsItem | None = None):
+        super().__init__(parent=parent)
+
+        self.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
+
+        self.setContentsMargins(-10.0, -10.0, -10.0, -10.0)  # Скрываем поля содержимого виджета.
+        self.layout().setContentsMargins(0, 0, 0, 0)  # Раздвигаем поля содержимого макета.
+        self.legend().hide()  # Скрываем легенду диаграммы.
+
+        self.max_data = getMoscowDateTime()
+        self.min_data = self.max_data - self.__getInterval(interval)
+
+        axisY: QtCharts.QValueAxis = self.__createAxisY()
+        self.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
+
+        axisX: QtCharts.QDateTimeAxis = self.__createAxisX(self.min_data, self.max_data)
+        self.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
+
+    @staticmethod
+    def __getInterval(interval: CandleInterval) -> timedelta:
+        """Возвращает временной интервал, отображаемый на графике."""
+        minute_td: timedelta = timedelta(hours=2)
+        day_td: timedelta = timedelta(days=60)
+
+        match interval:
+            case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:
+                return day_td
+            case CandleInterval.CANDLE_INTERVAL_1_MIN:
+                return minute_td
+            case CandleInterval.CANDLE_INTERVAL_5_MIN:
+                return minute_td * 5
+            case CandleInterval.CANDLE_INTERVAL_15_MIN:
+                return minute_td * 15
+            case CandleInterval.CANDLE_INTERVAL_HOUR:
+                return minute_td * 60
+            case CandleInterval.CANDLE_INTERVAL_DAY:
+                return day_td
+            case CandleInterval.CANDLE_INTERVAL_2_MIN:
+                return minute_td * 2
+            case CandleInterval.CANDLE_INTERVAL_3_MIN:
+                return minute_td * 3
+            case CandleInterval.CANDLE_INTERVAL_10_MIN:
+                return minute_td * 10
+            case CandleInterval.CANDLE_INTERVAL_30_MIN:
+                return minute_td * 30
+            case CandleInterval.CANDLE_INTERVAL_2_HOUR:
+                return minute_td * 120
+            case CandleInterval.CANDLE_INTERVAL_4_HOUR:
+                return minute_td * 240
+            case CandleInterval.CANDLE_INTERVAL_WEEK:
+                return day_td * 7
+            case CandleInterval.CANDLE_INTERVAL_MONTH:
+                return day_td * 31
+            case _:
+                raise ValueError('Некорректный временной интервал свечей!')
+
+    def removeAllAxes(self):
+        """Удаляет все оси диаграммы."""
+        for axis in self.axes(QtCore.Qt.Orientation.Vertical, None):
+            self.removeAxis(axis)
+        for axis in self.axes(QtCore.Qt.Orientation.Horizontal, None):
+            self.removeAxis(axis)
+
+    def __createAxisX(self, min_: QtCore.QDateTime | datetime, max_: QtCore.QDateTime | datetime) -> QtCharts.QDateTimeAxis:
+        axisX = QtCharts.QDateTimeAxis(parent=self)
+        # axisX.setFormat()
+        axisX.setRange(min_, max_)
+        axisX.setTitleText('Дата и время')
+        return axisX
+
+    def __createAxisY(self, min_: float = 0, max_: float = 110) -> QtCharts.QValueAxis:
+        axisY = QtCharts.QValueAxis(parent=self)
+        axisY.setRange(min_, max_)
+        # axisY.setTickCount(11)
+        axisY.setTitleText('Цена')
+        return axisY
+
+    # def setCandles(self, candles: list[HistoricCandle], interval: CandleInterval):
+    #     """Обновляем данные графика."""
+    #     self.removeAllSeries()
+    #     self.removeAllAxes()  # Удаляет все оси диаграммы.
+    #
+    #     candlestick_series = QtCharts.QCandlestickSeries(self)
+    #     candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
+    #     candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
+    #
+    #     self.max_data = getMoscowDateTime()
+    #     self.min_data = self.max_data - self.__getInterval(interval)
+    #
+    #     '''==============================Если надо отображать все свечи=============================='''
+    #     # if candles:
+    #     #     min_timestamp: float = self.min_data.timestamp()
+    #     #     max_timestamp: float = self.max_data.timestamp()
+    #     #     interval_candles: list[QtCharts.QCandlestickSet] = []
+    #     #
+    #     #     '''------------------------------------Заполняем серию свечей------------------------------------'''
+    #     #     for candle in candles:
+    #     #         assert candle.low <= candle.open and candle.low <= candle.close and candle.low <= candle.high
+    #     #         assert candle.high >= candle.open and candle.high >= candle.close
+    #     #
+    #     #         candlestick = getQCandlestickSetFromHistoricCandle(candle=candle, parent=self)
+    #     #         candlestick_series.append(candlestick)
+    #     #
+    #     #         if min_timestamp <= candle.time.timestamp() <= max_timestamp:
+    #     #             interval_candles.append(candlestick)
+    #     #     '''----------------------------------------------------------------------------------------------'''
+    #     #
+    #     #     if interval_candles:
+    #     #         '''---Определяем минимальную цену на выбранном отрезке времени---'''
+    #     #         min_price: float = min(candle.low() for candle in interval_candles)
+    #     #         max_price: float = max(candle.high() for candle in interval_candles)
+    #     #         '''--------------------------------------------------------------'''
+    #     #         axisY: QtCharts.QValueAxis = self.__createAxisY(min_price, max_price)
+    #     #     else:
+    #     #         axisY: QtCharts.QValueAxis = self.__createAxisY()
+    #     # else:
+    #     #     axisY: QtCharts.QValueAxis = self.__createAxisY()
+    #     '''=========================================================================================='''
+    #
+    #     '''========================Если надо отображать только последние свечи========================'''
+    #     if candles:
+    #         min_timestamp: float = self.min_data.timestamp()
+    #         max_timestamp: float = self.max_data.timestamp()
+    #
+    #         '''------------------------------------Заполняем серию свечей------------------------------------'''
+    #         for candle in candles:
+    #             assert candle.low <= candle.open and candle.low <= candle.close and candle.low <= candle.high
+    #             assert candle.high >= candle.open and candle.high >= candle.close
+    #
+    #             if min_timestamp <= candle.time.timestamp() <= max_timestamp:
+    #                 candlestick = getQCandlestickSetFromHistoricCandle(candle=candle, parent=self)
+    #                 candlestick_series.append(candlestick)
+    #         '''----------------------------------------------------------------------------------------------'''
+    #
+    #         if candlestick_series.sets():
+    #             '''---Определяем минимальную цену на выбранном отрезке времени---'''
+    #             min_price: float = min(candle.low() for candle in candlestick_series.sets())
+    #             max_price: float = max(candle.high() for candle in candlestick_series.sets())
+    #             '''--------------------------------------------------------------'''
+    #             axisY: QtCharts.QValueAxis = self.__createAxisY(min_price, max_price)
+    #         else:
+    #             axisY: QtCharts.QValueAxis = self.__createAxisY()
+    #     else:
+    #         axisY: QtCharts.QValueAxis = self.__createAxisY()
+    #     '''==========================================================================================='''
+    #
+    #     self.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
+    #
+    #     axisX: QtCharts.QDateTimeAxis = self.__createAxisX(self.min_data, self.max_data)
+    #     self.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
+    #
+    #     self.addSeries(candlestick_series)
+    #
+    #     attachAxisX_flag: bool = candlestick_series.attachAxis(axisX)
+    #     assert attachAxisX_flag, 'Не удалось прикрепить ось X к series.'
+    #     attachAxisY_flag: bool = candlestick_series.attachAxis(axisY)
+    #     assert attachAxisY_flag, 'Не удалось прикрепить ось Y к series.'
+
+
+class CandlesViewAndGraphic(QtWidgets.QGroupBox):
+    class Candlestick(QtCharts.QCandlestickSet):
+        def __init__(self, candle: HistoricCandle, parent: QtCore.QObject | None = None):
+            self.__historic_candle: HistoricCandle = candle
+            super().__init__(open=MyQuotation.getFloat(candle.open),
+                             high=MyQuotation.getFloat(candle.high),
+                             low=MyQuotation.getFloat(candle.low),
+                             close=MyQuotation.getFloat(candle.close),
+                             timestamp=(candle.time.timestamp() * 1000),
+                             parent=parent)
+
+        @property
+        def historic_candle(self) -> HistoricCandle:
+            return self.__historic_candle
+
+    class __CandlesQueryModel(QtSql.QSqlQueryModel):
+        __select_candles_command: str = '''SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\",
+        \"is_complete\" FROM \"{0}\" WHERE \"instrument_id\" = :uid and \"interval\" = :interval;'''.format(
+            MyConnection.CANDLES_TABLE
+        )
+        __select_candles_command_1: str = 'SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\" FROM \"'+MyConnection.CANDLES_TABLE+'\" WHERE \"instrument_id\" = \'{uid}\' and \"interval\" = \'{interval}\';'
+
+        def __init__(self, instrument_uid: str | None, interval: CandleInterval, parent: QtCore.QObject | None = None):
+            # self.__columns: tuple[Column, ...] = (
+            #     Column(header='Открытие',
+            #            header_tooltip='Цена открытия за 1 инструмент.',
+            #            data_function=lambda candle: candle.open,
+            #            display_function=lambda candle: MyQuotation.__str__(candle.open, ndigits=8, delete_decimal_zeros=True)),
+            #     Column(header='Макс. цена',
+            #            header_tooltip='Максимальная цена за 1 инструмент.',
+            #            data_function=lambda candle: candle.high,
+            #            display_function=lambda candle: MyQuotation.__str__(candle.high, ndigits=8, delete_decimal_zeros=True)),
+            #     Column(header='Мин. цена',
+            #            header_tooltip='Минимальная цена за 1 инструмент.',
+            #            data_function=lambda candle: candle.low,
+            #            display_function=lambda candle: MyQuotation.__str__(candle.low, ndigits=8, delete_decimal_zeros=True)),
+            #     Column(header='Закрытие',
+            #            header_tooltip='Цена закрытия за 1 инструмент.',
+            #            data_function=lambda candle: candle.close,
+            #            display_function=lambda candle: MyQuotation.__str__(candle.close, ndigits=8, delete_decimal_zeros=True)),
+            #     Column(header='Объём',
+            #            header_tooltip='Объём торгов в лотах.',
+            #            data_function=lambda candle: candle.volume,
+            #            display_function=lambda candle: str(candle.volume)),
+            #     Column(header='Время',
+            #            header_tooltip='Время свечи в часовом поясе UTC.',
+            #            data_function=lambda candle: candle.time,
+            #            display_function=lambda candle: str(candle.time)),
+            #     Column(header='Завершённость',
+            #            header_tooltip='Признак завершённости свечи. False значит, что свеча за текущий интервал ещё сформирована не полностью.',
+            #            data_function=lambda candle: candle.is_complete,
+            #            display_function=lambda candle: str(candle.is_complete))
+            # )
+            super().__init__(parent=parent)
+            self.__interval: CandleInterval = interval
+            self.instrument_uid = instrument_uid
+
+        def __updateQuery(self):
+            if self.instrument_uid is None:
+                self.clear()
+            else:
+                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+                if db.transaction():
+                    self.setQuery(
+                        self.__select_candles_command_1.format(
+                            uid=self.instrument_uid,
+                            interval=self.interval.name
+                        ),
+                        db
+                    )
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+                else:
+                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+        @property
+        def instrument_uid(self) -> str | None:
+            return self.__instrument_uid
+
+        @instrument_uid.setter
+        def instrument_uid(self, instrument_uid: str | None):
+            self.__instrument_uid = instrument_uid
+            self.__updateQuery()
+
+        @property
+        def interval(self) -> CandleInterval:
+            return self.__interval
+
+        @interval.setter
+        def interval(self, interval: CandleInterval):
+            self.__interval = interval
+            self.__updateQuery()
+
+        # def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
+        #     return len(self.__columns)
+        #
+        # def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
+        #     column: Column = self.__columns[index.column()]
+        #
+        #     row: int = index.row()
+        #     open_: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('open'))
+        #     high: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('high'))
+        #     low: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('low'))
+        #     close: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('close'))
+        #     volume: int = self.record(row).value('volume')
+        #     time: datetime = MyConnection.convertTextToDateTime(self.record(row).value('time'))
+        #     is_complete: bool = MyConnection.convertBlobToBool(self.record(row).value('is_complete'))
+        #     candle: HistoricCandle = HistoricCandle(open=open_, high=high, low=low, close=close, volume=volume,
+        #                                             time=time, is_complete=is_complete)
+        #
+        #     return column(role, candle)
+
+        # def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
+        #     if orientation == QtCore.Qt.Orientation.Vertical:
+        #         if role == QtCore.Qt.ItemDataRole.DisplayRole:
+        #             return section + 1  # Проставляем номера строк.
+        #     elif orientation == QtCore.Qt.Orientation.Horizontal:
+        #         if role == QtCore.Qt.ItemDataRole.DisplayRole:
+        #             return self.__columns[section].header
+        #         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
+        #             return self.__columns[section].header_tooltip
+
+    class __CandlesModel(QtCore.QAbstractTableModel):
         def __init__(self, parent: QtCore.QObject | None = None):
             self.__columns: tuple[Column, ...] = (
                 Column(header='Открытие',
@@ -1646,19 +1891,21 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
                        data_function=lambda candle: candle.is_complete,
                        display_function=lambda candle: str(candle.is_complete))
             )
-            self.__candles: list[HistoricCandle] = []
             super().__init__(parent=parent)
+            self.__candlestick_series: QtCharts.QCandlestickSeries = QtCharts.QCandlestickSeries(parent=self)
+            self.__candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
+            self.__candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
 
         def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
             return len(self.__columns)
 
         def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
-            return len(self.candles)
+            return len(self.__candlestick_series.sets())
 
         def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
             column: Column = self.__columns[index.column()]
-            candle: HistoricCandle = self.candles[index.row()]
-            return column(role, candle)
+            candlestick: CandlesViewAndGraphic.Candlestick = self.candles[index.row()]
+            return column(role, candlestick.historic_candle)
 
         def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
             if orientation == QtCore.Qt.Orientation.Vertical:
@@ -1672,97 +1919,89 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
 
         def setCandles(self, candles: list[HistoricCandle]):
             self.beginResetModel()
-            self.__candles = candles
+            self.__candlestick_series.clear()
+            self.__candlestick_series.append(CandlesViewAndGraphic.Candlestick(candle=candle, parent=self) for candle in candles)
             self.endResetModel()
 
         @property
-        def candles(self) -> list[HistoricCandle]:
-            return self.__candles
+        def candles(self) -> list[CandlesViewAndGraphic.Candlestick]:
+            return self.__candlestick_series.sets()
 
-    def __init__(self, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent=parent)
+        def appendCandle(self, candle: HistoricCandle):
+            candles_count: int = self.__candlestick_series.count()
+            self.beginInsertRows(QtCore.QModelIndex(), candles_count, candles_count)
+            self.__candlestick_series.append(CandlesViewAndGraphic.Candlestick(candle=candle, parent=self))
+            self.endInsertRows()
 
-        verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        verticalLayout_main.setSpacing(2)
+    class GroupBox_CandlesView(QtWidgets.QGroupBox):
+        """Панель отображения свечей."""
 
-        '''------------------------Заголовок------------------------'''
-        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
-        horizontalLayout_title.setSpacing(0)
+        def __init__(self, candles_model, parent: QtWidgets.QWidget | None = None):
+            super().__init__(parent=parent)
+            self.setEnabled(False)
 
-        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-        horizontalLayout_title.addWidget(TitleLabel(text='СВЕЧИ', parent=self))
+            verticalLayout_main = QtWidgets.QVBoxLayout(self)
+            verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+            verticalLayout_main.setSpacing(2)
 
-        self.label_count = QtWidgets.QLabel(text='0', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        horizontalLayout_title.addWidget(self.label_count)
+            '''------------------------Заголовок------------------------'''
+            horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+            horizontalLayout_title.setSpacing(0)
 
-        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+            horizontalLayout_title.addSpacing(10)
+            horizontalLayout_title.addStretch(1)
+            horizontalLayout_title.addWidget(TitleLabel(text='СВЕЧИ', parent=self), 0)
 
-        verticalLayout_main.addLayout(horizontalLayout_title)
-        '''---------------------------------------------------------'''
+            self.label_count = QtWidgets.QLabel(text='0', parent=self)
+            self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+            horizontalLayout_title.addWidget(self.label_count, 1)
 
-        self.tableView = QtWidgets.QTableView(parent=self)
-        self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tableView.setSortingEnabled(True)
-        self.tableView.setModel(self.CandlesModel(parent=self))
-        verticalLayout_main.addWidget(self.tableView)
+            horizontalLayout_title.addSpacing(10)
+            verticalLayout_main.addLayout(horizontalLayout_title, 0)
+            '''---------------------------------------------------------'''
 
-    def setCandles(self, candles: list[HistoricCandle]):
-        self.tableView.model().setCandles(candles)
-        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество облигаций.
+            self.tableView = QtWidgets.QTableView(parent=self)
+            self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+            self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+            self.tableView.setSortingEnabled(True)
+            self.tableView.setModel(candles_model)
+            verticalLayout_main.addWidget(self.tableView, 1)
+            self.setEnabled(True)
 
-    @property
-    def candles(self) -> list[HistoricCandle]:
-        return self.tableView.model().candles
+    class GroupBox_Chart(QtWidgets.QGroupBox):
+        """Панель с диаграммой."""
 
+        def __init__(self, parent: QtWidgets.QWidget | None = None):
+            super().__init__(parent=parent)
+            self.setEnabled(False)
 
-class GroupBox_Chart(QtWidgets.QGroupBox):
-    """Панель с диаграммой."""
-    def __init__(self, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent=parent)
+            verticalLayout_main = QtWidgets.QVBoxLayout(self)
+            verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+            verticalLayout_main.setSpacing(2)
 
-        verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        verticalLayout_main.setSpacing(2)
+            verticalLayout_main.addWidget(TitleLabel(text='ГРАФИК', parent=self), 0)
 
-        verticalLayout_main.addWidget(TitleLabel(text='ГРАФИК', parent=self))
+            '''---------------------QChartView---------------------'''
+            # self.chart_view = CandlesChartView(parent=self)
+            # verticalLayout_main.addWidget(self.chart_view)
 
-        '''------------------QGraphicsScene------------------'''
-        # self.chart_view = CandlesSceneView(parent=self)
-        # self.verticalLayout_main.addWidget(self.chart_view)
-        '''--------------------------------------------------'''
+            self.chart_view = QtCharts.QChartView(parent=self)
+            self.chart_view.setRubberBand(QtCharts.QChartView.RubberBand.RectangleRubberBand)
+            chart = CandlesChart()
+            self.chart_view.setChart(chart)
+            verticalLayout_main.addWidget(self.chart_view, 1)
+            '''----------------------------------------------------'''
 
-        '''---------------------QChartView---------------------'''
-        self.chart_view = CandlesChartView(parent=self)
+            self.setEnabled(True)
 
-        # scrollBar = QtWidgets.QScrollBar(QtCore.Qt.Orientation.Horizontal)
-        # scrollBar.setValue(0)
-
-        verticalLayout_main.addWidget(self.chart_view)
-        # self.verticalLayout_main.addWidget(scrollBar)
-        '''----------------------------------------------------'''
-
-    def setCandles(self, candles: list[HistoricCandle], interval: CandleInterval):
-        self.chart_view.setCandles(candles, interval)
-
-
-class CandlesViewAndGraphic(QtWidgets.QGroupBox):
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
         self.setEnabled(False)
 
-        self.__instrument_uid: str | None = None
-        self.__candles: list[HistoricCandle] = []
+        # self.__instrument_uid: str | None = None
+        # self.__candles_model = self.__CandlesModel(parent=self)
+        self.__candles_model = self.__CandlesQueryModel(instrument_uid=None, interval=CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent=self)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -1770,13 +2009,14 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
 
         splitter_horizontal = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Horizontal, parent=self)
 
+        '''---------------------------------Левая часть---------------------------------'''
         layoutWidget = QtWidgets.QWidget(parent=splitter_horizontal)
 
         verticalLayout = QtWidgets.QVBoxLayout(layoutWidget)
         verticalLayout.setContentsMargins(0, 0, 0, 0)
-        verticalLayout.setSpacing(VERTICAL_SPACING)
+        verticalLayout.setSpacing(3)
 
-        '''-----------------------Выбор интервала свечей-----------------------'''
+        '''--------------------Выбор интервала свечей--------------------'''
         horizontalLayout_interval = QtWidgets.QHBoxLayout(layoutWidget)
         horizontalLayout_interval.addSpacing(2)
         horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=layoutWidget), 0)
@@ -1785,17 +2025,13 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
         horizontalLayout_interval.addWidget(self.comboBox_interval, 0)
         horizontalLayout_interval.addStretch(1)
         verticalLayout.addLayout(horizontalLayout_interval, 0)
-        '''--------------------------------------------------------------------'''
+        '''--------------------------------------------------------------'''
 
-        # self.comboBox_interval = ComboBox_Interval(parent=layoutWidget)
-        # verticalLayout.addWidget(self.comboBox_interval, 0)
-
-        self.groupBox_view = GroupBox_CandlesView(parent=layoutWidget)
+        self.groupBox_view = self.GroupBox_CandlesView(candles_model=self.__candles_model, parent=layoutWidget)
         verticalLayout.addWidget(self.groupBox_view, 1)
+        '''-----------------------------------------------------------------------------'''
 
-        # self.groupBox_view = GroupBox_CandlesView(parent=splitter_horizontal)
-
-        self.groupBox_chart = GroupBox_Chart(parent=splitter_horizontal)
+        self.groupBox_chart = self.GroupBox_Chart(parent=splitter_horizontal)
 
         verticalLayout_main.addWidget(splitter_horizontal)
 
@@ -1804,7 +2040,6 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
             self.interval = interval
 
         self.comboBox_interval.intervalSelected.connect(__onIntervalChanged)
-
         self.setEnabled(True)
 
     @property
@@ -1813,29 +2048,101 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
 
     @interval.setter
     def interval(self, interval: CandleInterval):
-        self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=interval)
+        self.__candles_model.interval = interval
+        # self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=interval)
 
-    @property
-    def candles(self) -> list[HistoricCandle]:
-        return self.__candles
+    # @property
+    # def candles(self) -> list[HistoricCandle]:
+    #     return self.__candles_model.candles
 
-    @candles.setter
-    def candles(self, candles: list[HistoricCandle]):
-        self.__candles = candles
-        self.groupBox_view.setCandles(self.candles)
-        self.groupBox_chart.setCandles(candles=self.candles, interval=self.interval)
+    # @candles.setter
+    # def candles(self, candles: list[HistoricCandle]):
+    #     self.__candles_model.setCandles(candles)
+    #
+    #     self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+    #     self.groupBox_view.label_count.setText(str(self.groupBox_view.tableView.model().rowCount()))  # Отображаем количество облигаций.
+    #
+    #     # self.groupBox_chart.setCandles(candles=self.candles, interval=self.interval)
+
+    # def appendCandle(self, candle: HistoricCandle):
+    #     self.__candles_model.appendCandle(candle)
+    #
+    #     # self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+    #     # self.groupBox_view.label_count.setText(str(self.groupBox_view.tableView.model().rowCount()))  # Отображаем количество облигаций.
+    #
+    #     # self.groupBox_chart.setCandles(candles=self.candles, interval=self.interval)
 
     @property
     def instrument_uid(self) -> str | None:
-        return self.__instrument_uid
+        return self.__candles_model.instrument_uid
 
     @instrument_uid.setter
     def instrument_uid(self, instrument_uid: str | None):
-        self.__instrument_uid = instrument_uid
-        self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=self.interval)
+        # self.__instrument_uid = instrument_uid
+        self.__candles_model.instrument_uid = instrument_uid
+        # self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=self.interval)
 
     def setInstrumentUid(self, instrument_uid: str | None = None):
         self.instrument_uid = instrument_uid
+
+    # @QtCore.pyqtSlot(int)
+    # def onCandlesChanges(self, rowid: int):
+    #     db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+    #     if db.transaction():
+    #         __select_candle: str = '''SELECT \"instrument_id\", \"interval\", \"open\", \"high\", \"low\", \"close\",
+    #         \"volume\", \"time\", \"is_complete\" FROM \"{0}\" WHERE \"rowid\" = :rowid;'''.format(
+    #             MyConnection.CANDLES_TABLE
+    #         )
+    #
+    #         select_candle_query = QtSql.QSqlQuery(db)
+    #         select_candle_prepare_flag: bool = select_candle_query.prepare(__select_candle)
+    #         assert select_candle_prepare_flag, select_candle_query.lastError().text()
+    #         select_candle_query.bindValue(':rowid', rowid)
+    #         select_candle_exec_flag: bool = select_candle_query.exec()
+    #         assert select_candle_exec_flag, select_candle_query.lastError().text()
+    #
+    #         candle: HistoricCandle
+    #         candles_count: int = 0
+    #         while select_candle_query.next():
+    #             candles_count += 1
+    #             if candles_count > 1:
+    #                 raise SystemError('Таблица {0} не должна содержать больше одной строки с rowid = \'{1}\'!'.format(MyConnection.CANDLES_TABLE, rowid))
+    #
+    #             if select_candle_query.value('instrument_id') != self.instrument_uid:
+    #                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+    #                 assert commit_flag, db.lastError().text()
+    #                 return
+    #
+    #             interval: CandleInterval = CandleInterval.from_string(select_candle_query.value('interval'))
+    #             if interval != self.interval:
+    #                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+    #                 assert commit_flag, db.lastError().text()
+    #                 return
+    #
+    #             candle = MyConnection.getHistoricCandle(select_candle_query)
+    #
+    #         commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+    #         assert commit_flag, db.lastError().text()
+    #
+    #         if candles_count == 0:
+    #             """Свеча была удалена."""
+    #             ...
+    #         else:
+    #             """Свеча была добавлена или обновлена."""
+    #             time_indexes: list[int] = [i for i, cndl in enumerate(self.candles) if cndl.time == candle.time]
+    #             indexes_count: int = len(time_indexes)
+    #             if indexes_count == 0:
+    #                 """Свеча была добавлена."""
+    #                 self.appendCandle(candle)
+    #             elif indexes_count == 1:
+    #                 """Свеча была обновлена."""
+    #                 new_candles: list[HistoricCandle] = self.candles.copy()
+    #                 new_candles[time_indexes[0]] = candle
+    #                 self.candles = new_candles
+    #             else:
+    #                 raise SystemError('Список свечей не должен содержать несколько свечей, относящихся к одному и тому же времени!')
+    #     else:
+    #         raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'!'.format(db.lastError().text()))
 
 
 class CandlesPage_new(QtWidgets.QWidget):
@@ -1893,15 +2200,11 @@ class CandlesPage_new(QtWidgets.QWidget):
         self.setEnabled(True)
 
     @property
-    def candles(self) -> list[HistoricCandle]:
-        return self.groupBox_candles_view.candles
-
-    @property
     def instrument(self) -> MyShareClass | MyBondClass | None:
         return self.groupBox_instrument.instrument
 
     @instrument.setter
     def instrument(self, instrument: MyShareClass | MyBondClass | None):
-        self.groupBox_candles_view.setInstrumentUid(instrument.uid)
+        self.groupBox_candles_view.setInstrumentUid(None if instrument is None else instrument.uid)
         self.groupBox_instrument_info.setInstrument(instrument)
         self.groupBox_candles_receiving.setInstrument(instrument)

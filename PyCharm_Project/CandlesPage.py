@@ -63,6 +63,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
                 db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                 query = QtSql.QSqlQuery(db)
+                query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 prepare_flag: bool = query.prepare('SELECT DISTINCT \"{0}\" FROM \"{1}\" ORDER BY \"{0}\";'.format(self.PARAMETER, MyConnection.INSTRUMENT_UIDS_TABLE))
                 assert prepare_flag, query.lastError().text()
                 exec_flag: bool = query.exec()
@@ -137,6 +138,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
                 db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                 query = QtSql.QSqlQuery(db)
+                query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 prepare_flag: bool = query.prepare('SELECT \"uid\", \"name\" FROM \"{0}\" ORDER BY \"name\";'.format(table_name))
                 assert prepare_flag, query.lastError().text()
                 exec_flag: bool = query.exec()
@@ -237,6 +239,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
             query = QtSql.QSqlQuery(db)
+            query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             prepare_flag: bool = query.prepare('SELECT * FROM \"{0}\" WHERE \"uid\" = \'{1}\';'.format(table_name, instrument_uid))
             assert prepare_flag, query.lastError().text()
             exec_flag: bool = query.exec()
@@ -1203,6 +1206,7 @@ class CandlesPage(QtWidgets.QWidget):
             uid: str = self.__instrument.instrument().uid
             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
             query = QtSql.QSqlQuery(db)
+            query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             prepare_flag: bool = query.prepare(
                 'SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\" FROM \"{0}\" '
                 'WHERE \"instrument_id\" = :uid and \"interval\" = :interval;'.format(MyConnection.CANDLES_TABLE)

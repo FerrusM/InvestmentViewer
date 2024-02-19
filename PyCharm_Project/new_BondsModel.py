@@ -106,7 +106,6 @@ class BondsModel(QAbstractTableModel):
         def __del__(self):
             self.disconnectAllConnections()  # Отключаем и удаляем все соединения.
 
-
     def __init__(self, token: TokenClass | None, instrument_status: InstrumentStatus, sql_condition: str | None, calculation_dt: datetime, parent: QObject | None = None):
         super().__init__(parent=parent)
 
@@ -468,54 +467,75 @@ class BondsModel(QAbstractTableModel):
 
         self.update(token, instrument_status, sql_condition)  # Обновляем данные модели.
 
-        '''------------------------Подписываемся на уведомления от бд------------------------'''
-        def notificationSlot(name: str, source: QtSql.QSqlDriver.NotificationSource, payload: int):
-            assert source == QtSql.QSqlDriver.NotificationSource.UnknownSource
-            # print('notificationSlot: name = {0}, payload = {1}.'.format(name, payload))
-            if self.__token is None:
-                if name == MyConnection.BONDS_TABLE:
-                    self.bond_notifications_count += 1
-                elif name == MyConnection.COUPONS_TABLE:
-                    self.coupons_notifications_count += 1
-                elif name == MyConnection.LAST_PRICES_TABLE:
-                    self.lp_notifications_count += 1
-                else:
-                    pass
-                    # raise ValueError('Неверный параметр name ({0})!'.format(name))
-            else:
-                if name == MyConnection.BONDS_TABLE:
-                    self.bond_notifications_count += 1
-                    begin_datetime: datetime = getUtcDateTime()
-                    print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.bond_notifications_count))
-                    self.updateBondRow(payload)
-                    self.bond_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
-                elif name == MyConnection.COUPONS_TABLE:
-                    self.coupons_notifications_count += 1
-                    begin_datetime: datetime = getUtcDateTime()
-                    print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.coupons_notifications_count))
-                    self.updateCouponsRow(payload)
-                    self.coupons_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
-                elif name == MyConnection.LAST_PRICES_TABLE:
-                    self.lp_notifications_count += 1
-                    begin_datetime: datetime = getUtcDateTime()
-                    print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.lp_notifications_count))
-                    self.updateLastPricesRow_new(payload)
-                    self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
-                else:
-                    pass
-                    # raise ValueError('Неверный параметр name ({0})!'.format(name))
+        # '''------------------------Подписываемся на уведомления от бд------------------------'''
+        # def notificationSlot(name: str, source: QtSql.QSqlDriver.NotificationSource, payload: int):
+        #     assert source == QtSql.QSqlDriver.NotificationSource.UnknownSource
+        #     # print('notificationSlot: name = {0}, payload = {1}.'.format(name, payload))
+        #     if self.__token is None:
+        #         if name == MyConnection.BONDS_TABLE:
+        #             self.bond_notifications_count += 1
+        #         elif name == MyConnection.COUPONS_TABLE:
+        #             self.coupons_notifications_count += 1
+        #         elif name == MyConnection.LAST_PRICES_TABLE:
+        #             self.lp_notifications_count += 1
+        #         else:
+        #             pass
+        #             # raise ValueError('Неверный параметр name ({0})!'.format(name))
+        #     else:
+        #         if name == MyConnection.BONDS_TABLE:
+        #             self.bond_notifications_count += 1
+        #             begin_datetime: datetime = getUtcDateTime()
+        #             print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.bond_notifications_count))
+        #             self.updateBondRow(payload)
+        #             self.bond_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+        #         elif name == MyConnection.COUPONS_TABLE:
+        #             self.coupons_notifications_count += 1
+        #             begin_datetime: datetime = getUtcDateTime()
+        #             print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.coupons_notifications_count))
+        #             self.updateCouponsRow(payload)
+        #             self.coupons_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+        #         elif name == MyConnection.LAST_PRICES_TABLE:
+        #             self.lp_notifications_count += 1
+        #             begin_datetime: datetime = getUtcDateTime()
+        #             print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.lp_notifications_count))
+        #             self.updateLastPricesRow_new(payload)
+        #             self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+        #         else:
+        #             pass
+        #             # raise ValueError('Неверный параметр name ({0})!'.format(name))
+        #
+        # db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+        # driver = db.driver()
+        # driver.notification.connect(notificationSlot)
+        #
+        # subscribe_flag: bool = driver.subscribeToNotification(MyConnection.BONDS_TABLE)
+        # assert subscribe_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.BONDS_TABLE)
+        # subscribe_coupons_flag: bool = driver.subscribeToNotification(MyConnection.COUPONS_TABLE)
+        # assert subscribe_coupons_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.COUPONS_TABLE)
+        # subscribe_lp_flag: bool = driver.subscribeToNotification(MyConnection.LAST_PRICES_TABLE)
+        # assert subscribe_lp_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.LAST_PRICES_TABLE)
+        # '''----------------------------------------------------------------------------------'''
 
-        db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        driver = db.driver()
-        driver.notification.connect(notificationSlot)
+    def onBondsChanged(self, rowid: int):
+        self.bond_notifications_count += 1
+        if self.__token is not None:
+            begin_datetime: datetime = getUtcDateTime()
+            self.updateBondRow(rowid)
+            self.bond_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
 
-        subscribe_flag: bool = driver.subscribeToNotification(MyConnection.BONDS_TABLE)
-        assert subscribe_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.BONDS_TABLE)
-        subscribe_coupons_flag: bool = driver.subscribeToNotification(MyConnection.COUPONS_TABLE)
-        assert subscribe_coupons_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.COUPONS_TABLE)
-        subscribe_lp_flag: bool = driver.subscribeToNotification(MyConnection.LAST_PRICES_TABLE)
-        assert subscribe_lp_flag, 'Не удалось подписаться на уведомления об изменении таблицы {0}!'.format(MyConnection.LAST_PRICES_TABLE)
-        '''----------------------------------------------------------------------------------'''
+    def onCouponsChanged(self, rowid: int):
+        self.coupons_notifications_count += 1
+        if self.__token is not None:
+            begin_datetime: datetime = getUtcDateTime()
+            self.updateCouponsRow(rowid)
+            self.coupons_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
+
+    def onLastPricesChanged(self, rowid: int):
+        self.lp_notifications_count += 1
+        if self.__token is not None:
+            begin_datetime: datetime = getUtcDateTime()
+            self.updateLastPricesRow_new(rowid)
+            self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
 
     def getBondNotificationAverageTime(self) -> float:
         return self.bond_notifications_seconds / self.bond_notifications_count
@@ -597,9 +617,9 @@ class BondsModel(QAbstractTableModel):
             '''---------------------------------------------------------------------------------------------------'''
 
             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-            transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-            if transaction_flag:
+            if db.transaction():
                 query = QtSql.QSqlQuery(db)
+                query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 prepare_flag: bool = query.prepare(sql_command)
                 assert prepare_flag, query.lastError().text()
                 query.bindValue(':token', token.token)
@@ -637,6 +657,7 @@ class BondsModel(QAbstractTableModel):
                                 \"coupon_end_date\", \"coupon_period\" FROM {0} WHERE {0}.\"instrument_uid\" = :bond_uid
                                 ;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
                                 coupons_query = QtSql.QSqlQuery(db)
+                                coupons_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                                 coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
                                 assert coupons_prepare_flag, coupons_query.lastError().text()
                                 coupons_query.bindValue(':bond_uid', bond_uid)
@@ -674,7 +695,7 @@ class BondsModel(QAbstractTableModel):
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                 assert commit_flag, db.lastError().text()
             else:
-                assert transaction_flag, db.lastError().text()
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
         '''---------------------Подключение слотов обновления к сигналам облигаций---------------------'''
         columns_count: int = len(self.columns)
@@ -731,10 +752,10 @@ class BondsModel(QAbstractTableModel):
         )
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             '''-----------Пробуем получить облигацию по rowid-----------'''
             rowid_query = QtSql.QSqlQuery(db)
+            rowid_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             rowid_prepare_flag: bool = rowid_query.prepare(rowid_select)
             assert rowid_prepare_flag, rowid_query.lastError().text()
             rowid_query.bindValue(':rowid', rowid)
@@ -804,6 +825,7 @@ class BondsModel(QAbstractTableModel):
                 )
 
                 filter_query = QtSql.QSqlQuery(db)
+                filter_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 filter_prepare_flag: bool = filter_query.prepare(filter_query_sql_command)
                 assert filter_prepare_flag, filter_query.lastError().text()
                 filter_query.bindValue(':bond_uid', changed_rowid_uid)
@@ -845,6 +867,7 @@ class BondsModel(QAbstractTableModel):
                         '''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
 
                         last_price_query = QtSql.QSqlQuery(db)
+                        last_price_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                         last_price_prepare_flag: bool = last_price_query.prepare(last_price_sql_command)
                         assert last_price_prepare_flag, last_price_query.lastError().text()
                         last_price_query.bindValue(':bond_uid', changed_rowid_uid)
@@ -868,6 +891,7 @@ class BondsModel(QAbstractTableModel):
                             '''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
 
                             coupons_query = QtSql.QSqlQuery(db)
+                            coupons_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                             coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
                             assert coupons_prepare_flag, coupons_query.lastError().text()
                             coupons_query.bindValue(':bond_uid', changed_rowid_uid)
@@ -920,7 +944,7 @@ class BondsModel(QAbstractTableModel):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     def updateCouponsRow(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы купонов."""
@@ -930,10 +954,10 @@ class BondsModel(QAbstractTableModel):
         FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             '''-----------Пробуем получить купон по rowid-----------'''
             rowid_query = QtSql.QSqlQuery(db)
+            rowid_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             rowid_prepare_flag: bool = rowid_query.prepare(rowid_select_str)
             assert rowid_prepare_flag, rowid_query.lastError().text()
             rowid_query.bindValue(':rowid', rowid)
@@ -966,7 +990,7 @@ class BondsModel(QAbstractTableModel):
                     """Если купон был получен."""
                     self.__rows[bond_index].bond_class.upsertCoupon(coupon)  # Обновляем список купонов облигации.
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     def updateLastPricesRow_old(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы последних цен."""
@@ -974,10 +998,10 @@ class BondsModel(QAbstractTableModel):
         FROM {0} WHERE {0}.\"lp_rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             """==================Пробуем получить последнюю цену из представления последних цен=================="""
             view_query = QtSql.QSqlQuery(db)
+            view_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             view_prepare_flag: bool = view_query.prepare(view_select_str)
             assert view_prepare_flag, view_query.lastError().text()
             view_query.bindValue(':rowid', rowid)
@@ -1042,7 +1066,7 @@ class BondsModel(QAbstractTableModel):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     def updateLastPricesRow_new(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы последних цен."""
@@ -1050,9 +1074,9 @@ class BondsModel(QAbstractTableModel):
         FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             lp_select_query = QtSql.QSqlQuery(db)
+            lp_select_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             lp_select_prepare_flag: bool = lp_select_query.prepare(lp_select_str)
             assert lp_select_prepare_flag, lp_select_query.lastError().text()
             lp_select_query.bindValue(':rowid', rowid)
@@ -1084,11 +1108,8 @@ class BondsModel(QAbstractTableModel):
                     view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\"
                     FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
 
-                    # view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", MAX({0}.\"time\") AS \"time\",
-                    # {0}.\"instrument_uid\" FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid
-                    # GROUP BY {0}.\"instrument_uid\";'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
-
                     view_select_query = QtSql.QSqlQuery(db)
+                    view_select_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                     view_select_prepare_flag: bool = view_select_query.prepare(view_select_str)
                     assert view_select_prepare_flag, view_select_query.lastError().text()
                     view_select_query.bindValue(':instrument_uid', last_price.instrument_uid)
@@ -1115,7 +1136,7 @@ class BondsModel(QAbstractTableModel):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     def setCalculationDateTime(self, calculation_dt: datetime):
         """Устанавливает новую дату расчёта."""

@@ -4,7 +4,6 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval
-
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -23,8 +22,7 @@ class MainConnection(MyConnection):
     def createDataBase(cls):
         """Создаёт базу данных."""
         db: QSqlDatabase = cls.getDatabase()
-        transaction_flag: bool = db.transaction()  # Начинает транзакцию в базе данных.
-        if transaction_flag:
+        if db.transaction():
             def getCheckConstraintForColumnFromEnum(column_name: str, enum_class: EnumType) -> str | None:
                 """Возвращает CHECK-ограничение для столбца в соответствии с переданным перечислением."""
                 enum_keys = enum_class.__members__.keys()
@@ -731,7 +729,7 @@ class MainConnection(MyConnection):
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
-            assert transaction_flag, db.lastError().text()
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
     def addNewToken(cls, token: TokenClass):
@@ -990,8 +988,10 @@ class MainConnection(MyConnection):
 
                 """===============Добавляем облигации в таблицу запросов инструментов==============="""
                 '''--------------Удаляем облигации из таблицы запросов инструментов--------------'''
-                bonds_uids_select: str = '''SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\'
-                '''.format(MyConnection.INSTRUMENT_UIDS_TABLE, 'bond')
+                bonds_uids_select: str = 'SELECT \"uid\" FROM \"{0}\" WHERE \"{0}\".\"instrument_type\" = \'{1}\''.format(
+                    MyConnection.INSTRUMENT_UIDS_TABLE,
+                    'bond'
+                )
 
                 instruments_status_delete_sql_command: str = '''DELETE FROM \"{0}\" WHERE \"token\" = :token AND 
                 \"status\" = :status AND \"uid\" in ({1});'''.format(
@@ -1037,6 +1037,7 @@ class MainConnection(MyConnection):
         db: QtSql.QSqlDatabase = cls.getDatabase()
         if db.transaction():
             type_query = QtSql.QSqlQuery(db)
+            type_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             type_prepare_flag: bool = type_query.prepare(type_sql_command)
             assert type_prepare_flag, type_query.lastError().text()
             type_query.bindValue(':uid', uid)
@@ -1060,6 +1061,7 @@ class MainConnection(MyConnection):
                     '''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
 
                     last_price_query = QtSql.QSqlQuery(db)
+                    last_price_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                     last_price_prepare_flag: bool = last_price_query.prepare(last_price_sql_command)
                     assert last_price_prepare_flag, last_price_query.lastError().text()
                     last_price_query.bindValue(':instrument_uid', instrument_uid)
@@ -1089,6 +1091,7 @@ class MainConnection(MyConnection):
                     FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.SHARES_TABLE))
 
                     share_query = QtSql.QSqlQuery(db)
+                    share_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                     share_prepare_flag: bool = share_query.prepare(share_sql_command)
                     assert share_prepare_flag, share_query.lastError().text()
                     share_query.bindValue(':uid', uid)
@@ -1115,6 +1118,7 @@ class MainConnection(MyConnection):
                         '''.format('\"{0}\"'.format(MyConnection.DIVIDENDS_TABLE))
 
                         dividends_query = QtSql.QSqlQuery(db)
+                        dividends_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                         dividends_prepare_flag: bool = dividends_query.prepare(dividends_sql_command)
                         assert dividends_prepare_flag, dividends_query.lastError().text()
                         dividends_query.bindValue(':share_uid', uid)
@@ -1152,6 +1156,7 @@ class MainConnection(MyConnection):
                     FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.BONDS_TABLE))
 
                     bond_query = QtSql.QSqlQuery(db)
+                    bond_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                     bond_prepare_flag: bool = bond_query.prepare(bond_sql_command)
                     assert bond_prepare_flag, bond_query.lastError().text()
                     bond_query.bindValue(':uid', uid)
@@ -1180,6 +1185,7 @@ class MainConnection(MyConnection):
                         '''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
 
                         coupons_query = QtSql.QSqlQuery(db)
+                        coupons_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                         coupons_prepare_flag: bool = coupons_query.prepare(coupons_sql_command)
                         assert coupons_prepare_flag, coupons_query.lastError().text()
                         coupons_query.bindValue(':bond_uid', uid)
@@ -1493,6 +1499,7 @@ class MainConnection(MyConnection):
             )
 
             candles_query = QtSql.QSqlQuery(db)
+            candles_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             candles_prepare_flag: bool = candles_query.prepare(__select_candles_command)
             assert candles_prepare_flag, candles_query.lastError().text()
             candles_query.bindValue(':uid', uid)
@@ -1510,3 +1517,49 @@ class MainConnection(MyConnection):
             return candles
         else:
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def insertHistoricCandles(cls, uid: str, interval: CandleInterval, candles: list[HistoricCandle]):
+        """Добавляет свечи в таблицу исторических свечей."""
+        if candles:  # Если список не пуст.
+            '''------------------------Добавляем свечи в таблицу исторических свечей------------------------'''
+            db: QtSql.QSqlDatabase = cls.getDatabase()
+            if db.transaction():
+                query = QtSql.QSqlQuery(db)
+
+                sql_command: str = '''INSERT INTO \"{0}\" (\"instrument_id\", \"interval\", \"open\", \"high\", \"low\", 
+                \"close\", \"volume\", \"time\", \"is_complete\") VALUES '''.format(
+                    MyConnection.CANDLES_TABLE
+                )
+                for i in range(len(candles)):
+                    if i > 0: sql_command += ', '  # Если добавляемая свеча не первая.
+                    sql_command += '(:uid, :interval, :open{0}, :high{0}, :low{0}, :close{0}, :volume{0}, :time{0}, :is_complete{0})'.format(i)
+                sql_command += ''' ON CONFLICT (\"instrument_id\", \"interval\", \"time\") DO UPDATE SET \"open\" = 
+                \"excluded\".\"open\", \"high\" = \"excluded\".\"high\", \"low\" = \"excluded\".\"low\", \"close\" = 
+                \"excluded\".\"close\", \"volume\" = \"excluded\".\"volume\", \"is_complete\" = 
+                \"excluded\".\"is_complete\" WHERE \"excluded\".\"open\" != \"open\" OR \"excluded\".\"high\" != 
+                \"high\" OR \"excluded\".\"low\" != \"low\" OR \"excluded\".\"close\" != \"close\" OR 
+                \"excluded\".\"volume\" != \"volume\" OR \"excluded\".\"is_complete\" != \"is_complete\";'''
+
+                prepare_flag: bool = query.prepare(sql_command)
+                assert prepare_flag, query.lastError().text()
+
+                query.bindValue(':uid', uid)
+                query.bindValue(':interval', interval.name)
+                for i, candle in enumerate(candles):
+                    query.bindValue(':open{0}'.format(i), MyQuotation.__repr__(candle.open))
+                    query.bindValue(':high{0}'.format(i), MyQuotation.__repr__(candle.high))
+                    query.bindValue(':low{0}'.format(i), MyQuotation.__repr__(candle.low))
+                    query.bindValue(':close{0}'.format(i), MyQuotation.__repr__(candle.close))
+                    query.bindValue(':volume{0}'.format(i), candle.volume)
+                    query.bindValue(':time{0}'.format(i), MyConnection.convertDateTimeToText(candle.time))
+                    query.bindValue(':is_complete{0}'.format(i), MyConnection.convertBoolToBlob(candle.is_complete))
+
+                exec_flag: bool = query.exec()
+                assert exec_flag, query.lastError().text()
+
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+            else:
+                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+            '''---------------------------------------------------------------------------------------------'''

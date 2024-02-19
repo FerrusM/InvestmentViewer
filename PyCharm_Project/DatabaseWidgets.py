@@ -106,6 +106,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
                 db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                 query = QtSql.QSqlQuery(db)
+                query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 prepare_flag: bool = query.prepare('SELECT DISTINCT \"{0}\" FROM \"{1}\" ORDER BY \"{0}\";'.format(self.PARAMETER, MyConnection.INSTRUMENT_UIDS_TABLE))
                 assert prepare_flag, query.lastError().text()
                 exec_flag: bool = query.exec()
@@ -180,6 +181,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
                 db: QtSql.QSqlDatabase = MainConnection.getDatabase()
                 query = QtSql.QSqlQuery(db)
+                query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
                 prepare_flag: bool = query.prepare('SELECT \"uid\", \"name\" FROM \"{0}\" ORDER BY \"name\";'.format(table_name))
                 assert prepare_flag, query.lastError().text()
                 exec_flag: bool = query.exec()
@@ -342,6 +344,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
             db: QtSql.QSqlDatabase = MainConnection.getDatabase()
             query = QtSql.QSqlQuery(db)
+            query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             prepare_flag: bool = query.prepare('SELECT * FROM \"{0}\" WHERE \"uid\" = \'{1}\';'.format(table_name, instrument_uid))
             assert prepare_flag, query.lastError().text()
             exec_flag: bool = query.exec()
@@ -352,83 +355,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 rows_count: int = 0
                 while query.next():
                     rows_count += 1
-
-                    def getBond() -> Bond:
-                        """Создаёт и возвращает экземпляр класса Bond."""
-                        figi: str = query.value('figi')
-                        ticker: str = query.value('ticker')
-                        class_code: str = query.value('class_code')
-                        isin: str = query.value('isin')
-                        lot: int = query.value('lot')
-                        currency: str = query.value('currency')
-                        klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
-                        kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
-                        dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
-                        dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
-                        dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
-                        dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
-                        short_enabled_flag: bool = MyConnection.convertBlobToBool(query.value('short_enabled_flag'))
-                        name: str = query.value('name')
-                        exchange: str = query.value('exchange')
-                        coupon_quantity_per_year: int = query.value('coupon_quantity_per_year')
-                        maturity_date: datetime = MyConnection.convertTextToDateTime(query.value('maturity_date'))
-                        nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
-                        initial_nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('initial_nominal'))
-                        state_reg_date: datetime = MyConnection.convertTextToDateTime(query.value('state_reg_date'))
-                        placement_date: datetime = MyConnection.convertTextToDateTime(query.value('placement_date'))
-                        placement_price: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('placement_price'))
-                        aci_value: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('aci_value'))
-                        country_of_risk: str = query.value('country_of_risk')
-                        country_of_risk_name: str = query.value('country_of_risk_name')
-                        sector: str = query.value('sector')
-                        issue_kind: str = query.value('issue_kind')
-                        issue_size: int = query.value('issue_size')
-                        issue_size_plan: int = query.value('issue_size_plan')
-                        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
-                        otc_flag: bool = MyConnection.convertBlobToBool(query.value('otc_flag'))
-                        buy_available_flag: bool = MyConnection.convertBlobToBool(query.value('buy_available_flag'))
-                        sell_available_flag: bool = MyConnection.convertBlobToBool(query.value('sell_available_flag'))
-                        floating_coupon_flag: bool = MyConnection.convertBlobToBool(query.value('floating_coupon_flag'))
-                        perpetual_flag: bool = MyConnection.convertBlobToBool(query.value('perpetual_flag'))
-                        amortization_flag: bool = MyConnection.convertBlobToBool(query.value('amortization_flag'))
-                        min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
-                        api_trade_available_flag: bool = MyConnection.convertBlobToBool(query.value('api_trade_available_flag'))
-                        uid: str = query.value('uid')
-                        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
-                        position_uid: str = query.value('position_uid')
-                        for_iis_flag: bool = MyConnection.convertBlobToBool(query.value('for_iis_flag'))
-                        for_qual_investor_flag: bool = MyConnection.convertBlobToBool(query.value('for_qual_investor_flag'))
-                        weekend_flag: bool = MyConnection.convertBlobToBool(query.value('weekend_flag'))
-                        blocked_tca_flag: bool = MyConnection.convertBlobToBool(query.value('blocked_tca_flag'))
-                        subordinated_flag: bool = MyConnection.convertBlobToBool(query.value('subordinated_flag'))
-                        liquidity_flag: bool = MyConnection.convertBlobToBool(query.value('liquidity_flag'))
-                        first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
-                        first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
-                        risk_level: RiskLevel = RiskLevel(query.value('risk_level'))
-                        return Bond(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot, currency=currency,
-                                    klong=klong,
-                                    kshort=kshort, dlong=dlong, dshort=dshort, dlong_min=dlong_min, dshort_min=dshort_min,
-                                    short_enabled_flag=short_enabled_flag, name=name, exchange=exchange,
-                                    coupon_quantity_per_year=coupon_quantity_per_year, maturity_date=maturity_date,
-                                    nominal=nominal,
-                                    initial_nominal=initial_nominal, state_reg_date=state_reg_date,
-                                    placement_date=placement_date,
-                                    placement_price=placement_price, aci_value=aci_value, country_of_risk=country_of_risk,
-                                    country_of_risk_name=country_of_risk_name, sector=sector, issue_kind=issue_kind,
-                                    issue_size=issue_size, issue_size_plan=issue_size_plan, trading_status=trading_status,
-                                    otc_flag=otc_flag, buy_available_flag=buy_available_flag,
-                                    sell_available_flag=sell_available_flag,
-                                    floating_coupon_flag=floating_coupon_flag, perpetual_flag=perpetual_flag,
-                                    amortization_flag=amortization_flag, min_price_increment=min_price_increment,
-                                    api_trade_available_flag=api_trade_available_flag, uid=uid, real_exchange=real_exchange,
-                                    position_uid=position_uid, for_iis_flag=for_iis_flag,
-                                    for_qual_investor_flag=for_qual_investor_flag,
-                                    weekend_flag=weekend_flag, blocked_tca_flag=blocked_tca_flag,
-                                    subordinated_flag=subordinated_flag,
-                                    liquidity_flag=liquidity_flag, first_1min_candle_date=first_1min_candle_date,
-                                    first_1day_candle_date=first_1day_candle_date, risk_level=risk_level)
-
-                    bond = getBond()
+                    bond = MyConnection.getCurrentBond(query)
                 assert rows_count == 1
 
                 bond_class: MyBondClass = MyBondClass(bond)
@@ -438,67 +365,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 rows_count: int = 0
                 while query.next():
                     rows_count += 1
-
-                    def getShare() -> Share:
-                        """Создаёт и возвращает экземпляр класса Share."""
-                        figi: str = query.value('figi')
-                        ticker: str = query.value('ticker')
-                        class_code: str = query.value('class_code')
-                        isin: str = query.value('isin')
-                        lot: int = query.value('lot')
-                        currency: str = query.value('currency')
-                        klong: Quotation = MyConnection.convertTextToQuotation(query.value('klong'))
-                        kshort: Quotation = MyConnection.convertTextToQuotation(query.value('kshort'))
-                        dlong: Quotation = MyConnection.convertTextToQuotation(query.value('dlong'))
-                        dshort: Quotation = MyConnection.convertTextToQuotation(query.value('dshort'))
-                        dlong_min: Quotation = MyConnection.convertTextToQuotation(query.value('dlong_min'))
-                        dshort_min: Quotation = MyConnection.convertTextToQuotation(query.value('dshort_min'))
-                        short_enabled_flag: bool = MyConnection.convertBlobToBool(query.value('short_enabled_flag'))
-                        name: str = query.value('name')
-                        exchange: str = query.value('exchange')
-                        ipo_date: datetime = MyConnection.convertTextToDateTime(query.value('ipo_date'))
-                        issue_size: int = query.value('issue_size')
-                        country_of_risk: str = query.value('country_of_risk')
-                        country_of_risk_name: str = query.value('country_of_risk_name')
-                        sector: str = query.value('sector')
-                        issue_size_plan: int = query.value('issue_size_plan')
-                        nominal: MoneyValue = MyConnection.convertTextToMoneyValue(query.value('nominal'))
-                        trading_status: SecurityTradingStatus = SecurityTradingStatus(query.value('trading_status'))
-                        otc_flag: bool = MyConnection.convertBlobToBool(query.value('otc_flag'))
-                        buy_available_flag: bool = MyConnection.convertBlobToBool(query.value('buy_available_flag'))
-                        sell_available_flag: bool = MyConnection.convertBlobToBool(query.value('sell_available_flag'))
-                        div_yield_flag: bool = MyConnection.convertBlobToBool(query.value('div_yield_flag'))
-                        share_type: ShareType = ShareType(query.value('share_type'))
-                        min_price_increment: Quotation = MyConnection.convertTextToQuotation(query.value('min_price_increment'))
-                        api_trade_available_flag: bool = MyConnection.convertBlobToBool(query.value('api_trade_available_flag'))
-                        uid: str = query.value('uid')
-                        real_exchange: RealExchange = RealExchange(query.value('real_exchange'))
-                        position_uid: str = query.value('position_uid')
-                        for_iis_flag: bool = MyConnection.convertBlobToBool(query.value('for_iis_flag'))
-                        for_qual_investor_flag: bool = MyConnection.convertBlobToBool(query.value('for_qual_investor_flag'))
-                        weekend_flag: bool = MyConnection.convertBlobToBool(query.value('weekend_flag'))
-                        blocked_tca_flag: bool = MyConnection.convertBlobToBool(query.value('blocked_tca_flag'))
-                        liquidity_flag: bool = MyConnection.convertBlobToBool(query.value('liquidity_flag'))
-                        first_1min_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1min_candle_date'))
-                        first_1day_candle_date: datetime = MyConnection.convertTextToDateTime(query.value('first_1day_candle_date'))
-                        return Share(figi=figi, ticker=ticker, class_code=class_code, isin=isin, lot=lot,
-                                     currency=currency, klong=klong, kshort=kshort, dlong=dlong, dshort=dshort,
-                                     dlong_min=dlong_min, dshort_min=dshort_min, short_enabled_flag=short_enabled_flag,
-                                     name=name, exchange=exchange, ipo_date=ipo_date, issue_size=issue_size,
-                                     country_of_risk=country_of_risk, country_of_risk_name=country_of_risk_name,
-                                     sector=sector, issue_size_plan=issue_size_plan, nominal=nominal,
-                                     trading_status=trading_status, otc_flag=otc_flag,
-                                     buy_available_flag=buy_available_flag, sell_available_flag=sell_available_flag,
-                                     div_yield_flag=div_yield_flag, share_type=share_type,
-                                     min_price_increment=min_price_increment,
-                                     api_trade_available_flag=api_trade_available_flag, uid=uid,
-                                     real_exchange=real_exchange, position_uid=position_uid, for_iis_flag=for_iis_flag,
-                                     for_qual_investor_flag=for_qual_investor_flag, weekend_flag=weekend_flag,
-                                     blocked_tca_flag=blocked_tca_flag, liquidity_flag=liquidity_flag,
-                                     first_1min_candle_date=first_1min_candle_date,
-                                     first_1day_candle_date=first_1day_candle_date)
-
-                    share = getShare()
+                    share = MyConnection.getCurrentShare(query)
                 assert rows_count == 1
 
                 share_class: MyShareClass = MyShareClass(share)
