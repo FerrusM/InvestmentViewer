@@ -1734,11 +1734,7 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
             return self.__historic_candle
 
     class __CandlesQueryModel(QtSql.QSqlQueryModel):
-        __select_candles_command: str = '''SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\",
-        \"is_complete\" FROM \"{0}\" WHERE \"instrument_id\" = :uid and \"interval\" = :interval;'''.format(
-            MyConnection.CANDLES_TABLE
-        )
-        __select_candles_command_1: str = 'SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\" FROM \"'+MyConnection.CANDLES_TABLE+'\" WHERE \"instrument_id\" = \'{uid}\' and \"interval\" = \'{interval}\';'
+        __select_candles_command: str = 'SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\" FROM \"'+MyConnection.CANDLES_TABLE+'\" WHERE \"instrument_id\" = \'{uid}\' and \"interval\" = \'{interval}\';'
 
         def __init__(self, instrument_uid: str | None, interval: CandleInterval, parent: QtCore.QObject | None = None):
             # self.__columns: tuple[Column, ...] = (
@@ -1780,7 +1776,7 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
                 self.clear()
             else:
                 self.setQuery(
-                    self.__select_candles_command_1.format(uid=self.instrument_uid, interval=self.interval.name),
+                    self.__select_candles_command.format(uid=self.instrument_uid, interval=self.interval.name),
                     MainConnection.getDatabase()
                 )
                 assert not self.lastError().isValid(), 'Не получилось выполнить setQuery! lastError().text(): \'{0}\'.'.format(self.lastError().text())

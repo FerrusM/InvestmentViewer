@@ -8,26 +8,29 @@ class MyShareClass:
     def __init__(self, share: Share, last_price: LastPrice | None = None, dividends: list[Dividend] | None = None, candles: list[HistoricCandle] | None = None):
         self.share: Share = share
         self.last_price: LastPrice | None = last_price
-        self.dividends: list[Dividend] | None = dividends  # Дивиденды.
+        self.__dividends: list[Dividend] | None = dividends  # Дивиденды.
         self.candles: list[HistoricCandle] | None = candles
 
     @property
     def uid(self) -> str:
         return self.share.uid
 
+    @property
+    def dividends(self) -> list[Dividend] | None:
+        return self.__dividends
+
+    def setDividends(self, dividends: list[Dividend]):
+        """Записывает список дивидендов."""
+        self.__dividends = dividends
+
     def instrument(self) -> Share:
         """Возвращает инструмент (акцию), хранящийся в классе."""
         return self.share
 
-    def setDividends(self, dividends: list[Dividend]):
-        """Записывает список дивидендов."""
-        self.dividends = dividends
-
     def getLastPrice(self) -> MyMoneyValue | None:
         """Рассчитывает последнюю цену одной акции."""
-        if self.last_price is None: return None
         # Валюта акции содержится как в currency, так и в nominal.currency. Откуда брать валюту?
-        return MyMoneyValue(self.share.currency, self.last_price.price)
+        return None if self.last_price is None else MyMoneyValue(self.share.currency, self.last_price.price)
 
     def reportLastPrice(self, ndigits: int = 2, delete_decimal_zeros: bool = False) -> str:
         """Отображает структуру MoneyValue, соответствующую последней цене одной акции."""

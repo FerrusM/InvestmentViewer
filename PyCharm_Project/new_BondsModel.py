@@ -498,7 +498,7 @@ class BondsModel(QAbstractTableModel):
         #             self.lp_notifications_count += 1
         #             begin_datetime: datetime = getUtcDateTime()
         #             print('notificationSlot: name = {0} ({2}), payload = {1}.'.format(name, payload, self.lp_notifications_count))
-        #             self.updateLastPricesRow_new(payload)
+        #             self.updateLastPricesRow(payload)
         #             self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
         #         else:
         #             pass
@@ -534,7 +534,7 @@ class BondsModel(QAbstractTableModel):
         self.lp_notifications_count += 1
         if self.__token is not None:
             begin_datetime: datetime = getUtcDateTime()
-            self.updateLastPricesRow_new(rowid)
+            self.updateLastPricesRow(rowid)
             self.lp_notifications_seconds += (getUtcDateTime() - begin_datetime).total_seconds()
 
     def getBondNotificationAverageTime(self) -> float:
@@ -861,26 +861,6 @@ class BondsModel(QAbstractTableModel):
                     """Если облигация была получена, то она должна присутствовать в модели."""
                     if row_index is None:
                         """Если облигации с таким uid нет в модели, то добавляем её."""
-                        '''---------------------------Получаем последнюю цену---------------------------'''
-                        last_price_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", 
-                        {0}.\"instrument_uid\" FROM {0} WHERE {0}.\"instrument_uid\" = :bond_uid;
-                        '''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
-
-                        last_price_query = QtSql.QSqlQuery(db)
-                        last_price_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-                        last_price_prepare_flag: bool = last_price_query.prepare(last_price_sql_command)
-                        assert last_price_prepare_flag, last_price_query.lastError().text()
-                        last_price_query.bindValue(':bond_uid', changed_rowid_uid)
-                        last_price_exec_flag: bool = last_price_query.exec()
-                        assert last_price_exec_flag, last_price_query.lastError().text()
-
-                        last_price_rows_count: int = 0
-                        last_price: LastPrice | None = None
-                        while last_price_query.next():
-                            last_price_rows_count += 1
-                            assert last_price_rows_count < 2, 'Не должно быть нескольких строк с одним и тем же instrument_uid (\'{0}\')!'.format(changed_rowid_uid)
-                            last_price = MyConnection.getCurrentLastPrice(last_price_query)
-                        '''-----------------------------------------------------------------------------'''
 
                         '''--------------------------Получаем купоны облигации--------------------------'''
                         if coupons_flag:
@@ -907,7 +887,7 @@ class BondsModel(QAbstractTableModel):
                         '''-----------------------------------------------------------------------------'''
 
                         inserting_bond_class: MyBondClass = MyBondClass(bond=new_filtered_bond,
-                                                                        last_price=last_price,
+                                                                        last_price=MyConnection.getLastPrice(db, changed_rowid_uid),
                                                                         coupons=coupons)
                         inserting_row: BondsModel.BondRow = BondsModel.BondRow(rowid=new_filtered_bond_rowid,
                                                                                bond_class=inserting_bond_class)
@@ -992,92 +972,15 @@ class BondsModel(QAbstractTableModel):
         else:
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
-    def updateLastPricesRow_old(self, rowid: int):
+    def updateLastPricesRow(self, rowid: int):
         """Обновляет все необходимые данные при изменении строки таблицы последних цен."""
-        view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\" 
-        FROM {0} WHERE {0}.\"lp_rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
-
-        db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-        if db.transaction():
-            """==================Пробуем получить последнюю цену из представления последних цен=================="""
-            view_query = QtSql.QSqlQuery(db)
-            view_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-            view_prepare_flag: bool = view_query.prepare(view_select_str)
-            assert view_prepare_flag, view_query.lastError().text()
-            view_query.bindValue(':rowid', rowid)
-            view_exec_flag: bool = view_query.exec()
-            assert view_exec_flag, view_query.lastError().text()
-
-            '''----------Извлекаем последнюю цену из query----------'''
-            view_rows_count: int = 0
-            while view_query.next():
-                view_rows_count += 1
-                if view_rows_count > 1:
-                    raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
-                last_price: LastPrice = MyConnection.getCurrentLastPrice(view_query)
-            '''-----------------------------------------------------'''
-            """=================================================================================================="""
-
-            if view_rows_count == 0:
-                """Если представление не содержит последнюю цену, то:
-                    если произошёл INSERT, то ничего делать не надо;
-                    если произошёл UPDATE, то последняя цена не могла стать неактуальной, так как поле time является 
-                частью составного первичного ключа и не могло измениться в меньшую сторону, - значит, что если 
-                действительно произошёл UPDATE и последней цены нет в представлении, то её там и не было, следовательно, 
-                ничего делать не надо;
-                    если произошёл DELETE, то, по хорошему, надо проверить таблицу последних цен, чтобы узнать, надо ли 
-                удалить из модели удалённую цену. Но, так как в моём коде не предусмотрено удаление последних цен иначе 
-                как вместе с инструментом, то пока можно пропустить эту операцию."""
-
-                # rowid_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\"
-                # FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
-                #
-                # '''-------Пробуем получить последнюю цену по rowid-------'''
-                # rowid_query = QtSql.QSqlQuery(db)
-                # rowid_prepare_flag: bool = rowid_query.prepare(rowid_select_str)
-                # assert rowid_prepare_flag, rowid_query.lastError().text()
-                # rowid_query.bindValue(':rowid', rowid)
-                # rowid_exec_flag: bool = rowid_query.exec()
-                # assert rowid_exec_flag, rowid_query.lastError().text()
-                # '''------------------------------------------------------'''
-                #
-                # '''----------Извлекаем последнюю цену из query----------'''
-                # rows_count: int = 0
-                # while rowid_query.next():
-                #     rows_count += 1
-                #     if rows_count > 1:
-                #         raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
-                #     last_price: LastPrice = MyConnection.getCurrentLastPrice(rowid_query)
-                # '''-----------------------------------------------------'''
-
-                pass
-                print('LastPrices notification: view_rows_count == 0 для rowid = {0}. Время: {1:.2f}c.'.format(rowid, self.getLpNotificationAverageTime()))
-            else:
-                """Если представление содержит последнюю цену, то последняя цена актуальна."""
-                bond_index: int | None = self.__findRowIndexWithBondUid(last_price.instrument_uid)
-                if bond_index is None:
-                    """Последняя цена не имеет отношения к облигациям в модели облигаций."""
-                    pass  # Ничего не делаем.
-                    print('LastPrices notification: Последняя цена не имеет отношения к облигациям в модели облигаций. Время: {0:.2f}c.'.format(self.getLpNotificationAverageTime()))
-                else:
-                    self.__rows[bond_index].bond_class.setLastPrice(last_price)
-                    print('LastPrices notification: добавлена новая последняя цена (instrument_uid = \'{0}\'). Время: {1:.2f}c.'.format(last_price.instrument_uid, self.getLpNotificationAverageTime()))
-
-            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-            assert commit_flag, db.lastError().text()
-        else:
-            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-
-    def updateLastPricesRow_new(self, rowid: int):
-        """Обновляет все необходимые данные при изменении строки таблицы последних цен."""
-        lp_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\" 
-        FROM {0} WHERE {0}.\"rowid\" = :rowid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_TABLE))
+        lp_select_command: str = 'SELECT \"instrument_uid\" FROM \"{0}\" WHERE \"rowid\" = :rowid;'.format(MyConnection.LAST_PRICES_TABLE)
 
         db: QtSql.QSqlDatabase = MainConnection.getDatabase()
         if db.transaction():
             lp_select_query = QtSql.QSqlQuery(db)
             lp_select_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-            lp_select_prepare_flag: bool = lp_select_query.prepare(lp_select_str)
+            lp_select_prepare_flag: bool = lp_select_query.prepare(lp_select_command)
             assert lp_select_prepare_flag, lp_select_query.lastError().text()
             lp_select_query.bindValue(':rowid', rowid)
             lp_select_exec_flag: bool = lp_select_query.exec()
@@ -1089,7 +992,7 @@ class BondsModel(QAbstractTableModel):
                 lp_count += 1
                 if lp_count > 1:
                     raise SystemError('Не должно быть нескольких строк с одним и тем же rowid ({0})!'.format(rowid))
-                last_price: LastPrice = MyConnection.getCurrentLastPrice(lp_select_query)
+                lp_instrument_uid: str = lp_select_query.value('instrument_uid')
             '''-----------------------------------------------------'''
 
             if lp_count == 0:
@@ -1098,37 +1001,15 @@ class BondsModel(QAbstractTableModel):
                 ...
             else:
                 """Если последняя цена найдена."""
-                bond_index: int | None = self.__findRowIndexWithBondUid(last_price.instrument_uid)
+                bond_index: int | None = self.__findRowIndexWithBondUid(lp_instrument_uid)
                 if bond_index is None:
                     """Последняя цена не имеет отношения к облигациям в модели облигаций."""
                     pass  # Ничего не делаем.
                     print('LastPrices notification: Последняя цена не имеет отношения к облигациям в модели облигаций. Время: {0:.2f}c.'.format(self.getLpNotificationAverageTime()))
                 else:
-                    """===========Получаем актуальную цену для инструмента по полученному instrument_uid==========="""
-                    view_select_str: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", {0}.\"instrument_uid\"
-                    FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid;'''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
-
-                    view_select_query = QtSql.QSqlQuery(db)
-                    view_select_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-                    view_select_prepare_flag: bool = view_select_query.prepare(view_select_str)
-                    assert view_select_prepare_flag, view_select_query.lastError().text()
-                    view_select_query.bindValue(':instrument_uid', last_price.instrument_uid)
-                    view_select_exec_flag: bool = view_select_query.exec()
-                    assert view_select_exec_flag, view_select_query.lastError().text()
-
-                    '''----------Извлекаем последнюю цену из query----------'''
-                    view_count: int = 0
-                    view_last_price: LastPrice
-                    while view_select_query.next():
-                        view_count += 1
-                        if view_count > 1:
-                            raise SystemError('Не должно быть нескольких строк с одним и тем же instrument_uid ({0})!'.format(last_price.instrument_uid))
-                        view_last_price: LastPrice = MyConnection.getCurrentLastPrice(view_select_query)
-                    '''-----------------------------------------------------'''
-                    """============================================================================================"""
-
-                    if view_count == 0:
-                        raise SystemError('Если у инструмента есть хотя бы одна цена, то её не может не быть в представлении!.')
+                    view_last_price: LastPrice | None = MyConnection.getLastPrice(db, lp_instrument_uid)
+                    if view_last_price is None:
+                        raise SystemError('Если у инструмента есть хотя бы одна цена, то её не может не быть в представлении!')
                     else:
                         self.__rows[bond_index].bond_class.setLastPrice(view_last_price)
                         print('LastPricesNotification: Актуальная цена обновлена. Время: {0:.2f}c.'.format(self.getLpNotificationAverageTime()))

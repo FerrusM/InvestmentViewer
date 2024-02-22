@@ -541,20 +541,29 @@ class MyConnection(ABC):
                         regularity=regularity, close_price=close_price, yield_value=yield_value, created_at=created_at)
 
     @classmethod
-    def getCurrentLastPrice(cls, query: QtSql.QSqlQuery) -> LastPrice:
-        figi: str = query.value('figi')
-        price_str: str = query.value('price')
-        time_str: str = query.value('time')
-        instrument_uid: str = query.value('instrument_uid')
-        try:
+    def getLastPrice(cls, db: QtSql.QSqlDatabase, instrument_uid: str) -> LastPrice | None:
+        last_price_sql_command: str = 'SELECT \"figi\", \"price\", \"time\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid;'.format(cls.LAST_PRICES_VIEW)
+
+        last_price_query = QtSql.QSqlQuery(db)
+        last_price_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+        last_price_prepare_flag: bool = last_price_query.prepare(last_price_sql_command)
+        assert last_price_prepare_flag, last_price_query.lastError().text()
+        last_price_query.bindValue(':instrument_uid', instrument_uid)
+        last_price_exec_flag: bool = last_price_query.exec()
+        assert last_price_exec_flag, last_price_query.lastError().text()
+
+        last_price_rows_count: int = 0
+        last_price: LastPrice | None = None
+        while last_price_query.next():
+            last_price_rows_count += 1
+            assert last_price_rows_count < 2, 'Не должно быть нескольких строк с одним и тем же instrument_uid (\'{0}\')!'.format(instrument_uid)
+            figi: str = last_price_query.value('figi')
+            price_str: str = last_price_query.value('price')
+            time_str: str = last_price_query.value('time')
             price: Quotation = cls.convertTextToQuotation(price_str)
-        except AttributeError:
-            raise AttributeError('getCurrentLastPrice: figi = \'{0}\', price = \'{1}\', time = \'{2}\', instrument_uid = \'{3}\'.'.format(figi, price_str, time_str, instrument_uid))
-        try:
             time: datetime = cls.convertTextToDateTime(time_str)
-        except ValueError:
-            raise ValueError('getCurrentLastPrice: figi = \'{0}\', price = \'{1}\', time = \'{2}\', instrument_uid = \'{3}\'.'.format(figi, price_str, time_str, instrument_uid))
-        return LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
+            last_price = LastPrice(figi=figi, price=price, time=time, instrument_uid=instrument_uid)
+        return last_price
 
     @classmethod
     def getCurrentAccount(cls, query: QtSql.QSqlQuery) -> Account:

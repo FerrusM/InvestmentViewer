@@ -119,17 +119,17 @@ class MyBond:
         else:
             return False
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def ifBondIsMaturity(bond: Bond, compared_datetime: datetime = getUtcDateTime()) -> bool:
         """Проверяет, погашена ли облигация."""
         return bond.maturity_date < compared_datetime
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def ifBondIsMulticurrency(bond: Bond) -> bool:
         """Возвращает True, если не все поля MoneyValue-типа облигации имеют одинаковую валюту, иначе возвращает False."""
         return not ifCurrenciesAreEqual(bond.currency, bond.nominal, bond.initial_nominal, bond.aci_value)
 
-    @staticmethod  # Преобразует метод класса в статический метод этого класса.
+    @staticmethod
     def getDaysToMaturityCount(bond: Bond, calculation_datetime: datetime = getUtcDateTime()) -> int:
         """Возвращает количество дней до погашения облигации."""
         return (bond.maturity_date.date() - calculation_datetime.date()).days
@@ -205,6 +205,7 @@ class MyBondClass(QtCore.QObject):
         if MyLastPrice.isEmpty(self.last_price): return 'Нет данных'
         return MyMoneyValue.__str__(last_price * self.bond.lot, ndigits, delete_decimal_zeros)
 
+    '''---------------------------------Функции для работы с купонами---------------------------------'''
     def getCouponIndex(self, coupon_number: int) -> int | None:
         """Находит по coupon_number купон в списке купонов облигации и возвращает его индекс.
         Если купон не найден, то возвращает None."""
@@ -284,6 +285,7 @@ class MyBondClass(QtCore.QObject):
             if coupon.pay_one_bond.currency != currency:
                 return None
         return currency
+    '''-----------------------------------------------------------------------------------------------'''
 
     """---------------------Купонная доходность облигаций---------------------"""
     def getCouponAbsoluteProfit(self, calculation_datetime: datetime, current_datetime: datetime = getUtcDateTime()) -> MyMoneyValue | None:

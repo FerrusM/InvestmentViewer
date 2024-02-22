@@ -1032,9 +1032,7 @@ class MainConnection(MyConnection):
 
     @classmethod
     def getMyInstrument(cls, uid: str) -> MyShareClass | MyBondClass | None:
-        type_sql_command: str = 'SELECT {0}.\"instrument_type\" FROM {0} WHERE {0}.\"uid\" = :uid;'.format(
-            '\"{0}\"'.format(MyConnection.INSTRUMENT_UIDS_TABLE)
-        )
+        type_sql_command: str = 'SELECT \"instrument_type\" FROM \"{0}\" WHERE \"uid\" = :uid;'.format(MyConnection.INSTRUMENT_UIDS_TABLE)
         db: QtSql.QSqlDatabase = cls.getDatabase()
         if db.transaction():
             type_query = QtSql.QSqlQuery(db)
@@ -1049,6 +1047,8 @@ class MainConnection(MyConnection):
             types_count: int = 0
             while type_query.next():
                 types_count += 1
+                if types_count > 1:
+                    break
                 instrument_type = type_query.value('instrument_type')
 
             if types_count == 0:
@@ -1056,28 +1056,6 @@ class MainConnection(MyConnection):
                 assert commit_flag, db.lastError().text()
                 return None
             elif types_count == 1:
-                def getCurrentLastPrice(instrument_uid: str) -> LastPrice | None:
-                    last_price_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"price\", {0}.\"time\", 
-                    {0}.\"instrument_uid\" FROM {0} WHERE {0}.\"instrument_uid\" = :instrument_uid;
-                    '''.format('\"{0}\"'.format(MyConnection.LAST_PRICES_VIEW))
-
-                    last_price_query = QtSql.QSqlQuery(db)
-                    last_price_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-                    last_price_prepare_flag: bool = last_price_query.prepare(last_price_sql_command)
-                    assert last_price_prepare_flag, last_price_query.lastError().text()
-                    last_price_query.bindValue(':instrument_uid', instrument_uid)
-                    last_price_exec_flag: bool = last_price_query.exec()
-                    assert last_price_exec_flag, last_price_query.lastError().text()
-
-                    last_price_rows_count: int = 0
-                    last_price: LastPrice | None = None
-                    while last_price_query.next():
-                        last_price_rows_count += 1
-                        assert last_price_rows_count < 2, 'Не должно быть нескольких строк с одним и тем же instrument_uid (\'{0}\')!'.format(uid)
-                        last_price = MyConnection.getCurrentLastPrice(last_price_query)
-
-                    return last_price
-
                 if instrument_type == 'share':
                     share_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
                     {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
@@ -1115,8 +1093,8 @@ class MainConnection(MyConnection):
                     if dividends_flag:
                         dividends_sql_command: str = '''SELECT \"dividend_net\", \"payment_date\", \"declared_date\", 
                         \"last_buy_date\", \"dividend_type\", \"record_date\", \"regularity\", \"close_price\", 
-                        \"yield_value\", \"created_at\" FROM {0} WHERE {0}.\"instrument_uid\" = :share_uid;
-                        '''.format('\"{0}\"'.format(MyConnection.DIVIDENDS_TABLE))
+                        \"yield_value\", \"created_at\" FROM \"{0}\" WHERE \"instrument_uid\" = :share_uid;
+                        '''.format(MyConnection.DIVIDENDS_TABLE)
 
                         dividends_query = QtSql.QSqlQuery(db)
                         dividends_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
@@ -1134,27 +1112,24 @@ class MainConnection(MyConnection):
                         dividends: None = None
                     '''----------------------------------------------------------------------------'''
 
-                    last_price: LastPrice | None = getCurrentLastPrice(uid)
+                    last_price: LastPrice | None = MyConnection.getLastPrice(db, uid)
 
                     commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                     assert commit_flag, db.lastError().text()
 
                     return MyShareClass(share=share, last_price=last_price, dividends=dividends)
                 elif instrument_type == 'bond':
-                    bond_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"ticker\", {0}.\"class_code\", {0}.\"isin\", 
-                    {0}.\"lot\", {0}.\"currency\", {0}.\"klong\", {0}.\"kshort\", {0}.\"dlong\", {0}.\"dshort\", 
-                    {0}.\"dlong_min\", {0}.\"dshort_min\", {0}.\"short_enabled_flag\", {0}.\"name\", {0}.\"exchange\", 
-                    {0}.\"coupon_quantity_per_year\", {0}.\"maturity_date\", {0}.\"nominal\", {0}.\"initial_nominal\", 
-                    {0}.\"state_reg_date\", {0}.\"placement_date\", {0}.\"placement_price\", {0}.\"aci_value\", 
-                    {0}.\"country_of_risk\", {0}.\"country_of_risk_name\", {0}.\"sector\", {0}.\"issue_kind\", 
-                    {0}.\"issue_size\", {0}.\"issue_size_plan\", {0}.\"trading_status\", {0}.\"otc_flag\", 
-                    {0}.\"buy_available_flag\", {0}.\"sell_available_flag\", {0}.\"floating_coupon_flag\", 
-                    {0}.\"perpetual_flag\", {0}.\"amortization_flag\", {0}.\"min_price_increment\", 
-                    {0}.\"api_trade_available_flag\", {0}.\"uid\", {0}.\"real_exchange\", {0}.\"position_uid\", 
-                    {0}.\"asset_uid\", {0}.\"for_iis_flag\", {0}.\"for_qual_investor_flag\", {0}.\"weekend_flag\", 
-                    {0}.\"blocked_tca_flag\", {0}.\"subordinated_flag\", {0}.\"liquidity_flag\",
-                    {0}.\"first_1min_candle_date\", {0}.\"first_1day_candle_date\", {0}.\"risk_level\", {0}.\"coupons\" 
-                    FROM {0} WHERE {0}.\"uid\" = :uid;'''.format('\"{0}\"'.format(MyConnection.BONDS_TABLE))
+                    bond_sql_command: str = '''SELECT \"figi\", \"ticker\", \"class_code\", \"isin\", \"lot\",
+                    \"currency\", \"klong\", \"kshort\", \"dlong\", \"dshort\", \"dlong_min\", \"dshort_min\",
+                    \"short_enabled_flag\", \"name\", \"exchange\", \"coupon_quantity_per_year\", \"maturity_date\",
+                    \"nominal\", \"initial_nominal\", \"state_reg_date\", \"placement_date\", \"placement_price\",
+                    \"aci_value\", \"country_of_risk\", \"country_of_risk_name\", \"sector\", \"issue_kind\",
+                    \"issue_size\", \"issue_size_plan\", \"trading_status\", \"otc_flag\", \"buy_available_flag\",
+                    \"sell_available_flag\", \"floating_coupon_flag\", \"perpetual_flag\", \"amortization_flag\",
+                    \"min_price_increment\", \"api_trade_available_flag\", \"uid\", \"real_exchange\", \"position_uid\",
+                    \"asset_uid\", \"for_iis_flag\", \"for_qual_investor_flag\", \"weekend_flag\", \"blocked_tca_flag\",
+                    \"subordinated_flag\", \"liquidity_flag\", \"first_1min_candle_date\", \"first_1day_candle_date\",
+                    \"risk_level\", \"coupons\" FROM \"{0}\" WHERE \"uid\" = :uid;'''.format(MyConnection.BONDS_TABLE)
 
                     bond_query = QtSql.QSqlQuery(db)
                     bond_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
@@ -1179,11 +1154,10 @@ class MainConnection(MyConnection):
 
                     '''--------------------------Получаем купоны облигации--------------------------'''
                     if coupons_flag:
-                        coupons_sql_command: str = '''SELECT {0}.\"figi\", {0}.\"coupon_date\", {0}.\"coupon_number\", 
-                        {0}.\"fix_date\", {0}.\"pay_one_bond\", {0}.\"coupon_type\", {0}.\"coupon_start_date\", 
-                        {0}.\"coupon_end_date\", {0}.\"coupon_period\" 
-                        FROM {0} WHERE {0}.\"instrument_uid\" = :bond_uid;
-                        '''.format('\"{0}\"'.format(MyConnection.COUPONS_TABLE))
+                        coupons_sql_command: str = '''SELECT \"figi\", \"coupon_date\", \"coupon_number\", \"fix_date\",
+                        \"pay_one_bond\", \"coupon_type\", \"coupon_start_date\", \"coupon_end_date\", \"coupon_period\"
+                        FROM {0} WHERE \"instrument_uid\" = :bond_uid;
+                        '''.format(MyConnection.COUPONS_TABLE)
 
                         coupons_query = QtSql.QSqlQuery(db)
                         coupons_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
@@ -1201,13 +1175,14 @@ class MainConnection(MyConnection):
                         coupons: None = None
                     '''-----------------------------------------------------------------------------'''
 
-                    last_price: LastPrice | None = getCurrentLastPrice(uid)
+                    last_price: LastPrice | None = MyConnection.getLastPrice(db, uid)
 
                     commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                     assert commit_flag, db.lastError().text()
-
                     return MyBondClass(bond=bond, last_price=last_price, coupons=coupons)
                 else:
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
                     raise ValueError('Неизвестный тип инструмента ({0})!'.format(instrument_type))
             else:
                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
