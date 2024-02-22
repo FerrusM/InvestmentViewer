@@ -69,55 +69,55 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
             else:
                 raise TypeError('Некорректный тип параметра!')
 
-    class Label_InstrumentInfo(QtWidgets.QLabel):
-        def __init__(self, parent: QtWidgets.QWidget | None = None):
-            super().__init__(parent=parent)
-            sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
-            sizePolicy.setHorizontalStretch(0)
-            sizePolicy.setVerticalStretch(0)
-            sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-            self.setSizePolicy(sizePolicy)
-            self.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
-
-        def setInstrument(self, instrument: MyBondClass | MyShareClass):
-            if isinstance(instrument, MyBondClass):
-                self.__reportBond(instrument)
-            elif isinstance(instrument, MyShareClass):
-                self.__reportShare(instrument)
-            else:
-                raise TypeError('Некорректный тип параметра!')
-
-        def reset(self):
-            self.setText(None)
-
-        def __reportBond(self, bond: MyBondClass):
-            text: str = \
-                'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
-                'Первая дневная свеча: {6}\nАмортизация: {7}\nНоминал: {8}\nПервоначальный номинал: {9}'.format(
-                    'Облигация',
-                    bond.bond.name,
-                    bond.bond.uid,
-                    bond.bond.figi,
-                    bond.bond.isin,
-                    bond.bond.first_1min_candle_date,
-                    bond.bond.first_1day_candle_date,
-                    bond.bond.amortization_flag,
-                    MyMoneyValue.__str__(bond.bond.nominal, delete_decimal_zeros=True),
-                    MyMoneyValue.__str__(bond.bond.initial_nominal, delete_decimal_zeros=True)
-                )
-            self.setText(text)
-
-        def __reportShare(self, share: MyShareClass):
-            text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
-                'Акция',
-                share.share.name,
-                share.share.uid,
-                share.share.figi,
-                share.share.isin,
-                share.share.first_1min_candle_date,
-                share.share.first_1day_candle_date
-            )
-            self.setText(text)
+    # class Label_InstrumentInfo(QtWidgets.QLabel):
+    #     def __init__(self, parent: QtWidgets.QWidget | None = None):
+    #         super().__init__(parent=parent)
+    #         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
+    #         sizePolicy.setHorizontalStretch(0)
+    #         sizePolicy.setVerticalStretch(0)
+    #         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
+    #         self.setSizePolicy(sizePolicy)
+    #         self.setAlignment(QtCore.Qt.AlignmentFlag.AlignTop)
+    #
+    #     def setInstrument(self, instrument: MyBondClass | MyShareClass):
+    #         if isinstance(instrument, MyBondClass):
+    #             self.__reportBond(instrument)
+    #         elif isinstance(instrument, MyShareClass):
+    #             self.__reportShare(instrument)
+    #         else:
+    #             raise TypeError('Некорректный тип параметра!')
+    #
+    #     def reset(self):
+    #         self.setText(None)
+    #
+    #     def __reportBond(self, bond: MyBondClass):
+    #         text: str = \
+    #             'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\n' \
+    #             'Первая дневная свеча: {6}\nАмортизация: {7}\nНоминал: {8}\nПервоначальный номинал: {9}'.format(
+    #                 'Облигация',
+    #                 bond.bond.name,
+    #                 bond.bond.uid,
+    #                 bond.bond.figi,
+    #                 bond.bond.isin,
+    #                 bond.bond.first_1min_candle_date,
+    #                 bond.bond.first_1day_candle_date,
+    #                 bond.bond.amortization_flag,
+    #                 MyMoneyValue.__str__(bond.bond.nominal, delete_decimal_zeros=True),
+    #                 MyMoneyValue.__str__(bond.bond.initial_nominal, delete_decimal_zeros=True)
+    #             )
+    #         self.setText(text)
+    #
+    #     def __reportShare(self, share: MyShareClass):
+    #         text: str = 'Тип: {0}\nНазвание: {1}\nuid: {2}\nfigi: {3}\nisin: {4}\nПервая минутная свеча: {5}\nПервая дневная свеча: {6}'.format(
+    #             'Акция',
+    #             share.share.name,
+    #             share.share.uid,
+    #             share.share.figi,
+    #             share.share.isin,
+    #             share.share.first_1min_candle_date,
+    #             share.share.first_1day_candle_date
+    #         )
+    #         self.setText(text)
 
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)

@@ -1,4 +1,4 @@
-from tinkoff.invest import Share, Dividend, LastPrice, AssetFull, HistoricCandle
+from tinkoff.invest import Share, Dividend, LastPrice, HistoricCandle
 from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue
 

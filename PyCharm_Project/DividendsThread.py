@@ -1,90 +1,24 @@
 from datetime import datetime
-from PyQt6 import QtCore, QtSql
+from PyQt6 import QtCore
 # from grpc import StatusCode
 from tinkoff.invest import Dividend, RequestError
-from Classes import TokenClass, MyConnection
+from Classes import TokenClass
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDateTime import getUtcDateTime
-from MyMoneyValue import MyMoneyValue
-from MyQuotation import MyQuotation
 from MyRequests import MyResponse, getDividends, RequestTryClass
 from MyShareClass import MyShareClass
 
 
 class DividendsThread(QtCore.QThread):
     """Поток получения дивидендов."""
-    class DatabaseConnection(MyConnection):
-        CONNECTION_NAME: str = 'InvestmentViewer_DividendsThread'
-
-        @classmethod
-        def setDividends(cls, uid: str, dividends: list[Dividend]):
-            """Обновляет купоны с переданным figi в таблице купонов."""
-            db: QtSql.QSqlDatabase = cls.getDatabase()
-            if db.transaction():
-                def setDividendsColumnValue(value: str):
-                    """Заполняет столбец dividends значением."""
-                    update_dividends_query_str: str = 'UPDATE \"{0}\" SET \"dividends\" = :dividends WHERE \"uid\" = :uid;'.format(MyConnection.SHARES_TABLE)
-                    dividends_query = QtSql.QSqlQuery(db)
-                    dividends_prepare_flag: bool = dividends_query.prepare(update_dividends_query_str)
-                    assert dividends_prepare_flag, dividends_query.lastError().text()
-                    dividends_query.bindValue(':dividends', value)
-                    dividends_query.bindValue(':uid', uid)
-                    dividends_exec_flag: bool = dividends_query.exec()
-                    assert dividends_exec_flag, dividends_query.lastError().text()
-
-                if dividends:  # Если список дивидендов не пуст.
-                    '''----Удаляет из таблицы дивидендов все дивиденды, имеющие переданный uid----'''
-                    delete_dividends_query_str: str = 'DELETE FROM \"{0}\" WHERE \"instrument_uid\" = :share_uid;'.format(MyConnection.DIVIDENDS_TABLE)
-                    delete_dividends_query = QtSql.QSqlQuery(db)
-                    delete_dividends_prepare_flag: bool = delete_dividends_query.prepare(delete_dividends_query_str)
-                    assert delete_dividends_prepare_flag, delete_dividends_query.lastError().text()
-                    delete_dividends_query.bindValue(':share_uid', uid)
-                    delete_dividends_exec_flag: bool = delete_dividends_query.exec()
-                    assert delete_dividends_exec_flag, delete_dividends_query.lastError().text()
-                    '''---------------------------------------------------------------------------'''
-
-                    '''-------------------------Добавляет дивиденды в таблицу дивидендов-------------------------'''
-                    add_dividends_sql_command: str = '''INSERT INTO \"{0}\" (\"instrument_uid\", \"dividend_net\", 
-                    \"payment_date\", \"declared_date\", \"last_buy_date\", \"dividend_type\", \"record_date\", 
-                    \"regularity\", \"close_price\", \"yield_value\", \"created_at\") VALUES (:share_uid, :dividend_net, 
-                    :payment_date, :declared_date, :last_buy_date, :dividend_type, :record_date, :regularity, 
-                    :close_price, :yield_value, :created_at);'''.format(MyConnection.DIVIDENDS_TABLE)
-
-                    for dividend in dividends:
-                        add_dividends_query = QtSql.QSqlQuery(db)
-                        add_dividends_prepare_flag: bool = add_dividends_query.prepare(add_dividends_sql_command)
-                        assert add_dividends_prepare_flag, add_dividends_query.lastError().text()
-
-                        add_dividends_query.bindValue(':share_uid', uid)
-                        add_dividends_query.bindValue(':dividend_net', MyMoneyValue.__repr__(dividend.dividend_net))
-                        add_dividends_query.bindValue(':payment_date', MyConnection.convertDateTimeToText(dividend.payment_date))
-                        add_dividends_query.bindValue(':declared_date', MyConnection.convertDateTimeToText(dividend.declared_date))
-                        add_dividends_query.bindValue(':last_buy_date', MyConnection.convertDateTimeToText(dividend.last_buy_date))
-                        add_dividends_query.bindValue(':dividend_type', dividend.dividend_type)
-                        add_dividends_query.bindValue(':record_date', MyConnection.convertDateTimeToText(dividend.record_date))
-                        add_dividends_query.bindValue(':regularity', dividend.regularity)
-                        add_dividends_query.bindValue(':close_price', MyMoneyValue.__repr__(dividend.close_price))
-                        add_dividends_query.bindValue(':yield_value', MyQuotation.__repr__(dividend.yield_value))
-                        add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dt=dividend.created_at, timespec='microseconds'))
-
-                        add_dividends_exec_flag: bool = add_dividends_query.exec()
-                        assert add_dividends_exec_flag, add_dividends_query.lastError().text()
-                    '''------------------------------------------------------------------------------------------'''
-
-                    setDividendsColumnValue('Yes')  # Заполняем столбец dividends значением.
-                else:
-                    setDividendsColumnValue('No')  # Заполняем столбец dividends значением.
-
-                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                assert commit_flag, db.lastError().text()
-            else:
-                raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     receive_dividends_method_name: str = 'GetDividends'
 
     """------------------------Сигналы------------------------"""
     printText_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал для отображения сообщений в консоли.
     """-------------------------------------------------------"""
+
+    dividendsReceived: QtCore.pyqtSignal = QtCore.pyqtSignal(str, list)
 
     """-----------------Сигналы progressBar'а-----------------"""
     # Сигнал для установления минимума и максимума progressBar'а заполнения купонов.
@@ -128,7 +62,6 @@ class DividendsThread(QtCore.QThread):
             shares_count: int = len(self.shares)  # Количество акций.
             self.setProgressBarRange_signal.emit(0, shares_count)  # Задаёт минимум и максимум progressBar'а заполнения дивидендов.
 
-            self.DatabaseConnection.open()  # Открываем соединение с БД.
             for i, share_class in enumerate(self.shares):
                 if self.isInterruptionRequested():
                     printInConsole('Поток прерван.')
@@ -181,8 +114,6 @@ class DividendsThread(QtCore.QThread):
                 if dividends is None: continue  # Если поток был прерван или если информация не была получена.
 
                 share_class.setDividends(dividends)  # Записываем список дивидендов.
-                self.DatabaseConnection.setDividends(share_class.share.uid, dividends)  # Добавляем дивиденды в таблицу дивидендов.
-
-            self.DatabaseConnection.removeConnection()  # Удаляем соединение с БД.
+                self.dividendsReceived.emit(share_class.share.uid, dividends)  # Добавляем дивиденды в таблицу дивидендов.
 
             printInConsole('seconds: {0}'.format(self.requests_time / shares_count))

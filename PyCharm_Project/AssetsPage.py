@@ -402,6 +402,8 @@ class AssetsPage(QtWidgets.QWidget):
         self.full_assets_thread.setProgressBarRange_signal.connect(self.groupBox_fulls_receiving.setRange)
         self.full_assets_thread.setProgressBarValue_signal.connect(self.groupBox_fulls_receiving.setValue)
 
+        self.full_assets_thread.assetFullReceived.connect(MainConnection.insertAssetFull)
+
         self.full_assets_thread.releaseSemaphore_signal.connect(lambda semaphore, n: semaphore.release(n))  # Освобождаем ресурсы семафора из основного потока.
 
         self.full_assets_thread.started.connect(lambda: print('{0}: Поток запущен. ({1})'.format(AssetsThread.__name__, getMoscowDateTime())))

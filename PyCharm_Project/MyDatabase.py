@@ -3,7 +3,8 @@ from PyQt6 import QtSql
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
-from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval
+from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
+    AssetCurrency, AssetSecurity
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -1522,25 +1523,21 @@ class MainConnection(MyConnection):
     def insertHistoricCandles(cls, uid: str, interval: CandleInterval, candles: list[HistoricCandle]):
         """Добавляет свечи в таблицу исторических свечей."""
         if candles:  # Если список не пуст.
-            '''------------------------Добавляем свечи в таблицу исторических свечей------------------------'''
+            sql_command: str = '''INSERT INTO \"{0}\" (\"instrument_id\", \"interval\", \"open\", \"high\", \"low\", 
+            \"close\", \"volume\", \"time\", \"is_complete\") VALUES '''.format(MyConnection.CANDLES_TABLE)
+            for i in range(len(candles)):
+                if i > 0: sql_command += ', '  # Если добавляемая свеча не первая.
+                sql_command += '(:uid, :interval, :open{0}, :high{0}, :low{0}, :close{0}, :volume{0}, :time{0}, :is_complete{0})'.format(i)
+            sql_command += ''' ON CONFLICT (\"instrument_id\", \"interval\", \"time\") DO UPDATE SET \"open\" = 
+            \"excluded\".\"open\", \"high\" = \"excluded\".\"high\", \"low\" = \"excluded\".\"low\", \"close\" = 
+            \"excluded\".\"close\", \"volume\" = \"excluded\".\"volume\", \"is_complete\" = 
+            \"excluded\".\"is_complete\" WHERE \"excluded\".\"open\" != \"open\" OR \"excluded\".\"high\" != \"high\" 
+            OR \"excluded\".\"low\" != \"low\" OR \"excluded\".\"close\" != \"close\" OR \"excluded\".\"volume\" != 
+            \"volume\" OR \"excluded\".\"is_complete\" != \"is_complete\";'''
+
             db: QtSql.QSqlDatabase = cls.getDatabase()
             if db.transaction():
                 query = QtSql.QSqlQuery(db)
-
-                sql_command: str = '''INSERT INTO \"{0}\" (\"instrument_id\", \"interval\", \"open\", \"high\", \"low\", 
-                \"close\", \"volume\", \"time\", \"is_complete\") VALUES '''.format(
-                    MyConnection.CANDLES_TABLE
-                )
-                for i in range(len(candles)):
-                    if i > 0: sql_command += ', '  # Если добавляемая свеча не первая.
-                    sql_command += '(:uid, :interval, :open{0}, :high{0}, :low{0}, :close{0}, :volume{0}, :time{0}, :is_complete{0})'.format(i)
-                sql_command += ''' ON CONFLICT (\"instrument_id\", \"interval\", \"time\") DO UPDATE SET \"open\" = 
-                \"excluded\".\"open\", \"high\" = \"excluded\".\"high\", \"low\" = \"excluded\".\"low\", \"close\" = 
-                \"excluded\".\"close\", \"volume\" = \"excluded\".\"volume\", \"is_complete\" = 
-                \"excluded\".\"is_complete\" WHERE \"excluded\".\"open\" != \"open\" OR \"excluded\".\"high\" != 
-                \"high\" OR \"excluded\".\"low\" != \"low\" OR \"excluded\".\"close\" != \"close\" OR 
-                \"excluded\".\"volume\" != \"volume\" OR \"excluded\".\"is_complete\" != \"is_complete\";'''
-
                 prepare_flag: bool = query.prepare(sql_command)
                 assert prepare_flag, query.lastError().text()
 
@@ -1562,4 +1559,255 @@ class MainConnection(MyConnection):
                 assert commit_flag, db.lastError().text()
             else:
                 raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-            '''---------------------------------------------------------------------------------------------'''
+
+    @classmethod
+    def setDividends(cls, uid: str, dividends: list[Dividend]):
+        """Обновляет купоны с переданным instrument_uid в таблице купонов."""
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            def setDividendsColumnValue(value: str):
+                """Заполняет столбец dividends значением."""
+                update_dividends_command: str = 'UPDATE \"{0}\" SET \"dividends\" = :dividends WHERE \"uid\" = :uid;'.format(MyConnection.SHARES_TABLE)
+                dividends_query = QtSql.QSqlQuery(db)
+                dividends_prepare_flag: bool = dividends_query.prepare(update_dividends_command)
+                assert dividends_prepare_flag, dividends_query.lastError().text()
+                dividends_query.bindValue(':dividends', value)
+                dividends_query.bindValue(':uid', uid)
+                dividends_exec_flag: bool = dividends_query.exec()
+                assert dividends_exec_flag, dividends_query.lastError().text()
+
+            if dividends:  # Если список дивидендов не пуст.
+                '''----Удаляет из таблицы дивидендов все дивиденды, имеющие переданный uid----'''
+                delete_dividends_command: str = 'DELETE FROM \"{0}\" WHERE \"instrument_uid\" = :share_uid;'.format(MyConnection.DIVIDENDS_TABLE)
+                delete_dividends_query = QtSql.QSqlQuery(db)
+                delete_dividends_prepare_flag: bool = delete_dividends_query.prepare(delete_dividends_command)
+                assert delete_dividends_prepare_flag, delete_dividends_query.lastError().text()
+                delete_dividends_query.bindValue(':share_uid', uid)
+                delete_dividends_exec_flag: bool = delete_dividends_query.exec()
+                assert delete_dividends_exec_flag, delete_dividends_query.lastError().text()
+                '''---------------------------------------------------------------------------'''
+
+                '''-------------------------Добавляет дивиденды в таблицу дивидендов-------------------------'''
+                add_dividends_command: str = '''INSERT INTO \"{0}\" (\"instrument_uid\", \"dividend_net\", 
+                \"payment_date\", \"declared_date\", \"last_buy_date\", \"dividend_type\", \"record_date\", 
+                \"regularity\", \"close_price\", \"yield_value\", \"created_at\") VALUES (:share_uid, :dividend_net, 
+                :payment_date, :declared_date, :last_buy_date, :dividend_type, :record_date, :regularity, 
+                :close_price, :yield_value, :created_at);'''.format(MyConnection.DIVIDENDS_TABLE)
+
+                for dividend in dividends:
+                    add_dividends_query = QtSql.QSqlQuery(db)
+                    add_dividends_prepare_flag: bool = add_dividends_query.prepare(add_dividends_command)
+                    assert add_dividends_prepare_flag, add_dividends_query.lastError().text()
+
+                    add_dividends_query.bindValue(':share_uid', uid)
+                    add_dividends_query.bindValue(':dividend_net', MyMoneyValue.__repr__(dividend.dividend_net))
+                    add_dividends_query.bindValue(':payment_date', MyConnection.convertDateTimeToText(dividend.payment_date))
+                    add_dividends_query.bindValue(':declared_date', MyConnection.convertDateTimeToText(dividend.declared_date))
+                    add_dividends_query.bindValue(':last_buy_date', MyConnection.convertDateTimeToText(dividend.last_buy_date))
+                    add_dividends_query.bindValue(':dividend_type', dividend.dividend_type)
+                    add_dividends_query.bindValue(':record_date', MyConnection.convertDateTimeToText(dividend.record_date))
+                    add_dividends_query.bindValue(':regularity', dividend.regularity)
+                    add_dividends_query.bindValue(':close_price', MyMoneyValue.__repr__(dividend.close_price))
+                    add_dividends_query.bindValue(':yield_value', MyQuotation.__repr__(dividend.yield_value))
+                    add_dividends_query.bindValue(':created_at', MyConnection.convertDateTimeToText(dt=dividend.created_at, timespec='microseconds'))
+
+                    add_dividends_exec_flag: bool = add_dividends_query.exec()
+                    assert add_dividends_exec_flag, add_dividends_query.lastError().text()
+                '''------------------------------------------------------------------------------------------'''
+
+                setDividendsColumnValue('Yes')  # Заполняем столбец dividends значением.
+            else:
+                setDividendsColumnValue('No')  # Заполняем столбец dividends значением.
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def setCoupons(cls, uid: str, coupons: list[Coupon]):
+        """Обновляет купоны с переданным figi в таблице купонов."""
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            def setCouponsColumnValue(value: str):
+                """Заполняет столбец coupons значением."""
+                update_coupons_query_str: str = 'UPDATE \"{0}\" SET \"coupons\" = :coupons WHERE \"uid\" = :bond_uid;'.format(MyConnection.BONDS_TABLE)
+                coupons_query = QtSql.QSqlQuery(db)
+                coupons_prepare_flag: bool = coupons_query.prepare(update_coupons_query_str)
+                assert coupons_prepare_flag, coupons_query.lastError().text()
+                coupons_query.bindValue(':coupons', value)
+                coupons_query.bindValue(':bond_uid', uid)
+                coupons_exec_flag: bool = coupons_query.exec()
+                assert coupons_exec_flag, coupons_query.lastError().text()
+
+            if coupons:  # Если список купонов не пуст.
+                '''----Удаляет из таблицы купонов все купоны, имеющие переданный uid----'''
+                delete_coupons_query_str: str = 'DELETE FROM \"{0}\" WHERE \"instrument_uid\" = :bond_uid;'.format(MyConnection.COUPONS_TABLE)
+                delete_coupons_query = QtSql.QSqlQuery(db)
+                delete_coupons_prepare_flag: bool = delete_coupons_query.prepare(delete_coupons_query_str)
+                assert delete_coupons_prepare_flag, delete_coupons_query.lastError().text()
+                delete_coupons_query.bindValue(':bond_uid', uid)
+                delete_coupons_exec_flag: bool = delete_coupons_query.exec()
+                assert delete_coupons_exec_flag, delete_coupons_query.lastError().text()
+                '''---------------------------------------------------------------------'''
+
+                '''---------------------------Добавляет купоны в таблицу купонов---------------------------'''
+                add_coupons_command: str = '''INSERT INTO \"{0}\" (\"instrument_uid\", \"figi\", \"coupon_date\", 
+                \"coupon_number\", \"fix_date\", \"pay_one_bond\", \"coupon_type\", \"coupon_start_date\", 
+                \"coupon_end_date\", \"coupon_period\") VALUES '''.format(MyConnection.COUPONS_TABLE)
+                for i in range(len(coupons)):
+                    if i > 0: add_coupons_command += ', '  # Если добавляемый купон не первый.
+                    add_coupons_command += '''(:bond_uid{0}, :figi{0}, :coupon_date{0}, :coupon_number{0}, 
+                    :fix_date{0}, :pay_one_bond{0}, :coupon_type{0}, :coupon_start_date{0}, :coupon_end_date{0}, 
+                    :coupon_period{0})'''.format(i)
+                add_coupons_command += ';'
+
+                add_coupons_query = QtSql.QSqlQuery(db)
+                add_coupons_prepare_flag: bool = add_coupons_query.prepare(add_coupons_command)
+                assert add_coupons_prepare_flag, add_coupons_query.lastError().text()
+
+                for i, coupon in enumerate(coupons):
+                    add_coupons_query.bindValue(':bond_uid{0}'.format(i), uid)
+                    add_coupons_query.bindValue(':figi{0}'.format(i), coupon.figi)
+                    add_coupons_query.bindValue(':coupon_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_date))
+                    add_coupons_query.bindValue(':coupon_number{0}'.format(i), coupon.coupon_number)
+                    add_coupons_query.bindValue(':fix_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.fix_date))
+                    add_coupons_query.bindValue(':pay_one_bond{0}'.format(i), MyMoneyValue.__repr__(coupon.pay_one_bond))
+                    add_coupons_query.bindValue(':coupon_type{0}'.format(i), coupon.coupon_type.name)
+                    add_coupons_query.bindValue(':coupon_start_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_start_date))
+                    add_coupons_query.bindValue(':coupon_end_date{0}'.format(i), MyConnection.convertDateTimeToText(coupon.coupon_end_date))
+                    add_coupons_query.bindValue(':coupon_period{0}'.format(i), coupon.coupon_period)
+
+                add_coupons_exec_flag: bool = add_coupons_query.exec()
+                assert add_coupons_exec_flag, add_coupons_query.lastError().text()
+                '''----------------------------------------------------------------------------------------'''
+
+                setCouponsColumnValue('Yes')  # Заполняем столбец coupons значением.
+            else:
+                setCouponsColumnValue('No')  # Заполняем столбец coupons значением.
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def insertAssetFull(cls, assetfull: AssetFull):
+        """Добавляет AssetFull в таблицу активов."""
+        insert_asset_sql_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"type\", \"name\", \"name_brief\", 
+        \"description\", \"deleted_at\", \"required_tests\", \"gos_reg_code\", \"cfi\", \"code_nsd\", \"status\", 
+        \"brand_uid\", \"updated_at\", \"br_code\", \"br_code_name\") VALUES (:uid, :type, :name, :name_brief, 
+        :description, :deleted_at, :required_tests, :gos_reg_code, :cfi, :code_nsd, :status, :brand_uid, 
+        :updated_at, :br_code, :br_code_name) ON CONFLICT(\"uid\") DO UPDATE SET \"type\" = {1}.\"type\", \"name\" 
+        = {1}.\"name\", \"name_brief\" = {1}.\"name_brief\", \"description\" = {1}.\"description\", \"deleted_at\" = 
+        {1}.\"deleted_at\", \"required_tests\" = {1}.\"required_tests\", \"gos_reg_code\" = {1}.\"gos_reg_code\", 
+        \"cfi\" = {1}.\"cfi\", \"code_nsd\" = {1}.\"code_nsd\", \"status\" = {1}.\"status\", \"brand_uid\" = 
+        {1}.\"brand_uid\", \"updated_at\" = {1}.\"updated_at\", \"br_code\" = {1}.\"br_code\", \"br_code_name\" = 
+        {1}.\"br_code_name\";'''.format(MyConnection.ASSETS_TABLE, '\"excluded\"')
+
+        insert_brands_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"name\", \"description\", \"info\", \"company\", 
+        \"sector\", \"country_of_risk\", \"country_of_risk_name\") VALUES (:uid, :name, :description, :info, :company, 
+        :sector, :country_of_risk, :country_of_risk_name) ON CONFLICT (\"uid\") DO UPDATE SET \"name\" = {1}.\"name\", 
+        \"description\" = {1}.\"description\", \"info\" = {1}.\"info\", \"company\" = {1}.\"company\", \"sector\" = 
+        {1}.\"sector\", \"country_of_risk\" = {1}.\"country_of_risk\", \"country_of_risk_name\" = 
+        {1}.\"country_of_risk_name\";'''.format(MyConnection.BRANDS_TABLE, '\"excluded\"')
+
+        insert_asset_currency_command: str = '''INSERT INTO \"{0}\" (\"asset_uid\", \"base_currency\") VALUES 
+        (:asset_uid, :asset_currency) ON CONFLICT(\"asset_uid\") DO UPDATE SET \"base_currency\" = 
+        {1}.\"base_currency\";'''.format(
+            MyConnection.ASSET_CURRENCIES_TABLE,
+            '\"excluded\"'
+        )
+
+        db: QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            def insertBrand(brand: Brand):
+                """Добавляет брэнд в таблицу брэндов."""
+                insert_brands_query = QSqlQuery(db)
+                insert_brands_prepare_flag: bool = insert_brands_query.prepare(insert_brands_command)
+                assert insert_brands_prepare_flag, insert_brands_query.lastError().text()
+                insert_brands_query.bindValue(':uid', brand.uid)
+                insert_brands_query.bindValue(':name', brand.name)
+                insert_brands_query.bindValue(':description', brand.description)
+                insert_brands_query.bindValue(':info', brand.info)
+                insert_brands_query.bindValue(':company', brand.company)
+                insert_brands_query.bindValue(':sector', brand.sector)
+                insert_brands_query.bindValue(':country_of_risk', brand.country_of_risk)
+                insert_brands_query.bindValue(':country_of_risk_name', brand.country_of_risk_name)
+                insert_brands_exec_flag: bool = insert_brands_query.exec()
+                assert insert_brands_exec_flag, insert_brands_query.lastError().text()
+
+            insertBrand(assetfull.brand)  # Добавляем брэнд в таблицу брэндов.
+
+            '''------------------Добавляем AssetFull в таблицу активов------------------'''
+            insert_asset_query = QSqlQuery(db)
+            insert_asset_prepare_flag: bool = insert_asset_query.prepare(insert_asset_sql_command)
+            assert insert_asset_prepare_flag, insert_asset_query.lastError().text()
+
+            insert_asset_query.bindValue(':uid', assetfull.uid)
+            insert_asset_query.bindValue(':type', assetfull.type.name)
+            insert_asset_query.bindValue(':name', assetfull.name)
+            insert_asset_query.bindValue(':name_brief', assetfull.name_brief)
+            insert_asset_query.bindValue(':description', assetfull.description)
+            insert_asset_query.bindValue(':deleted_at', MyConnection.convertDateTimeToText(assetfull.deleted_at))
+            insert_asset_query.bindValue(':required_tests', MyConnection.convertStrListToStr(assetfull.required_tests))
+            insert_asset_query.bindValue(':gos_reg_code', assetfull.gos_reg_code)
+            insert_asset_query.bindValue(':cfi', assetfull.cfi)
+            insert_asset_query.bindValue(':code_nsd', assetfull.code_nsd)
+            insert_asset_query.bindValue(':status', assetfull.status)
+            insert_asset_query.bindValue(':brand_uid', assetfull.brand.uid)
+            insert_asset_query.bindValue(':updated_at', MyConnection.convertDateTimeToText(dt=assetfull.updated_at, timespec='microseconds'))
+            insert_asset_query.bindValue(':br_code', assetfull.br_code)
+            insert_asset_query.bindValue(':br_code_name', assetfull.br_code_name)
+
+            insert_asset_exec_flag: bool = insert_asset_query.exec()
+            assert insert_asset_exec_flag, insert_asset_query.lastError().text()
+            '''-------------------------------------------------------------------------'''
+
+            '''---Если тип актива соответствует валюте, то добавляем валюту в таблицу валют активов---'''
+            if assetfull.type is AssetType.ASSET_TYPE_CURRENCY:
+                def insertAssetCurrency(asset_uid: str, asset_currency: AssetCurrency):
+                    """Добавляет валюту в таблицу валют активов."""
+                    insert_asset_currency_query = QSqlQuery(db)
+                    insert_asset_currency_prepare_flag: bool = insert_asset_currency_query.prepare(insert_asset_currency_command)
+                    assert insert_asset_currency_prepare_flag, insert_asset_currency_query.lastError().text()
+                    insert_asset_currency_query.bindValue(':asset_uid', asset_uid)
+                    insert_asset_currency_query.bindValue(':asset_currency', asset_currency.base_currency)
+                    insert_asset_currency_exec_flag: bool = insert_asset_currency_query.exec()
+                    assert insert_asset_currency_exec_flag, insert_asset_currency_query.lastError().text()
+
+                insertAssetCurrency(assetfull.uid, assetfull.currency)  # Добавляем валюту в таблицу валют активов.
+            else:
+                assert assetfull.currency is None, 'Если тип актива не соответствует валюте, то поле \"currency\" должно иметь значение None, а получено {0}!'.format(assetfull.currency)
+            '''---------------------------------------------------------------------------------------'''
+
+            '''--Если тип актива соответствует ценной бумаге, то добавляем ценную бумагу в таблицу ценных бумаг--'''
+            if assetfull.type is AssetType.ASSET_TYPE_SECURITY:
+                def insertAssetSecurity(asset_uid: str, security: AssetSecurity):
+                    """Добавляет ценную бумагу в таблицу ценных бумаг активов."""
+                    insert_asset_security_sql_command: str = '''INSERT INTO \"{0}\" (\"asset_uid\", \"isin\", \"type\", 
+                    \"instrument_kind\") VALUES (:asset_uid, :isin, :type, :instrument_kind) ON CONFLICT(\"asset_uid\") 
+                    DO UPDATE SET \"isin\" = {1}.\"isin\", \"type\" = {1}.\"type\", \"instrument_kind\" = 
+                    {1}.\"instrument_kind\";'''.format(MyConnection.ASSET_SECURITIES_TABLE, '\"excluded\"')
+                    insert_asset_security_query = QSqlQuery(db)
+                    insert_asset_security_prepare_flag: bool = insert_asset_security_query.prepare(insert_asset_security_sql_command)
+                    assert insert_asset_security_prepare_flag, insert_asset_security_query.lastError().text()
+                    insert_asset_security_query.bindValue(':asset_uid', asset_uid)
+                    insert_asset_security_query.bindValue(':isin', security.isin)
+                    insert_asset_security_query.bindValue(':type', security.type)
+                    insert_asset_security_query.bindValue(':instrument_kind', security.instrument_kind.name)
+                    insert_asset_security_exec_flag: bool = insert_asset_security_query.exec()
+                    assert insert_asset_security_exec_flag, insert_asset_security_query.lastError().text()
+
+                insertAssetSecurity(assetfull.uid, assetfull.security)
+            else:
+                assert assetfull.security is None, 'Если тип актива не соответствует ценной бумаге, то поле \"security\" должно иметь значение None, а получено {0}!'.format(assetfull.security)
+            '''--------------------------------------------------------------------------------------------------'''
+
+            for instrument in assetfull.instruments:
+                MainConnection.addAssetInstrument(db, assetfull.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))

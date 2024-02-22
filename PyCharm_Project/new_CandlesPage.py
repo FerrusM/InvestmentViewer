@@ -3,10 +3,10 @@ import typing
 from datetime import datetime, timedelta
 from enum import Enum
 from PyQt6 import QtCore, QtWidgets, QtSql, QtCharts
-from tinkoff.invest import HistoricCandle, CandleInterval, Quotation
+from tinkoff.invest import HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesView import CandlesChartView
-from Classes import TokenClass, MyConnection, TITLE_FONT, Column, print_slot
+from Classes import TokenClass, MyConnection, Column, print_slot
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -267,7 +267,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 if indexes_count == 0:
                     return None
                 elif indexes_count == 1:
-                    return indexes_list[0]
+                    return indexes_list[0] + 1
                 else:
                     raise SystemError('Список типов инструментов содержит несколько искомых элементов!')
 
@@ -815,31 +815,15 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         '''-----------------------Строка заголовка-----------------------'''
         horizontalLayout_title = QtWidgets.QHBoxLayout(self)
         horizontalLayout_title.setSpacing(0)
+        horizontalLayout_title.addSpacing(10)
+        horizontalLayout_title.addStretch(1)
+        horizontalLayout_title.addWidget(TitleLabel(text='ВЫБОР ИНСТРУМЕНТА', parent=self), 0)
 
-        horizontalLayout_title.addItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-        horizontalLayout_title.addItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        label_title = QtWidgets.QLabel(text='ВЫБОР ИНСТРУМЕНТА', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(label_title.sizePolicy().hasHeightForWidth())
-        label_title.setSizePolicy(sizePolicy)
-        label_title.setFont(TITLE_FONT)
-        label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        horizontalLayout_title.addWidget(label_title)
-
-        self.label_count = QtWidgets.QLabel(parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
+        self.label_count = QtWidgets.QLabel(text='0', parent=self)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        horizontalLayout_title.addWidget(self.label_count)
+        horizontalLayout_title.addWidget(self.label_count, 1)
 
-        horizontalLayout_title.addItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-
+        horizontalLayout_title.addSpacing(10)
         verticalLayout_main.addLayout(horizontalLayout_title)
         '''--------------------------------------------------------------'''
 
@@ -847,13 +831,13 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_token = QtWidgets.QHBoxLayout(self)
         horizontalLayout_token.setSpacing(0)
 
-        horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self))
-        horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self), 0)
+        horizontalLayout_token.addSpacing(4)
 
         self.comboBox_token = ComboBox_Token(token_model=token_model, parent=self)
-        horizontalLayout_token.addWidget(self.comboBox_token)
+        horizontalLayout_token.addWidget(self.comboBox_token, 0)
 
-        horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_token.addStretch(1)
 
         verticalLayout_main.addLayout(horizontalLayout_token)
         '''--------------------------------------------------------------'''
@@ -862,15 +846,15 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_status = QtWidgets.QHBoxLayout(self)
         horizontalLayout_status.setSpacing(0)
 
-        horizontalLayout_status.addWidget(QtWidgets.QLabel(text='Статус:', parent=self))
-        horizontalLayout_status.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_status.addWidget(QtWidgets.QLabel(text='Статус:', parent=self), 0)
+        horizontalLayout_status.addSpacing(4)
 
         self.comboBox_status = self.ComboBox_Status(token=self.token, parent=self)
         self.comboBox_token.tokenSelected.connect(self.comboBox_status.setToken)
         self.comboBox_token.tokenReset.connect(self.comboBox_status.setToken)
-        horizontalLayout_status.addWidget(self.comboBox_status)
+        horizontalLayout_status.addWidget(self.comboBox_status, 0)
 
-        horizontalLayout_status.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_status.addStretch(1)
 
         verticalLayout_main.addLayout(horizontalLayout_status)
         '''---------------------------------------------------------------'''
@@ -879,17 +863,17 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_instrument_type = QtWidgets.QHBoxLayout(self)
         horizontalLayout_instrument_type.setSpacing(0)
 
-        horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self))
-        horizontalLayout_instrument_type.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self), 0)
+        horizontalLayout_instrument_type.addSpacing(4)
 
         self.comboBox_instrument_type = self.ComboBox_InstrumentType(token=self.token, status=self.status, parent=self)
         self.comboBox_token.tokenSelected.connect(self.comboBox_instrument_type.setToken)
         self.comboBox_token.tokenReset.connect(self.comboBox_instrument_type.setToken)
         self.comboBox_status.statusSelected.connect(self.comboBox_instrument_type.setStatus)
         self.comboBox_status.statusReset.connect(self.comboBox_instrument_type.setStatus)
-        horizontalLayout_instrument_type.addWidget(self.comboBox_instrument_type)
+        horizontalLayout_instrument_type.addWidget(self.comboBox_instrument_type, 0)
 
-        horizontalLayout_instrument_type.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_instrument_type.addStretch(1)
 
         verticalLayout_main.addLayout(horizontalLayout_instrument_type)
         '''------------------------------------------------------'''
@@ -898,8 +882,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_instrument = QtWidgets.QHBoxLayout(self)
         horizontalLayout_instrument.setSpacing(0)
 
-        horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self))
-        horizontalLayout_instrument.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self), 0)
+        horizontalLayout_instrument.addSpacing(4)
 
         self.comboBox_instrument = self.ComboBox_Instrument(token=self.token, status=self.status, instrument_type=self.instrument_type, parent=self)
         self.label_count.setText(str(self.comboBox_instrument.instruments_count))
@@ -912,9 +896,9 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         self.comboBox_status.statusReset.connect(self.comboBox_instrument.setStatus)
         self.comboBox_instrument_type.typeChanged.connect(self.comboBox_instrument.setType)
         self.comboBox_instrument_type.typeReset.connect(self.comboBox_instrument.setType)
-        horizontalLayout_instrument.addWidget(self.comboBox_instrument)
+        horizontalLayout_instrument.addWidget(self.comboBox_instrument, 0)
 
-        horizontalLayout_instrument.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_instrument.addStretch(1)
 
         verticalLayout_main.addLayout(horizontalLayout_instrument)
         '''-------------------------------------------------------'''
@@ -1003,9 +987,10 @@ def getMaxInterval(interval: CandleInterval) -> timedelta:
 class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
     class CandlesThread(QtCore.QThread):
         """Поток получения исторических свечей."""
-        candlesReceived: QtCore.pyqtSignal = QtCore.pyqtSignal(str, CandleInterval, list)
 
         receive_candles_method_name: str = 'GetCandles'
+
+        candlesReceived: QtCore.pyqtSignal = QtCore.pyqtSignal(str, CandleInterval, list)
 
         printText_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал для отображения сообщений в консоли.
         releaseSemaphore_signal: QtCore.pyqtSignal = QtCore.pyqtSignal(LimitPerMinuteSemaphore, int)  # Сигнал для освобождения ресурсов семафора из основного потока.
@@ -1480,11 +1465,9 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         '''-----------Выбор токена для получения исторических свечей-----------'''
         horizontalLayout_token = QtWidgets.QHBoxLayout(self)
         horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self), 0)
-        # horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
         horizontalLayout_token.addSpacing(4)
         self.comboBox_token = ComboBox_Token(token_model=token_model, parent=self)
         horizontalLayout_token.addWidget(self.comboBox_token, 0)
-        # horizontalLayout_token.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
         horizontalLayout_token.addStretch(1)
         verticalLayout_main.addLayout(horizontalLayout_token, 0)
         '''--------------------------------------------------------------------'''
@@ -1493,10 +1476,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
         horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self), 0)
         horizontalLayout_interval.addSpacing(4)
-        # horizontalLayout_interval.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
         self.comboBox_interval = ComboBox_Interval(parent=self)
         horizontalLayout_interval.addWidget(self.comboBox_interval, 0)
-        # horizontalLayout_interval.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
         horizontalLayout_interval.addStretch(1)
         verticalLayout_main.addLayout(horizontalLayout_interval, 0)
         '''--------------------------------------------------------------------'''
@@ -1737,7 +1718,7 @@ class CandlesChart(QtCharts.QChart):
     #     assert attachAxisY_flag, 'Не удалось прикрепить ось Y к series.'
 
 
-class CandlesViewAndGraphic(QtWidgets.QGroupBox):
+class CandlesViewAndGraphic(QtWidgets.QWidget):
     class Candlestick(QtCharts.QCandlestickSet):
         def __init__(self, candle: HistoricCandle, parent: QtCore.QObject | None = None):
             self.__historic_candle: HistoricCandle = candle
@@ -1798,19 +1779,11 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
             if self.instrument_uid is None:
                 self.clear()
             else:
-                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-                if db.transaction():
-                    self.setQuery(
-                        self.__select_candles_command_1.format(
-                            uid=self.instrument_uid,
-                            interval=self.interval.name
-                        ),
-                        db
-                    )
-                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-                    assert commit_flag, db.lastError().text()
-                else:
-                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+                self.setQuery(
+                    self.__select_candles_command_1.format(uid=self.instrument_uid, interval=self.interval.name),
+                    MainConnection.getDatabase()
+                )
+                assert not self.lastError().isValid(), 'Не получилось выполнить setQuery! lastError().text(): \'{0}\'.'.format(self.lastError().text())
 
         @property
         def instrument_uid(self) -> str | None:
@@ -2004,7 +1977,7 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
         self.__candles_model = self.__CandlesQueryModel(instrument_uid=None, interval=CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent=self)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setContentsMargins(0, 0, 0, 0)
         verticalLayout_main.setSpacing(0)
 
         splitter_horizontal = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Horizontal, parent=self)
@@ -2013,7 +1986,7 @@ class CandlesViewAndGraphic(QtWidgets.QGroupBox):
         layoutWidget = QtWidgets.QWidget(parent=splitter_horizontal)
 
         verticalLayout = QtWidgets.QVBoxLayout(layoutWidget)
-        verticalLayout.setContentsMargins(0, 0, 0, 0)
+        verticalLayout.setContentsMargins(0, 3, 0, 0)
         verticalLayout.setSpacing(3)
 
         '''--------------------Выбор интервала свечей--------------------'''
@@ -2153,7 +2126,7 @@ class CandlesPage_new(QtWidgets.QWidget):
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        verticalLayout_main.setSpacing(2)
+        verticalLayout_main.setSpacing(0)
 
         splitter_vertical = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Vertical, parent=self)
 
