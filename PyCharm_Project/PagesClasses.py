@@ -21,6 +21,26 @@ class TitleLabel(QtWidgets.QLabel):
         self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
 
 
+class TitleWithCount(QtWidgets.QHBoxLayout):
+    """Виджет, представляющий собой отцентрированный заголовок с QLabel'ом количества чего-либо в правом углу."""
+    def __init__(self, title: str, count_text: str = '0', parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent)
+        self.setSpacing(0)
+
+        self.addSpacing(10)
+        self.addStretch(1)
+        self.addWidget(TitleLabel(text=title, parent=parent), 0)
+
+        self.__label_count = QtWidgets.QLabel(text=count_text, parent=parent)
+        self.__label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        self.addWidget(self.__label_count, 1)
+
+        self.addSpacing(10)
+
+    def setCount(self, count_text: str | None):
+        self.__label_count.setText(count_text)
+
+
 class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
     """Панель отображения информации об инструменте."""
     class InstrumentInfoText(QtWidgets.QPlainTextEdit):
@@ -148,8 +168,8 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
 
 class GroupBox_CalculationDate(QtWidgets.QGroupBox):
     """GroupBox с датой расчёта."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
 
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -159,37 +179,13 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         self.setMinimumSize(QtCore.QSize(0, 234))
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(0, 2, 0, 1)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
-
-        _translate = QtCore.QCoreApplication.translate
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(0, 2, 0, 1)
+        verticalLayout_main.setSpacing(2)
 
         '''--------------------------Заголовок "Дата расчёта"--------------------------'''
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
-
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        self.horizontalLayout_title.addWidget(TitleLabel(text='ДАТА РАСЧЁТА', parent=self))
-
-        self.label_days_before = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_days_before.sizePolicy().hasHeightForWidth())
-        self.label_days_before.setSizePolicy(sizePolicy)
-        self.label_days_before.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_days_before.setObjectName('label_days_before')
-        self.label_days_before.setText(_translate('MainWindow', '0'))
-        self.horizontalLayout_title.addWidget(self.label_days_before)
-
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.title_widget = TitleWithCount(title='ДАТА РАСЧЁТА', count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.title_widget, 0)
         '''----------------------------------------------------------------------------'''
 
         """------------------Календарь с выбором даты------------------"""
@@ -200,19 +196,18 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.calendarWidget.sizePolicy().hasHeightForWidth())
         self.calendarWidget.setSizePolicy(sizePolicy)
         self.calendarWidget.setMinimumSize(QtCore.QSize(320, 190))
-        self.calendarWidget.setObjectName('calendarWidget')
-        self.verticalLayout_main.addWidget(self.calendarWidget)
+        verticalLayout_main.addWidget(self.calendarWidget)
         """------------------------------------------------------------"""
 
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def updateDaysBeforeCount():
+        def __updateDaysBeforeCount():
             """Обновляет количество дней до даты расчёта."""
             start_date: date = getMoscowDateTime().date()
             end_date: date = self.getDate()
             days_count: int = getCountOfDaysBetweenTwoDates(start_date, end_date)
-            self.label_days_before.setText(_translate('MainWindow', str(days_count)))
+            self.title_widget.setCount(str(days_count))
 
-        self.calendarWidget.selectionChanged.connect(updateDaysBeforeCount)
+        self.calendarWidget.selectionChanged.connect(__updateDaysBeforeCount)
 
     def getDate(self) -> date:
         """Возвращает выбранную в календаре дату в формате datetime.date."""
@@ -234,63 +229,36 @@ class GroupBox_Request(QtWidgets.QGroupBox):
     currentTokenReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при выборе пустого значения.
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent=parent)  # QGroupBox __init__().
+        super().__init__(parent=parent)
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
-
-        _translate = QtCore.QCoreApplication.translate
 
         """------------------------Заголовок------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        self.horizontalLayout_title.addWidget(TitleLabel(text='ЗАПРОС', parent=self))
-
-        self.label_count = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setText(_translate('MainWindow', '0'))
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.title_widget = TitleWithCount(title='ЗАПРОС', count_text='0', parent=self)
+        self.verticalLayout_main.addLayout(self.title_widget, 0)
         """---------------------------------------------------------"""
 
         """---------------------------Токен---------------------------"""
-        self.horizontalLayout_token = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_token.setSpacing(0)
-        self.horizontalLayout_token.setObjectName('horizontalLayout_token')
+        horizontalLayout_token = QtWidgets.QHBoxLayout()
+        horizontalLayout_token.setSpacing(0)
 
         self.label_token = QtWidgets.QLabel(self)
-        self.label_token.setObjectName('label_token')
-        self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
-        self.label_token.setText(_translate('MainWindow', 'Токен:'))
-        self.horizontalLayout_token.addWidget(self.label_token)
+        self.label_token.setToolTip('Токен доступа.')
+        self.label_token.setText('Токен:')
+        horizontalLayout_token.addWidget(self.label_token)
 
-        spacerItem3 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_token.addItem(spacerItem3)
+        horizontalLayout_token.addSpacing(4)
 
         self.comboBox_token = QtWidgets.QComboBox(self)
-        self.comboBox_token.setObjectName('comboBox_token')
-        self.comboBox_token.addItem(_translate('MainWindow', 'Не выбран'))
-        self.horizontalLayout_token.addWidget(self.comboBox_token)
+        self.comboBox_token.addItem('Не выбран')
+        horizontalLayout_token.addWidget(self.comboBox_token)
 
-        spacerItem4 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_token.addItem(spacerItem4)
+        horizontalLayout_token.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_token)
+        self.verticalLayout_main.addLayout(horizontalLayout_token)
         """-----------------------------------------------------------"""
 
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
@@ -310,7 +278,7 @@ class GroupBox_Request(QtWidgets.QGroupBox):
 
     def setCount(self, count: int):
         """Устанавливает полученное количество."""
-        self.label_count.setText(str(count))
+        self.title_widget.setCount(str(count))
 
 
 class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
@@ -319,96 +287,66 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
     currentTokenReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при выборе пустого значения.
     currentStatusChanged: pyqtSignal = pyqtSignal(InstrumentStatus)  # Сигнал испускается при изменении текущего статуса инструмента.
 
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
 
         '''------------------------Заголовок------------------------'''
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
-
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        self.horizontalLayout_title.addWidget(TitleLabel(text='ЗАПРОС', parent=self))
-
-        self.label_count = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        self.horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.title_widget = TitleWithCount(title='ЗАПРОС', count_text='0', parent=self)
+        self.verticalLayout_main.addLayout(self.title_widget, 0)
         '''---------------------------------------------------------'''
 
         '''---------------------------Токен---------------------------'''
-        self.horizontalLayout_token = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_token.setSpacing(0)
-        self.horizontalLayout_token.setObjectName('horizontalLayout_token')
+        horizontalLayout_token = QtWidgets.QHBoxLayout()
+        horizontalLayout_token.setSpacing(0)
 
         self.label_token = QtWidgets.QLabel(self)
-        self.label_token.setObjectName('label_token')
-        self.horizontalLayout_token.addWidget(self.label_token)
+        horizontalLayout_token.addWidget(self.label_token)
 
-        spacerItem3 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_token.addItem(spacerItem3)
+        horizontalLayout_token.addSpacing(4)
 
         self.comboBox_token = QtWidgets.QComboBox(self)
-        self.comboBox_token.setObjectName('comboBox_token')
         self.comboBox_token.addItem('')
-        self.horizontalLayout_token.addWidget(self.comboBox_token)
+        horizontalLayout_token.addWidget(self.comboBox_token)
 
-        spacerItem4 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_token.addItem(spacerItem4)
+        horizontalLayout_token.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_token)
+        self.verticalLayout_main.addLayout(horizontalLayout_token)
         '''-----------------------------------------------------------'''
 
         '''--------------------------Статус--------------------------'''
         horizontalLayout_status = QtWidgets.QHBoxLayout()
         horizontalLayout_status.setSpacing(0)
-        horizontalLayout_status.setObjectName('horizontalLayout_status')
 
         self.label_status = QtWidgets.QLabel(self)
-        self.label_status.setObjectName('label_status')
         horizontalLayout_status.addWidget(self.label_status)
 
-        horizontalLayout_status.addSpacerItem(QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_status.addSpacing(4)
 
         self.comboBox_status = QtWidgets.QComboBox(self)
-        self.comboBox_status.setObjectName('comboBox_status')
         self.comboBox_status.addItem('')
         self.comboBox_status.addItem('')
         self.comboBox_status.addItem('')
         horizontalLayout_status.addWidget(self.comboBox_status)
 
-        horizontalLayout_status.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_status.addStretch(1)
 
         self.verticalLayout_main.addLayout(horizontalLayout_status)
         '''----------------------------------------------------------'''
 
-        _translate = QtCore.QCoreApplication.translate
-        self.label_count.setText(_translate('MainWindow', '0'))
-        self.label_token.setToolTip(_translate('MainWindow', 'Токен доступа.'))
-        self.label_token.setText(_translate('MainWindow', 'Токен:'))
-        self.comboBox_token.setItemText(0, _translate('MainWindow', 'Не выбран'))
+        self.label_token.setToolTip('Токен доступа.')
+        self.label_token.setText('Токен:')
+        self.comboBox_token.setItemText(0, 'Не выбран')
 
-        self.label_status.setToolTip(_translate('MainWindow', 'Статус запрашиваемых инструментов.'))
-        self.label_status.setText(_translate('MainWindow', 'Статус:'))
-        self.comboBox_status.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_status.setItemText(1, _translate('MainWindow', 'Доступные для торговли'))
-        self.comboBox_status.setItemText(2, _translate('MainWindow', 'Не определён'))
+        self.label_status.setToolTip('Статус запрашиваемых инструментов.')
+        self.label_status.setText('Статус:')
+        self.comboBox_status.setItemText(0, 'Все')
+        self.comboBox_status.setItemText(1, 'Доступные для торговли')
+        self.comboBox_status.setItemText(2, 'Не определён')
 
         self.comboBox_token.setCurrentIndex(0)
         self.comboBox_status.setCurrentIndex(0)
@@ -444,7 +382,7 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
 
     def setCount(self, count: int):
         """Устанавливает полученное количество."""
-        self.label_count.setText(str(count))
+        self.title_widget.setCount(str(count))
 
 
 def appFilter_Flag(flag: bool, filter: str) -> bool:
@@ -481,12 +419,10 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
         self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
 
         self.gridLayout_main = QtWidgets.QGridLayout()
         self.gridLayout_main.setHorizontalSpacing(7)
         self.gridLayout_main.setVerticalSpacing(2)
-        self.gridLayout_main.setObjectName('gridLayout_main')
 
         """---------------Возможность торговать инструментом через API---------------"""
         self.label_api_trade_available_flag = QtWidgets.QLabel(self)
@@ -814,8 +750,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
 class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
     """ProgressBar для получения данных."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -827,8 +763,7 @@ class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
         self.setProperty('value', 0)
         self.setTextVisible(True)
         self.setObjectName(object_name)
-        _translate = QtCore.QCoreApplication.translate
-        self.setFormat(_translate('MainWindow', '%p% (%v из %m)'))
+        self.setFormat('%p% (%v из %m)')
         self.reset()  # Сбрасывает progressBar.
 
     def setRange(self, minimum: int, maximum: int):
