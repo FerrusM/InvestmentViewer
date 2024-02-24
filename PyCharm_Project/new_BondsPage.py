@@ -3,12 +3,11 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import QAbstractListModel, QModelIndex, Qt, QVariant, QObject, pyqtSignal
 from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
-from Classes import TokenClass, MyConnection, TITLE_FONT
+from Classes import TokenClass, MyConnection
 from CouponsModel import CouponsModel, CouponsProxyModel
 from MyBondClass import MyBondClass
 from MyDateTime import getUtcDateTime
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving, TitleLabel, \
-    TitleWithCount
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving, TitleLabel, TitleWithCount
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
 
