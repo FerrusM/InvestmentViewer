@@ -10,7 +10,6 @@ class GroupBox_LimitsTreeView(QtWidgets.QGroupBox):
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
         self.setAutoFillBackground(False)
-        self.setStyleSheet('')
         self.setFlat(False)
         self.setCheckable(False)
         self.setObjectName(object_name)
@@ -34,9 +33,8 @@ class GroupBox_LimitsTreeView(QtWidgets.QGroupBox):
 
         horizontalLayout_title.addWidget(TitleLabel(text='ЛИМИТЫ', parent=self), 0)
 
-        self.label_count = QtWidgets.QLabel(self)
+        self.label_count = QtWidgets.QLabel(text='0', parent=self)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setText('0')
         horizontalLayout_title.addWidget(self.label_count, 2)
 
         horizontalLayout_title.addSpacing(10)
@@ -66,18 +64,18 @@ class LimitsPage(QtWidgets.QWidget):
         super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         """------------------Панель выполнения запроса------------------"""
-        self.groupBox_request: GroupBox_Request = GroupBox_Request('groupBox_request', self)
-        self.verticalLayout_main.addWidget(self.groupBox_request)
+        self.groupBox_request = GroupBox_Request('groupBox_request', self)
+        verticalLayout_main.addWidget(self.groupBox_request, 0)
         """-------------------------------------------------------------"""
 
         """------------------Панель отображения лимитов------------------"""
-        self.groupBox_view: GroupBox_LimitsTreeView = GroupBox_LimitsTreeView('groupBox_view', self)
-        self.verticalLayout_main.addWidget(self.groupBox_view)
+        self.groupBox_view = GroupBox_LimitsTreeView('groupBox_view', self)
+        verticalLayout_main.addWidget(self.groupBox_view, 1)
         """--------------------------------------------------------------"""
 
         # self.groupBox_request.comboBox_token.currentIndexChanged.connect(lambda index: self.groupBox_view.setToken(self.groupBox_request.getCurrentToken()))

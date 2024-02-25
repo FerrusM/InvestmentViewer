@@ -170,7 +170,6 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
     """GroupBox с датой расчёта."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -291,65 +290,58 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         '''------------------------Заголовок------------------------'''
         self.title_widget = TitleWithCount(title='ЗАПРОС', count_text='0', parent=self)
-        self.verticalLayout_main.addLayout(self.title_widget, 0)
+        verticalLayout_main.addLayout(self.title_widget, 0)
         '''---------------------------------------------------------'''
 
         '''---------------------------Токен---------------------------'''
         horizontalLayout_token = QtWidgets.QHBoxLayout()
         horizontalLayout_token.setSpacing(0)
 
-        self.label_token = QtWidgets.QLabel(self)
-        horizontalLayout_token.addWidget(self.label_token)
+        label_token = QtWidgets.QLabel(text='Токен:', parent=self)
+        label_token.setToolTip('Токен доступа.')
+        horizontalLayout_token.addWidget(label_token, 0)
 
         horizontalLayout_token.addSpacing(4)
 
         self.comboBox_token = QtWidgets.QComboBox(self)
-        self.comboBox_token.addItem('')
+        self.comboBox_token.addItem('Не выбран')
+        self.comboBox_token.setCurrentIndex(0)
         horizontalLayout_token.addWidget(self.comboBox_token)
 
         horizontalLayout_token.addStretch(1)
 
-        self.verticalLayout_main.addLayout(horizontalLayout_token)
+        verticalLayout_main.addLayout(horizontalLayout_token, 0)
         '''-----------------------------------------------------------'''
 
         '''--------------------------Статус--------------------------'''
         horizontalLayout_status = QtWidgets.QHBoxLayout()
         horizontalLayout_status.setSpacing(0)
 
-        self.label_status = QtWidgets.QLabel(self)
-        horizontalLayout_status.addWidget(self.label_status)
+        label_status = QtWidgets.QLabel(text='Статус:', parent=self)
+        label_status.setToolTip('Статус запрашиваемых инструментов.')
+        horizontalLayout_status.addWidget(label_status)
 
         horizontalLayout_status.addSpacing(4)
 
         self.comboBox_status = QtWidgets.QComboBox(self)
-        self.comboBox_status.addItem('')
-        self.comboBox_status.addItem('')
-        self.comboBox_status.addItem('')
+        self.comboBox_status.addItem('Все')
+        self.comboBox_status.addItem('Доступные для торговли')
+        self.comboBox_status.addItem('Не определён')
+        self.comboBox_status.setCurrentIndex(0)
         horizontalLayout_status.addWidget(self.comboBox_status)
 
         horizontalLayout_status.addStretch(1)
 
-        self.verticalLayout_main.addLayout(horizontalLayout_status)
+        verticalLayout_main.addLayout(horizontalLayout_status, 0)
         '''----------------------------------------------------------'''
 
-        self.label_token.setToolTip('Токен доступа.')
-        self.label_token.setText('Токен:')
-        self.comboBox_token.setItemText(0, 'Не выбран')
-
-        self.label_status.setToolTip('Статус запрашиваемых инструментов.')
-        self.label_status.setText('Статус:')
-        self.comboBox_status.setItemText(0, 'Все')
-        self.comboBox_status.setItemText(1, 'Доступные для торговли')
-        self.comboBox_status.setItemText(2, 'Не определён')
-
-        self.comboBox_token.setCurrentIndex(0)
-        self.comboBox_status.setCurrentIndex(0)
+        verticalLayout_main.addStretch(1)
 
         @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onTokenChangedSlot():
@@ -412,8 +404,9 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         BLOCKED_TCA = 9  # Флаг заблокированного ТКС.
         CURRENCY = 10  # Валюта расчётов.
 
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
+        self.setTitle('Общие фильтры')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -425,9 +418,9 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         self.gridLayout_main.setVerticalSpacing(2)
 
         """---------------Возможность торговать инструментом через API---------------"""
-        self.label_api_trade_available_flag = QtWidgets.QLabel(self)
-        self.label_api_trade_available_flag.setObjectName('label_api_trade_available_flag')
-        self.gridLayout_main.addWidget(self.label_api_trade_available_flag, 0, 0, 1, 1)
+        label_api_trade_available_flag = QtWidgets.QLabel(text='Доступ API:', parent=self)
+        label_api_trade_available_flag.setToolTip('Параметр указывает на возможность торговать инструментом через API.')
+        self.gridLayout_main.addWidget(label_api_trade_available_flag, 0, 0, 1, 1)
 
         self.comboBox_api_trade_available_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -435,18 +428,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_api_trade_available_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_api_trade_available_flag.setSizePolicy(sizePolicy)
-        self.comboBox_api_trade_available_flag.setToolTip('')
-        self.comboBox_api_trade_available_flag.setObjectName('shares_comboBox_api')
-        self.comboBox_api_trade_available_flag.addItem('')
-        self.comboBox_api_trade_available_flag.addItem('')
-        self.comboBox_api_trade_available_flag.addItem('')
+        self.comboBox_api_trade_available_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_api_trade_available_flag.setCurrentIndex(1)
         self.gridLayout_main.addWidget(self.comboBox_api_trade_available_flag, 0, 1, 1, 1)
         """--------------------------------------------------------------------------"""
 
         """---------------------Признак доступности для ИИС---------------------"""
-        self.label_for_iis_flag = QtWidgets.QLabel(self)
-        self.label_for_iis_flag.setObjectName('label_for_iis_flag')
-        self.gridLayout_main.addWidget(self.label_for_iis_flag, 1, 0, 1, 1)
+        label_for_iis_flag = QtWidgets.QLabel(text='Доступ ИИС:', parent=self)
+        label_for_iis_flag.setToolTip('Признак доступности для ИИС.')
+        self.gridLayout_main.addWidget(label_for_iis_flag, 1, 0, 1, 1)
 
         self.comboBox_for_iis_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -454,17 +444,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_for_iis_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_for_iis_flag.setSizePolicy(sizePolicy)
-        self.comboBox_for_iis_flag.setObjectName('comboBox_for_iis_flag')
-        self.comboBox_for_iis_flag.addItem('')
-        self.comboBox_for_iis_flag.addItem('')
-        self.comboBox_for_iis_flag.addItem('')
+        self.comboBox_for_iis_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_for_iis_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_for_iis_flag, 1, 1, 1, 1)
         """---------------------------------------------------------------------"""
 
         """------Доступность торговли инструментом только для квалифицированных инвесторов------"""
-        self.label_for_qual_investor_flag = QtWidgets.QLabel(self)
-        self.label_for_qual_investor_flag.setObjectName('label_for_qual_investor_flag')
-        self.gridLayout_main.addWidget(self.label_for_qual_investor_flag, 2, 0, 1, 1)
+        label_for_qual_investor_flag = QtWidgets.QLabel(text='Только \"квалы\":', parent=self)
+        label_for_qual_investor_flag.setToolTip('Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.')
+        self.gridLayout_main.addWidget(label_for_qual_investor_flag, 2, 0, 1, 1)
 
         self.comboBox_for_qual_investor_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -472,17 +460,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_for_qual_investor_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_for_qual_investor_flag.setSizePolicy(sizePolicy)
-        self.comboBox_for_qual_investor_flag.setObjectName('comboBox_for_qual_investor_flag')
-        self.comboBox_for_qual_investor_flag.addItem('')
-        self.comboBox_for_qual_investor_flag.addItem('')
-        self.comboBox_for_qual_investor_flag.addItem('')
+        self.comboBox_for_qual_investor_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_for_qual_investor_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_for_qual_investor_flag, 2, 1, 1, 1)
         """-------------------------------------------------------------------------------------"""
 
         """---------------------Флаг достаточной ликвидности---------------------"""
-        self.label_liquidity_flag = QtWidgets.QLabel(self)
-        self.label_liquidity_flag.setObjectName('label_liquidity_flag')
-        self.gridLayout_main.addWidget(self.label_liquidity_flag, 3, 0, 1, 1)
+        label_liquidity_flag = QtWidgets.QLabel(text='Ликвидность:', parent=self)
+        label_liquidity_flag.setToolTip('Флаг достаточной ликвидности.')
+        self.gridLayout_main.addWidget(label_liquidity_flag, 3, 0, 1, 1)
 
         self.comboBox_liquidity_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -490,17 +476,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_liquidity_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_liquidity_flag.setSizePolicy(sizePolicy)
-        self.comboBox_liquidity_flag.setObjectName('comboBox_liquidity_flag')
-        self.comboBox_liquidity_flag.addItem('')
-        self.comboBox_liquidity_flag.addItem('')
-        self.comboBox_liquidity_flag.addItem('')
+        self.comboBox_liquidity_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_liquidity_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_liquidity_flag, 3, 1, 1, 1)
         """----------------------------------------------------------------------"""
 
         """---------------Признак доступности для операций в шорт---------------"""
-        self.label_short_enabled_flag = QtWidgets.QLabel(self)
-        self.label_short_enabled_flag.setObjectName('label_short_enabled_flag')
-        self.gridLayout_main.addWidget(self.label_short_enabled_flag, 4, 0, 1, 1)
+        label_short_enabled_flag = QtWidgets.QLabel(text='Операции в шорт:', parent=self)
+        label_short_enabled_flag.setToolTip('Признак доступности для операций в шорт.')
+        self.gridLayout_main.addWidget(label_short_enabled_flag, 4, 0, 1, 1)
 
         self.comboBox_short_enabled_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -508,17 +492,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_short_enabled_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_short_enabled_flag.setSizePolicy(sizePolicy)
-        self.comboBox_short_enabled_flag.setObjectName('comboBox_short_enabled_flag')
-        self.comboBox_short_enabled_flag.addItem('')
-        self.comboBox_short_enabled_flag.addItem('')
-        self.comboBox_short_enabled_flag.addItem('')
+        self.comboBox_short_enabled_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_short_enabled_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_short_enabled_flag, 4, 1, 1, 1)
         """---------------------------------------------------------------------"""
 
         """------------------------Признак доступности для покупки------------------------"""
-        self.label_buy_available_flag = QtWidgets.QLabel(self)
-        self.label_buy_available_flag.setObjectName('label_buy_available_flag')
-        self.gridLayout_main.addWidget(self.label_buy_available_flag, 0, 2, 1, 1)
+        label_buy_available_flag = QtWidgets.QLabel(text='Доступность покупки:', parent=self)
+        label_buy_available_flag.setToolTip('Признак доступности для покупки.')
+        self.gridLayout_main.addWidget(label_buy_available_flag, 0, 2, 1, 1)
 
         self.comboBox_buy_available_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -526,17 +508,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_buy_available_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_buy_available_flag.setSizePolicy(sizePolicy)
-        self.comboBox_buy_available_flag.setObjectName('comboBox_buy_available_flag')
-        self.comboBox_buy_available_flag.addItem('')
-        self.comboBox_buy_available_flag.addItem('')
-        self.comboBox_buy_available_flag.addItem('')
+        self.comboBox_buy_available_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_buy_available_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_buy_available_flag, 0, 3, 1, 1)
         """-------------------------------------------------------------------------------"""
 
         """------------------------Признак доступности для продажи------------------------"""
-        self.label_sell_available_flag = QtWidgets.QLabel(self)
-        self.label_sell_available_flag.setObjectName('label_sell_available_flag')
-        self.gridLayout_main.addWidget(self.label_sell_available_flag, 1, 2, 1, 1)
+        label_sell_available_flag = QtWidgets.QLabel(text='Доступность продажи:', parent=self)
+        label_sell_available_flag.setToolTip('Признак доступности для продажи.')
+        self.gridLayout_main.addWidget(label_sell_available_flag, 1, 2, 1, 1)
 
         self.comboBox_sell_available_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -544,17 +524,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_sell_available_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_sell_available_flag.setSizePolicy(sizePolicy)
-        self.comboBox_sell_available_flag.setObjectName('comboBox_sell_available_flag')
-        self.comboBox_sell_available_flag.addItem('')
-        self.comboBox_sell_available_flag.addItem('')
-        self.comboBox_sell_available_flag.addItem('')
+        self.comboBox_sell_available_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_sell_available_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_sell_available_flag, 1, 3, 1, 1)
         """-------------------------------------------------------------------------------"""
 
         """------------Доступность торговли инструментом по выходным------------"""
-        self.label_weekend_flag = QtWidgets.QLabel(self)
-        self.label_weekend_flag.setObjectName('label_weekend_flag')
-        self.gridLayout_main.addWidget(self.label_weekend_flag, 2, 2, 1, 1)
+        label_weekend_flag = QtWidgets.QLabel(text='Торговля по выходным:', parent=self)
+        label_weekend_flag.setToolTip('Флаг отображающий доступность торговли инструментом по выходным.')
+        self.gridLayout_main.addWidget(label_weekend_flag, 2, 2, 1, 1)
 
         self.comboBox_weekend_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -562,17 +540,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_weekend_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_weekend_flag.setSizePolicy(sizePolicy)
-        self.comboBox_weekend_flag.setObjectName('comboBox_weekend_flag')
-        self.comboBox_weekend_flag.addItem('')
-        self.comboBox_weekend_flag.addItem('')
-        self.comboBox_weekend_flag.addItem('')
+        self.comboBox_weekend_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_weekend_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_weekend_flag, 2, 3, 1, 1)
         """---------------------------------------------------------------------"""
 
         """------------------Признак внебиржевой ценной бумаги------------------"""
-        self.label_otc_flag = QtWidgets.QLabel(self)
-        self.label_otc_flag.setObjectName("label_otc_flag")
-        self.gridLayout_main.addWidget(self.label_otc_flag, 3, 2, 1, 1)
+        label_otc_flag = QtWidgets.QLabel(text='Внебиржевая бумага:', parent=self)
+        label_otc_flag.setToolTip('Признак внебиржевой ценной бумаги.')
+        self.gridLayout_main.addWidget(label_otc_flag, 3, 2, 1, 1)
 
         self.comboBox_otc_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -580,17 +556,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_otc_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_otc_flag.setSizePolicy(sizePolicy)
-        self.comboBox_otc_flag.setObjectName('comboBox_otc_flag')
-        self.comboBox_otc_flag.addItem('')
-        self.comboBox_otc_flag.addItem('')
-        self.comboBox_otc_flag.addItem('')
+        self.comboBox_otc_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_otc_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_otc_flag, 3, 3, 1, 1)
         """---------------------------------------------------------------------"""
 
         """---------------------Флаг заблокированного ТКС---------------------"""
-        self.label_blocked_tca_flag = QtWidgets.QLabel(self)
-        self.label_blocked_tca_flag.setObjectName('label_blocked_tca_flag')
-        self.gridLayout_main.addWidget(self.label_blocked_tca_flag, 4, 2, 1, 1)
+        label_blocked_tca_flag = QtWidgets.QLabel(text='Заблокированный ТКС:', parent=self)
+        label_blocked_tca_flag.setToolTip('Флаг заблокированного ТКС.')
+        self.gridLayout_main.addWidget(label_blocked_tca_flag, 4, 2, 1, 1)
 
         self.comboBox_blocked_tca_flag = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -598,17 +572,15 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_blocked_tca_flag.sizePolicy().hasHeightForWidth())
         self.comboBox_blocked_tca_flag.setSizePolicy(sizePolicy)
-        self.comboBox_blocked_tca_flag.setObjectName('comboBox_blocked_tca_flag')
-        self.comboBox_blocked_tca_flag.addItem('')
-        self.comboBox_blocked_tca_flag.addItem('')
-        self.comboBox_blocked_tca_flag.addItem('')
+        self.comboBox_blocked_tca_flag.addItems(('Все', 'True', 'False'))
+        self.comboBox_blocked_tca_flag.setCurrentIndex(0)
         self.gridLayout_main.addWidget(self.comboBox_blocked_tca_flag, 4, 3, 1, 1)
         """-------------------------------------------------------------------"""
 
         """----------------------------Валюта----------------------------"""
-        self.label_currency = QtWidgets.QLabel(self)
-        self.label_currency.setObjectName('label_currency')
-        self.gridLayout_main.addWidget(self.label_currency, 5, 0, 1, 1)
+        label_currency = QtWidgets.QLabel(text='Валюта:', parent=self)
+        label_currency.setToolTip('Валюта расчётов.')
+        self.gridLayout_main.addWidget(label_currency, 5, 0, 1, 1)
 
         self.comboBox_currency = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -617,94 +589,12 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         sizePolicy.setHeightForWidth(self.comboBox_currency.sizePolicy().hasHeightForWidth())
         self.comboBox_currency.setSizePolicy(sizePolicy)
         self.comboBox_currency.setEditable(True)
-        self.comboBox_currency.setObjectName('comboBox_currency')
-        self.comboBox_currency.addItem('')
-        self.comboBox_currency.addItem('')
-        self.comboBox_currency.addItem('')
-        self.comboBox_currency.addItem('')
-        self.comboBox_currency.addItem('')
-        self.comboBox_currency.addItem('')
-        self.comboBox_currency.addItem('')
+        self.comboBox_currency.addItems(('Любая', 'rub', 'Иностранная', 'usd', 'eur', 'Другая', 'Мультивалютная'))
+        self.comboBox_currency.setCurrentIndex(1)
         self.gridLayout_main.addWidget(self.comboBox_currency, 5, 1, 1, 3)
         """--------------------------------------------------------------"""
 
         self.verticalLayout_main.addLayout(self.gridLayout_main)
-
-        """------------------------------------retranslateUi------------------------------------"""
-        _translate = QtCore.QCoreApplication.translate
-        self.setTitle(_translate('MainWindow', 'Общие фильтры'))
-        self.label_sell_available_flag.setToolTip(_translate('MainWindow', 'Признак доступности для продажи.'))
-        self.label_sell_available_flag.setText(_translate('MainWindow', 'Доступность продажи:'))
-        self.label_otc_flag.setToolTip(_translate('MainWindow', 'Признак внебиржевой ценной бумаги.'))
-        self.label_otc_flag.setText(_translate('MainWindow', 'Внебиржевая бумага:'))
-        self.comboBox_api_trade_available_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_api_trade_available_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_api_trade_available_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.label_weekend_flag.setToolTip(_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом по выходным.'))
-        self.label_weekend_flag.setText(_translate('MainWindow', 'Торговля по выходным:'))
-        self.label_for_iis_flag.setToolTip(_translate('MainWindow', 'Признак доступности для ИИС.'))
-        self.label_for_iis_flag.setText(_translate('MainWindow', 'Доступ ИИС:'))
-        self.label_for_qual_investor_flag.setToolTip(_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.'))
-        self.label_for_qual_investor_flag.setText(_translate('MainWindow', 'Только \"квалы\":'))
-        self.comboBox_for_iis_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_for_iis_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_for_iis_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.label_blocked_tca_flag.setToolTip(_translate('MainWindow', 'Флаг заблокированного ТКС.'))
-        self.label_blocked_tca_flag.setText(_translate('MainWindow', 'Заблокированный ТКС:'))
-        self.comboBox_for_qual_investor_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_for_qual_investor_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_for_qual_investor_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.comboBox_sell_available_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_sell_available_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_sell_available_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.comboBox_liquidity_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_liquidity_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_liquidity_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.comboBox_weekend_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_weekend_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_weekend_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.comboBox_blocked_tca_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_blocked_tca_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_blocked_tca_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.label_buy_available_flag.setToolTip(_translate('MainWindow', 'Признак доступности для покупки.'))
-        self.label_buy_available_flag.setText(_translate('MainWindow', 'Доступность покупки:'))
-        self.label_short_enabled_flag.setToolTip(_translate('MainWindow', 'Признак доступности для операций в шорт.'))
-        self.label_short_enabled_flag.setText(_translate('MainWindow', 'Операции в шорт:'))
-        self.label_liquidity_flag.setToolTip(_translate('MainWindow', 'Флаг достаточной ликвидности.'))
-        self.label_liquidity_flag.setText(_translate('MainWindow', 'Ликвидность:'))
-        self.comboBox_otc_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_otc_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_otc_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.comboBox_short_enabled_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_short_enabled_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_short_enabled_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.label_api_trade_available_flag.setToolTip(_translate('MainWindow', 'Параметр указывает на возможность торговать инструментом через API.'))
-        self.label_api_trade_available_flag.setText(_translate('MainWindow', 'Доступ API:'))
-        self.comboBox_buy_available_flag.setItemText(0, _translate('MainWindow', 'Все'))
-        self.comboBox_buy_available_flag.setItemText(1, _translate('MainWindow', 'True'))
-        self.comboBox_buy_available_flag.setItemText(2, _translate('MainWindow', 'False'))
-        self.label_currency.setToolTip(_translate('MainWindow', 'Валюта расчётов.'))
-        self.label_currency.setText(_translate('MainWindow', 'Валюта:'))
-        self.comboBox_currency.setItemText(0, _translate('MainWindow', 'Любая'))
-        self.comboBox_currency.setItemText(1, _translate('MainWindow', 'rub'))
-        self.comboBox_currency.setItemText(2, _translate('MainWindow', 'Иностранная'))
-        self.comboBox_currency.setItemText(3, _translate('MainWindow', 'usd'))
-        self.comboBox_currency.setItemText(4, _translate('MainWindow', 'eur'))
-        self.comboBox_currency.setItemText(5, _translate('MainWindow', 'Другая'))
-        self.comboBox_currency.setItemText(6, _translate('MainWindow', 'Мультивалютная'))
-        """-------------------------------------------------------------------------------------"""
-
-        self.comboBox_api_trade_available_flag.setCurrentIndex(1)
-        self.comboBox_for_iis_flag.setCurrentIndex(0)
-        self.comboBox_for_qual_investor_flag.setCurrentIndex(0)
-        self.comboBox_sell_available_flag.setCurrentIndex(0)
-        self.comboBox_liquidity_flag.setCurrentIndex(0)
-        self.comboBox_weekend_flag.setCurrentIndex(0)
-        self.comboBox_blocked_tca_flag.setCurrentIndex(0)
-        self.comboBox_otc_flag.setCurrentIndex(0)
-        self.comboBox_short_enabled_flag.setCurrentIndex(0)
-        self.comboBox_buy_available_flag.setCurrentIndex(0)
-        self.comboBox_currency.setCurrentIndex(1)
 
         '''---------------------------------Фильтры инструментов---------------------------------'''
         def appFilter_Currency(currency: str, filter: str) -> bool:
@@ -750,19 +640,13 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
 class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
     """ProgressBar для получения данных."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
         self.setMinimumSize(QtCore.QSize(0, 0))
         self.setStyleSheet('text-align: center;')
         self.setMaximum(0)
         self.setProperty('value', 0)
         self.setTextVisible(True)
-        self.setObjectName(object_name)
         self.setFormat('%p% (%v из %m)')
         self.reset()  # Сбрасывает progressBar.
 

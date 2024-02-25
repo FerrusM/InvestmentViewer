@@ -10,7 +10,8 @@ from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getShares, RequestTryClass
 from MyShareClass import MyShareClass
-from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, \
+    appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving, TitleWithCount, TitleLabel
 from SharesModel import SharesProxyModel, SharesModel
 from TokenModel import TokenListModel
 
@@ -38,16 +39,11 @@ class GroupBox_OnlySharesFilters(QtWidgets.QGroupBox):
         self.gridLayout_main.addWidget(self.label_share_type, 0, 0, 1, 1)
 
         self.comboBox_share_type = QtWidgets.QComboBox(self)
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
-        self.comboBox_share_type.addItem('')
+        self.comboBox_share_type.addItems(
+            ('Все', 'Не определён', 'Обыкновенные', 'Привилегированные', 'АДР', 'ГДР', 'ТОО', 'Акции из Нью-Йорка',
+             'Закрытый ИФ', 'Траст недвижимости')
+        )
+
         self.gridLayout_main.addWidget(self.comboBox_share_type, 0, 1, 1, 1)
         """-------------------------------------------------------------------"""
 
@@ -57,28 +53,10 @@ class GroupBox_OnlySharesFilters(QtWidgets.QGroupBox):
         self.gridLayout_main.addWidget(self.label_div_yield_flag, 0, 2, 1, 1)
 
         self.comboBox_div_yield_flag = QtWidgets.QComboBox(parent=self)
-        self.comboBox_div_yield_flag.addItem('')
-        self.comboBox_div_yield_flag.addItem('')
-        self.comboBox_div_yield_flag.addItem('')
+        self.comboBox_div_yield_flag.addItems(('Все', 'True', 'False'))
+
         self.gridLayout_main.addWidget(self.comboBox_div_yield_flag, 0, 3, 1, 1)
         """--------------------------------------------------------------------"""
-
-        '''------------------------------------retranslateUi------------------------------------'''
-        self.comboBox_share_type.setItemText(0, 'Все')
-        self.comboBox_share_type.setItemText(1, 'Не определён')
-        self.comboBox_share_type.setItemText(2, 'Обыкновенные')
-        self.comboBox_share_type.setItemText(3, 'Привилегированные')
-        self.comboBox_share_type.setItemText(4, 'АДР')
-        self.comboBox_share_type.setItemText(5, 'ГДР')
-        self.comboBox_share_type.setItemText(6, 'ТОО')
-        self.comboBox_share_type.setItemText(7, 'Акции из Нью-Йорка')
-        self.comboBox_share_type.setItemText(8, 'Закрытый ИФ')
-        self.comboBox_share_type.setItemText(9, 'Траст недвижимости')
-
-        self.comboBox_div_yield_flag.setItemText(0, 'Все')
-        self.comboBox_div_yield_flag.setItemText(1, 'True')
-        self.comboBox_div_yield_flag.setItemText(2, 'False')
-        '''-------------------------------------------------------------------------------------'''
 
         '''------------------------------------Фильтры акций------------------------------------'''
         def appFilter_ShareType(share_type: ShareType, filter: str) -> bool:
@@ -117,60 +95,40 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
         super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(0)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(0)
 
         """--------------------------Заголовок--------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-
-        self.horizontalLayout_title.addSpacing(10)
-
-        self.horizontalLayout_title.addStretch(1)
-
-        self.label_title = QtWidgets.QLabel(text='ФИЛЬТРЫ', parent=self)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(text='0', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        self.horizontalLayout_title.addSpacing(10)
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.titlebar = TitleWithCount(title='ФИЛЬТРЫ', count_text='0', parent=parent)
+        verticalLayout_main.addLayout(self.titlebar, 0)
         """-------------------------------------------------------------"""
 
         """---------------------Фильтры инструментов---------------------"""
-        self.horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_instruments_filters.setSpacing(0)
+        horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instruments_filters.setSpacing(0)
 
         self.groupBox_instruments_filters = GroupBox_InstrumentsFilters('groupBox_instruments_filters', self)
-        self.horizontalLayout_instruments_filters.addWidget(self.groupBox_instruments_filters)
+        horizontalLayout_instruments_filters.addWidget(self.groupBox_instruments_filters, 0)
 
-        self.horizontalLayout_instruments_filters.addStretch(1)
+        horizontalLayout_instruments_filters.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_instruments_filters)
+        verticalLayout_main.addLayout(horizontalLayout_instruments_filters, 0)
         """--------------------------------------------------------------"""
 
         """------------------------Фильтры акций------------------------"""
-        self.horizontalLayout_share_filters = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_share_filters.setSpacing(0)
+        horizontalLayout_share_filters = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_share_filters.setSpacing(0)
 
-        self.groupBox_shares_filters: GroupBox_OnlySharesFilters = GroupBox_OnlySharesFilters('groupBox_shares_filters', self)
-        self.horizontalLayout_share_filters.addWidget(self.groupBox_shares_filters)
+        self.groupBox_shares_filters = GroupBox_OnlySharesFilters('groupBox_shares_filters', self)
+        horizontalLayout_share_filters.addWidget(self.groupBox_shares_filters, 0)
 
-        self.horizontalLayout_share_filters.addStretch(1)
+        horizontalLayout_share_filters.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_share_filters)
+        verticalLayout_main.addLayout(horizontalLayout_share_filters, 0)
         """-------------------------------------------------------------"""
+
+        verticalLayout_main.addStretch(1)
 
     def _checkFilters(self, share: Share) -> bool:
         """Проверяет акцию на соответствие фильтрам."""
@@ -184,63 +142,26 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
 
     def setCount(self, count: int):
         """Устанавливает количество отобранных акций."""
-        self.label_count.setText(str(count))
+        self.titlebar.setCount(str(count))
 
 
 class GroupBox_DividendsView(QtWidgets.QGroupBox):
     """Панель отображения дивидендов акций."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         """------------------------Заголовок------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-
-        self.horizontalLayout_title.addSpacing(10)
-        self.horizontalLayout_title.addStretch(1)
-
-        self.label_title = QtWidgets.QLabel(text='ДИВИДЕНДЫ', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setStyleSheet('border: none;')
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(text='0', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        self.horizontalLayout_title.addSpacing(10)
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.titlebar = TitleWithCount(title='ДИВИДЕНДЫ', count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.titlebar, 0)
         """---------------------------------------------------------"""
 
         """------------------Отображение дивидендов------------------"""
         self.tableView = QtWidgets.QTableView(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.tableView.sizePolicy().hasHeightForWidth())
-        self.tableView.setSizePolicy(sizePolicy)
         self.tableView.setStyleSheet("background-color: rgb(255, 255, 255);")
         self.tableView.setFrameShape(QtWidgets.QFrame.Shape.StyledPanel)
         self.tableView.setFrameShadow(QtWidgets.QFrame.Shadow.Sunken)
@@ -249,7 +170,7 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tableView.setGridStyle(QtCore.Qt.PenStyle.SolidLine)
         self.tableView.setSortingEnabled(True)
-        self.verticalLayout_main.addWidget(self.tableView)
+        verticalLayout_main.addWidget(self.tableView, 1)
         """----------------------------------------------------------"""
 
         """--------------------Модель дивидендов--------------------"""
@@ -272,69 +193,40 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
             dividends: list[Dividend] | None = share_class.dividends
             self.sourceModel().updateData([] if dividends is None else dividends)
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
+        self.titlebar.setCount(str(self.tableView.model().rowCount()))  # Отображаем количество дивидендов.
 
 
 class GroupBox_SharesView(QtWidgets.QGroupBox):
     """Панель отображения акций."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(1)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
-        self.setBaseSize(QtCore.QSize(0, 0))
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         """------------------------Заголовок------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
+        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title.setSpacing(0)
 
-        self.horizontalLayout_title.addSpacing(10)
+        horizontalLayout_title.addSpacing(10)
 
         self.lineEdit_search = QtWidgets.QLineEdit(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.lineEdit_search.sizePolicy().hasHeightForWidth())
-        self.lineEdit_search.setSizePolicy(sizePolicy)
         self.lineEdit_search.setPlaceholderText('Поиск...')
-        self.horizontalLayout_title.addWidget(self.lineEdit_search)
+        horizontalLayout_title.addWidget(self.lineEdit_search, 1)
 
-        spacerItem26 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem26)
+        horizontalLayout_title.addStretch(1)
 
-        self.label_title = QtWidgets.QLabel(text='АКЦИИ', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        self.label_title.setMaximumSize(QtCore.QSize(16777215, 13))
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.horizontalLayout_title.addWidget(self.label_title)
+        horizontalLayout_title.addWidget(TitleLabel(text='АКЦИИ', parent=self), 0)
 
         self.label_count = QtWidgets.QLabel(text='0 / 0', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.horizontalLayout_title.addWidget(self.label_count)
+        horizontalLayout_title.addWidget(self.label_count, 2)
 
-        self.horizontalLayout_title.addSpacing(10)
+        horizontalLayout_title.addSpacing(10)
 
-        self.horizontalLayout_title.setStretch(1, 1)
-        self.horizontalLayout_title.setStretch(2, 1)
-        self.horizontalLayout_title.setStretch(4, 2)
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        verticalLayout_main.addLayout(horizontalLayout_title)
         """---------------------------------------------------------"""
 
         """--------------------Отображение акций--------------------"""
@@ -347,7 +239,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         self.tableView.setSortingEnabled(True)
         self.tableView.horizontalHeader().setSortIndicatorShown(True)
         self.tableView.verticalHeader().setSortIndicatorShown(False)
-        self.verticalLayout_main.addWidget(self.tableView)
+        verticalLayout_main.addWidget(self.tableView, 1)
         """---------------------------------------------------------"""
 
         """----------------------Модель акций----------------------"""
@@ -401,7 +293,7 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         self.verticalLayout_main.addWidget(self.label_title)
 
         '''-------------------------ProgressBar-------------------------'''
-        self.progressBar_dividends = ProgressBar_DataReceiving('progressBar_dividends', self)
+        self.progressBar_dividends = ProgressBar_DataReceiving(parent=self)
         self.verticalLayout_main.addWidget(self.progressBar_dividends)
         '''-------------------------------------------------------------'''
 
@@ -420,86 +312,74 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
 
 class SharesPage(QtWidgets.QWidget):
     """Страница акций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        self.splitter = QtWidgets.QSplitter(self)
-        self.splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
+        splitter = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Vertical, parent=self)
+        layoutWidget = QtWidgets.QWidget()
+        splitter.addWidget(layoutWidget)
+        splitter.setStretchFactor(0, 0)
 
-        self.layoutWidget = QtWidgets.QWidget(self.splitter)
+        verticalLayout_top = QtWidgets.QVBoxLayout(layoutWidget)
+        verticalLayout_top.setContentsMargins(0, 0, 0, 0)
+        verticalLayout_top.setSpacing(2)
 
-        self.verticalLayout_top = QtWidgets.QVBoxLayout(self.layoutWidget)
-        self.verticalLayout_top.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_top.setSpacing(2)
-
-        self.horizontalLayout_top_top = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_top_top.setSpacing(2)
+        horizontalLayout_top_top = QtWidgets.QHBoxLayout()
+        horizontalLayout_top_top.setSpacing(2)
 
         """------------------Панель выполнения запроса------------------"""
-        self.groupBox_request = GroupBox_InstrumentsRequest('groupBox_request', self.layoutWidget)
-        self.horizontalLayout_top_top.addWidget(self.groupBox_request)
+        self.groupBox_request = GroupBox_InstrumentsRequest('groupBox_request', layoutWidget)
+        horizontalLayout_top_top.addWidget(self.groupBox_request, 0)
         """-------------------------------------------------------------"""
 
-        self.verticalLayout_dividends_receiving = QtWidgets.QVBoxLayout()
-        self.verticalLayout_dividends_receiving.setSpacing(0)
-
+        verticalLayout_dividends_receiving = QtWidgets.QVBoxLayout()
+        verticalLayout_dividends_receiving.setSpacing(0)
         """------------Панель прогресса получения дивидендов------------"""
-        self.groupBox_dividends_receiving: GroupBox_DividendsReceiving = GroupBox_DividendsReceiving('groupBox_dividends_receiving', self.layoutWidget)
-        self.verticalLayout_dividends_receiving.addWidget(self.groupBox_dividends_receiving)
+        self.groupBox_dividends_receiving = GroupBox_DividendsReceiving('groupBox_dividends_receiving', layoutWidget)
+        verticalLayout_dividends_receiving.addWidget(self.groupBox_dividends_receiving, 0)
         """-------------------------------------------------------------"""
+        verticalLayout_dividends_receiving.addStretch(1)
+        horizontalLayout_top_top.addLayout(verticalLayout_dividends_receiving, 1)
 
-        self.verticalLayout_dividends_receiving.addStretch(1)
+        verticalLayout_top.addLayout(horizontalLayout_top_top, 0)
 
-        self.horizontalLayout_top_top.addLayout(self.verticalLayout_dividends_receiving)
-        self.horizontalLayout_top_top.setStretch(1, 1)
-        self.verticalLayout_top.addLayout(self.horizontalLayout_top_top)
+        horizontalLayout_top_bottom = QtWidgets.QHBoxLayout()
+        horizontalLayout_top_bottom.setSpacing(2)
 
-        self.horizontalLayout_top_bottom = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_top_bottom.setSpacing(2)
-
-        self.verticalLayout_top_bottom_left = QtWidgets.QVBoxLayout()
-        self.verticalLayout_top_bottom_left.setSpacing(0)
-
-        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_2.setSpacing(2)
-
+        verticalLayout_top_bottom_left = QtWidgets.QVBoxLayout()
+        verticalLayout_top_bottom_left.setSpacing(0)
+        horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        horizontalLayout_2.setSpacing(2)
         """---------------------Панель даты расчёта---------------------"""
-        self.groupBox_calendar = GroupBox_CalculationDate('groupBox_calendar', self.layoutWidget)
-        self.horizontalLayout_2.addWidget(self.groupBox_calendar)
+        self.groupBox_calendar = GroupBox_CalculationDate('groupBox_calendar', layoutWidget)
+        horizontalLayout_2.addWidget(self.groupBox_calendar, 0)
         """-------------------------------------------------------------"""
-
         """-----------------------Панель фильтров-----------------------"""
-        self.groupBox_filters: GroupBox_SharesFilters = GroupBox_SharesFilters('groupBox_filters', self.layoutWidget)
-        self.horizontalLayout_2.addWidget(self.groupBox_filters)
+        self.groupBox_filters = GroupBox_SharesFilters('groupBox_filters', layoutWidget)
+        horizontalLayout_2.addWidget(self.groupBox_filters, 0)
         """-------------------------------------------------------------"""
-
-        self.verticalLayout_top_bottom_left.addLayout(self.horizontalLayout_2)
-
-        self.verticalLayout_top_bottom_left.addStretch(1)
-
-        self.verticalLayout_top_bottom_left.setStretch(1, 1)
-        self.horizontalLayout_top_bottom.addLayout(self.verticalLayout_top_bottom_left)
+        verticalLayout_top_bottom_left.addLayout(horizontalLayout_2, 0)
+        verticalLayout_top_bottom_left.addStretch(1)
+        horizontalLayout_top_bottom.addLayout(verticalLayout_top_bottom_left, 0)
 
         """----------------Панель отображения дивидендов----------------"""
-        self.groupBox_dividends = GroupBox_DividendsView('groupBox_dividends', self.layoutWidget)
-        self.horizontalLayout_top_bottom.addWidget(self.groupBox_dividends)
+        self.groupBox_dividends = GroupBox_DividendsView('groupBox_dividends', layoutWidget)
+        horizontalLayout_top_bottom.addWidget(self.groupBox_dividends, 1)
         """-------------------------------------------------------------"""
 
-        self.horizontalLayout_top_bottom.setStretch(1, 1)
-
-        self.verticalLayout_top.addLayout(self.horizontalLayout_top_bottom)
-        self.verticalLayout_top.setStretch(1, 1)
+        verticalLayout_top.addLayout(horizontalLayout_top_bottom, 1)
 
         """-------------------Панель отображения акций-------------------"""
-        self.groupBox_view: GroupBox_SharesView = GroupBox_SharesView('groupBox_view', self.splitter)
+        self.groupBox_view = GroupBox_SharesView('groupBox_view')
+        splitter.addWidget(self.groupBox_view)
+        splitter.setStretchFactor(1, 1)
         """--------------------------------------------------------------"""
 
-        self.verticalLayout_main.addWidget(self.splitter)
+        verticalLayout_main.addWidget(splitter)
 
         """---------------------------------Токен---------------------------------"""
         self.token: TokenClass | None = None

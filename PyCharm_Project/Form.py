@@ -53,7 +53,7 @@ class InvestmentForm(QtWidgets.QMainWindow):
         self.tab_limits.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_limits, 'Лимиты')
 
-        self.tab_shares = SharesPage('tab_shares')  # Страница "Акции".
+        self.tab_shares = SharesPage()  # Страница "Акции".
         self.tab_shares.setTokensModel(token_list_model)
         self.tabWidget.addTab(self.tab_shares, 'Акции')
 

@@ -1,7 +1,7 @@
 import enum
 import typing
 from datetime import datetime
-from PyQt6 import QtCore, QtGui, QtWidgets
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import InstrumentStatus, Bond
 from tinkoff.invest.schemas import RiskLevel
@@ -13,69 +13,37 @@ from MyBondClass import MyBondClass, MyBond
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, \
+    appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving, TitleWithCount, TitleLabel
 from TokenModel import TokenListModel
 
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
     """Панель прогресса получения купонов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
-        self.setTitle('')
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        _translate = QtCore.QCoreApplication.translate
-
-        '''----------------------------------Заголовок----------------------------------'''
-        self.label_title = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        self.label_title.setMaximumSize(QtCore.QSize(16777215, 16777215))
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.label_title.setText(_translate('MainWindow', 'ПОЛУЧЕНИЕ КУПОНОВ'))
-        self.verticalLayout_main.addWidget(self.label_title)
-        '''-----------------------------------------------------------------------------'''
+        verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ КУПОНОВ', parent=self), 0)
 
         '''-------------------------ProgressBar-------------------------'''
-        self.progressBar_coupons = ProgressBar_DataReceiving('progressBar_coupons', self)
-        self.verticalLayout_main.addWidget(self.progressBar_coupons)
+        self.progressBar_coupons = ProgressBar_DataReceiving(parent=self)
+        verticalLayout_main.addWidget(self.progressBar_coupons, 0)
         '''-------------------------------------------------------------'''
 
         '''---------------------------Строка с выбором типа купонов---------------------------'''
-        self.horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_coupons_type.setSpacing(0)
-        self.horizontalLayout_coupons_type.setObjectName('horizontalLayout_coupons_type')
+        horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
+        horizontalLayout_coupons_type.setSpacing(0)
 
-        self.label_coupons_type = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_coupons_type.sizePolicy().hasHeightForWidth())
-        self.label_coupons_type.setSizePolicy(sizePolicy)
-        self.label_coupons_type.setObjectName('label_coupons_type')
-        self.label_coupons_type.setToolTip(_translate('MainWindow', 'Тип купона.'))
-        self.label_coupons_type.setText(_translate('MainWindow', 'Тип купонов:'))
-        self.horizontalLayout_coupons_type.addWidget(self.label_coupons_type)
+        label_coupons_type = QtWidgets.QLabel(text='Тип купонов:', parent=self)
+        label_coupons_type.setToolTip('Тип купона.')
+        horizontalLayout_coupons_type.addWidget(label_coupons_type, 0)
 
-        spacerItem_1 = QtWidgets.QSpacerItem(4, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_coupons_type.addItem(spacerItem_1)
+        horizontalLayout_coupons_type.addSpacing(4)
 
         self.comboBox_coupons_type = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -83,27 +51,24 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_coupons_type.sizePolicy().hasHeightForWidth())
         self.comboBox_coupons_type.setSizePolicy(sizePolicy)
-        self.comboBox_coupons_type.setStyleSheet('')
-        self.comboBox_coupons_type.setObjectName('comboBox_coupons_type')
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Любой'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Постоянный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Фиксированный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Переменный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Плавающий'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Дисконт'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Ипотечный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Прочее'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Неопределённый'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Нет купонов'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Разные купоны'))
-        self.horizontalLayout_coupons_type.addWidget(self.comboBox_coupons_type)
+        self.comboBox_coupons_type.addItem('Любой')
+        self.comboBox_coupons_type.addItem('Постоянный')
+        self.comboBox_coupons_type.addItem('Фиксированный')
+        self.comboBox_coupons_type.addItem('Переменный')
+        self.comboBox_coupons_type.addItem('Плавающий')
+        self.comboBox_coupons_type.addItem('Дисконт')
+        self.comboBox_coupons_type.addItem('Ипотечный')
+        self.comboBox_coupons_type.addItem('Прочее')
+        self.comboBox_coupons_type.addItem('Неопределённый')
+        self.comboBox_coupons_type.addItem('Нет купонов')
+        self.comboBox_coupons_type.addItem('Разные купоны')
+        horizontalLayout_coupons_type.addWidget(self.comboBox_coupons_type)
 
-        spacerItem_2 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_coupons_type.addItem(spacerItem_2)
+        horizontalLayout_coupons_type.addStretch(1)
         '''-----------------------------------------------------------------------------------'''
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_coupons_type)
-        self.verticalLayout_main.setStretch(1, 1)
+        verticalLayout_main.addLayout(horizontalLayout_coupons_type, 0)
+        verticalLayout_main.addStretch(1)
 
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а."""
@@ -320,86 +285,46 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
 class GroupBox_BondsFilters(QtWidgets.QGroupBox):
     """GroupBox со всеми фильтрами облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
-        self.setTitle('')
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(0)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(0)
 
         """--------------------------Заголовок--------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
-
-        spacerItem38 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem38)
-
-        spacerItem39 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem39)
-
-        self.label_title = QtWidgets.QLabel(self)
-        font = QtGui.QFont()
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        spacerItem40 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem40)
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.titlebar = TitleWithCount(title='ФИЛЬТРЫ', count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.titlebar, 0)
         """-------------------------------------------------------------"""
 
         """---------------------Фильтры инструментов---------------------"""
-        self.horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_instruments_filters.setSpacing(0)
-        self.horizontalLayout_instruments_filters.setObjectName('horizontalLayout_instruments_filters')
+        horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout()
+        horizontalLayout_instruments_filters.setSpacing(0)
 
         """---------------------Панель фильтров инструментов---------------------"""
         self.groupBox_instruments_filters = GroupBox_InstrumentsFilters('groupBox_instruments_filters', self)
-        self.horizontalLayout_instruments_filters.addWidget(self.groupBox_instruments_filters)
+        horizontalLayout_instruments_filters.addWidget(self.groupBox_instruments_filters)
         """----------------------------------------------------------------------"""
 
-        spacerItem41 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_instruments_filters.addItem(spacerItem41)
+        horizontalLayout_instruments_filters.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_instruments_filters)
+        verticalLayout_main.addLayout(horizontalLayout_instruments_filters, 0)
         """--------------------------------------------------------------"""
 
         """----------------------Фильтры облигаций----------------------"""
-        self.horizontalLayout_bond_filters = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_bond_filters.setSpacing(0)
-        self.horizontalLayout_bond_filters.setObjectName('horizontalLayout_bond_filters')
+        horizontalLayout_bond_filters = QtWidgets.QHBoxLayout()
+        horizontalLayout_bond_filters.setSpacing(0)
 
         self.groupBox_bonds_filters: GroupBox_OnlyBondsFilters = GroupBox_OnlyBondsFilters('groupBox_bonds_filters', self)
-        self.horizontalLayout_bond_filters.addWidget(self.groupBox_bonds_filters)
+        horizontalLayout_bond_filters.addWidget(self.groupBox_bonds_filters)
 
-        spacerItem42 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_bond_filters.addItem(spacerItem42)
+        horizontalLayout_bond_filters.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_bond_filters)
+        verticalLayout_main.addLayout(horizontalLayout_bond_filters, 0)
         """-------------------------------------------------------------"""
 
-        """------------------------------------retranslateUi------------------------------------"""
-        _translate = QtCore.QCoreApplication.translate
-        self.label_title.setText(_translate('MainWindow', 'ФИЛЬТРЫ'))
-        self.label_count.setText(_translate('MainWindow', '0'))
-        """-------------------------------------------------------------------------------------"""
+        verticalLayout_main.addStretch(1)
 
     def _checkFilters(self, bond: Bond) -> bool:
         """Проверяет облигацию на соответствие фильтрам."""
@@ -413,70 +338,27 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
 
     def setCount(self, count: int):
         """Устанавливает количество отобранных облигаций."""
-        self.label_count.setText(str(count))
+        self.titlebar.setCount(str(count))
 
 
 class GroupBox_CouponsView(QtWidgets.QGroupBox):
     """Панель отображения купонов облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
-        self.setTitle('')
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         """------------------------Заголовок------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
-
-        spacerItem44 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem44)
-
-        spacerItem45 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem45)
-
-        _translate = QtCore.QCoreApplication.translate
-
-        self.label_title = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        font = QtGui.QFont()
-        font.setPointSize(9)
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setStyleSheet('border: none;')
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.label_title.setText(_translate('MainWindow', 'КУПОНЫ'))
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
-        self.label_count.setText(_translate('MainWindow', '0'))
-        self.horizontalLayout_title.addWidget(self.label_count)
-
-        spacerItem46 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem46)
-
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        self.titlebar = TitleWithCount(title='КУПОНЫ', count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.titlebar, 0)
         """---------------------------------------------------------"""
 
         """------------------Отображение дивидендов------------------"""
@@ -494,8 +376,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tableView.setGridStyle(QtCore.Qt.PenStyle.SolidLine)
         self.tableView.setSortingEnabled(True)
-        self.tableView.setObjectName('tableView')
-        self.verticalLayout_main.addWidget(self.tableView)
+        verticalLayout_main.addWidget(self.tableView, 1)
         """----------------------------------------------------------"""
 
         '''-----------------------Модель купонов-----------------------'''
@@ -511,85 +392,48 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
     def setData(self, bond_class: MyBondClass | None):
         """Обновляет данные модели купонов в соответствии с выбранной облигацией."""
         self.sourceModel().updateData(bond_class)
-        self.label_count.setText(str(self.tableView.model().rowCount()))  # Отображаем количество купонов.
+        self.titlebar.setCount(str(self.tableView.model().rowCount()))  # Отображаем количество купонов.
         self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
 
 class GroupBox_BondsView(QtWidgets.QGroupBox):
     """Панель отображения облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)  # QGroupBox __init__().
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(1)
         sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
         self.setSizePolicy(sizePolicy)
         self.setBaseSize(QtCore.QSize(0, 0))
-        self.setTitle('')
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
-
-        _translate = QtCore.QCoreApplication.translate
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         '''------------------------Заголовок------------------------'''
         self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
-        self.horizontalLayout_title.setObjectName('horizontalLayout_title')
 
-        spacerItem47 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem47)
+        self.horizontalLayout_title.addSpacing(10)
 
         self.lineEdit_search = QtWidgets.QLineEdit(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.MinimumExpanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.lineEdit_search.sizePolicy().hasHeightForWidth())
         self.lineEdit_search.setSizePolicy(sizePolicy)
-        self.lineEdit_search.setObjectName('lineEdit_search')
-        self.lineEdit_search.setPlaceholderText(_translate('MainWindow', 'Поиск...'))
-        self.horizontalLayout_title.addWidget(self.lineEdit_search)
+        self.lineEdit_search.setPlaceholderText('Поиск...')
+        self.horizontalLayout_title.addWidget(self.lineEdit_search, 1)
 
-        spacerItem48 = QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem48)
+        self.horizontalLayout_title.addStretch(1)
+        self.horizontalLayout_title.addWidget(TitleLabel(text='ОБЛИГАЦИИ', parent=self), 0)
 
-        self.label_title = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        self.label_title.setMaximumSize(QtCore.QSize(16777215, 13))
-        font = QtGui.QFont()
-        font.setPointSize(9)
-        font.setBold(True)
-        self.label_title.setFont(font)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.label_title.setObjectName('label_title')
-        self.label_title.setText(_translate('MainWindow', 'ОБЛИГАЦИИ'))
-        self.horizontalLayout_title.addWidget(self.label_title)
-
-        self.label_count = QtWidgets.QLabel(self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
+        self.label_count = QtWidgets.QLabel(text='0 / 0', parent=self)
         self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.label_count.setObjectName('label_count')
-        self.label_count.setText(_translate('MainWindow', '0 / 0'))
-        self.horizontalLayout_title.addWidget(self.label_count)
+        self.horizontalLayout_title.addWidget(self.label_count, 2)
 
-        spacerItem49 = QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum)
-        self.horizontalLayout_title.addItem(spacerItem49)
+        self.horizontalLayout_title.addSpacing(10)
 
-        self.horizontalLayout_title.setStretch(1, 1)
-        self.horizontalLayout_title.setStretch(2, 1)
-        self.horizontalLayout_title.setStretch(4, 2)
-        self.verticalLayout_main.addLayout(self.horizontalLayout_title)
+        verticalLayout_main.addLayout(self.horizontalLayout_title, 0)
         '''---------------------------------------------------------'''
 
         '''------------------Отображение облигаций------------------'''
@@ -600,8 +444,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
         self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tableView.setSortingEnabled(True)
-        self.tableView.setObjectName('tableView')
-        self.verticalLayout_main.addWidget(self.tableView)
+        verticalLayout_main.addWidget(self.tableView, 1)
         '''---------------------------------------------------------'''
 
     def proxyModel(self) -> BondsProxyModel:
@@ -636,90 +479,66 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
 class BondsPage(QtWidgets.QWidget):
     """Страница облигаций."""
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent)  # QWidget __init__().
+        super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-        self.verticalLayout_main.setObjectName('verticalLayout_main')
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        self.splitter = QtWidgets.QSplitter(self)
-        self.splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
-        self.splitter.setObjectName('splitter')
+        splitter = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Vertical, parent=self)
 
-        self.layoutWidget = QtWidgets.QWidget(self.splitter)
-        self.layoutWidget.setObjectName('layoutWidget')
+        layoutWidget = QtWidgets.QWidget(splitter)
 
-        self.verticalLayout_top = QtWidgets.QVBoxLayout(self.layoutWidget)
-        self.verticalLayout_top.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_top.setSpacing(2)
-        self.verticalLayout_top.setObjectName('verticalLayout_top')
+        verticalLayout_top = QtWidgets.QVBoxLayout(layoutWidget)
+        verticalLayout_top.setContentsMargins(0, 0, 0, 0)
+        verticalLayout_top.setSpacing(2)
 
-        self.horizontalLayout_top_top = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_top_top.setSpacing(2)
-        self.horizontalLayout_top_top.setObjectName('horizontalLayout_top_top')
-
+        horizontalLayout_top_top = QtWidgets.QHBoxLayout()
+        horizontalLayout_top_top.setSpacing(2)
         """------------------Панель выполнения запроса------------------"""
-        self.groupBox_request = GroupBox_InstrumentsRequest('groupBox_request', self.layoutWidget)
-        self.horizontalLayout_top_top.addWidget(self.groupBox_request)
+        self.groupBox_request = GroupBox_InstrumentsRequest('groupBox_request', layoutWidget)
+        horizontalLayout_top_top.addWidget(self.groupBox_request, 0)
         """-------------------------------------------------------------"""
-
         """--------------Панель прогресса получения купонов--------------"""
-        self.groupBox_coupons_receiving: GroupBox_CouponsReceiving = GroupBox_CouponsReceiving('groupBox_coupons_receiving', self.layoutWidget)
-        self.horizontalLayout_top_top.addWidget(self.groupBox_coupons_receiving)
-        self.horizontalLayout_top_top.setStretch(1, 1)
+        self.groupBox_coupons_receiving = GroupBox_CouponsReceiving('groupBox_coupons_receiving', layoutWidget)
+        horizontalLayout_top_top.addWidget(self.groupBox_coupons_receiving, 1)
         """--------------------------------------------------------------"""
+        verticalLayout_top.addLayout(horizontalLayout_top_top, 0)
 
-        self.verticalLayout_top.addLayout(self.horizontalLayout_top_top)
+        horizontalLayout_top_bottom = QtWidgets.QHBoxLayout()
+        horizontalLayout_top_bottom.setSpacing(2)
 
-        self.horizontalLayout_top_bottom = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_top_bottom.setSpacing(2)
-        self.horizontalLayout_top_bottom.setObjectName('horizontalLayout_top_bottom')
-
-        self.verticalLayout_calendar = QtWidgets.QVBoxLayout()
-        self.verticalLayout_calendar.setSpacing(0)
-        self.verticalLayout_calendar.setObjectName('verticalLayout_calendar')
-
+        verticalLayout_calendar = QtWidgets.QVBoxLayout()
+        verticalLayout_calendar.setSpacing(0)
         """---------------------Панель даты расчёта---------------------"""
-        self.groupBox_calendar = GroupBox_CalculationDate('groupBox_calendar', self.layoutWidget)
-        self.verticalLayout_calendar.addWidget(self.groupBox_calendar)
+        self.groupBox_calendar = GroupBox_CalculationDate('groupBox_calendar', layoutWidget)
+        verticalLayout_calendar.addWidget(self.groupBox_calendar, 0)
         """-------------------------------------------------------------"""
+        verticalLayout_calendar.addStretch(1)
+        horizontalLayout_top_bottom.addLayout(verticalLayout_calendar, 0)
 
-        spacerItem37 = QtWidgets.QSpacerItem(20, 2, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.verticalLayout_calendar.addItem(spacerItem37)
-
-        self.verticalLayout_calendar.setStretch(1, 1)
-        self.horizontalLayout_top_bottom.addLayout(self.verticalLayout_calendar)
-
-        self.verticalLayout_filters = QtWidgets.QVBoxLayout()
-        self.verticalLayout_filters.setSpacing(0)
-        self.verticalLayout_filters.setObjectName('verticalLayout_filters')
-
+        verticalLayout_filters = QtWidgets.QVBoxLayout()
+        verticalLayout_filters.setSpacing(0)
         """-----------------------Панель фильтров-----------------------"""
-        self.groupBox_filters: GroupBox_BondsFilters = GroupBox_BondsFilters('groupBox_filters', self.layoutWidget)
-        self.verticalLayout_filters.addWidget(self.groupBox_filters)
+        self.groupBox_filters = GroupBox_BondsFilters('groupBox_filters', layoutWidget)
+        verticalLayout_filters.addWidget(self.groupBox_filters, 0)
         """-------------------------------------------------------------"""
-
-        spacerItem43 = QtWidgets.QSpacerItem(20, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding)
-        self.verticalLayout_filters.addItem(spacerItem43)
-
-        self.horizontalLayout_top_bottom.addLayout(self.verticalLayout_filters)
+        verticalLayout_filters.addStretch(1)
+        horizontalLayout_top_bottom.addLayout(verticalLayout_filters, 0)
 
         """------------------Панель отображения купонов------------------"""
-        self.groupBox_coupons: GroupBox_CouponsView = GroupBox_CouponsView('groupBox_coupons', self.layoutWidget)
-        self.horizontalLayout_top_bottom.addWidget(self.groupBox_coupons)
-        self.horizontalLayout_top_bottom.setStretch(2, 1)
+        self.groupBox_coupons = GroupBox_CouponsView('groupBox_coupons', layoutWidget)
+        horizontalLayout_top_bottom.addWidget(self.groupBox_coupons, 1)
         """--------------------------------------------------------------"""
 
-        self.verticalLayout_top.addLayout(self.horizontalLayout_top_bottom)
-        self.verticalLayout_top.setStretch(1, 1)
+        verticalLayout_top.addLayout(horizontalLayout_top_bottom, 1)
 
         '''-----------------Панель отображения облигаций-----------------'''
-        self.groupBox_view: GroupBox_BondsView = GroupBox_BondsView('groupBox_view', self.splitter)
+        self.groupBox_view = GroupBox_BondsView('groupBox_view', splitter)
         '''--------------------------------------------------------------'''
 
-        self.verticalLayout_main.addWidget(self.splitter)
+        verticalLayout_main.addWidget(splitter)
 
         '''--------------------Модель облигаций--------------------'''
         source_model: BondsModel = BondsModel(self.groupBox_calendar.getDateTime())  # Создаём модель.

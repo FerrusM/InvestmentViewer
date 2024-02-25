@@ -14,50 +14,30 @@ from new_BondsModel import BondsModel, BondsProxyModel
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
     """Панель прогресса получения купонов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
-        super().__init__(parent)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.sizePolicy().hasHeightForWidth())
-        self.setSizePolicy(sizePolicy)
+    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        _translate = QtCore.QCoreApplication.translate
-
-        '''----------------------------------Заголовок----------------------------------'''
-        label_title = TitleLabel(text='ПОЛУЧЕНИЕ КУПОНОВ', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(label_title.sizePolicy().hasHeightForWidth())
-        label_title.setSizePolicy(sizePolicy)
-        self.verticalLayout_main.addWidget(label_title)
-        '''-----------------------------------------------------------------------------'''
+        verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ КУПОНОВ', parent=self), 0)
 
         '''-------------------------ProgressBar-------------------------'''
-        self.progressBar_coupons = ProgressBar_DataReceiving('progressBar_coupons', self)
-        self.verticalLayout_main.addWidget(self.progressBar_coupons)
+        self.progressBar_coupons = ProgressBar_DataReceiving(parent=self)
+        verticalLayout_main.addWidget(self.progressBar_coupons, 0)
         '''-------------------------------------------------------------'''
 
         '''---------------------------Строка с выбором типа купонов---------------------------'''
-        self.horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_coupons_type.setSpacing(0)
+        horizontalLayout_coupons_type = QtWidgets.QHBoxLayout()
+        horizontalLayout_coupons_type.setSpacing(0)
 
         self.label_coupons_type = QtWidgets.QLabel(text='Тип купонов:', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_coupons_type.sizePolicy().hasHeightForWidth())
-        self.label_coupons_type.setSizePolicy(sizePolicy)
         self.label_coupons_type.setToolTip('Тип купона.')
-        self.horizontalLayout_coupons_type.addWidget(self.label_coupons_type)
+        horizontalLayout_coupons_type.addWidget(self.label_coupons_type, 0)
 
-        self.horizontalLayout_coupons_type.addSpacing(4)
+        horizontalLayout_coupons_type.addSpacing(4)
 
         self.comboBox_coupons_type = QtWidgets.QComboBox(self)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -65,25 +45,24 @@ class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.comboBox_coupons_type.sizePolicy().hasHeightForWidth())
         self.comboBox_coupons_type.setSizePolicy(sizePolicy)
-        self.comboBox_coupons_type.setStyleSheet('')
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Любой'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Постоянный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Фиксированный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Переменный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Плавающий'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Дисконт'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Ипотечный'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Прочее'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Неопределённый'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Нет купонов'))
-        self.comboBox_coupons_type.addItem(_translate('MainWindow', 'Разные купоны'))
-        self.horizontalLayout_coupons_type.addWidget(self.comboBox_coupons_type)
+        self.comboBox_coupons_type.addItem('Любой')
+        self.comboBox_coupons_type.addItem('Постоянный')
+        self.comboBox_coupons_type.addItem('Фиксированный')
+        self.comboBox_coupons_type.addItem('Переменный')
+        self.comboBox_coupons_type.addItem('Плавающий')
+        self.comboBox_coupons_type.addItem('Дисконт')
+        self.comboBox_coupons_type.addItem('Ипотечный')
+        self.comboBox_coupons_type.addItem('Прочее')
+        self.comboBox_coupons_type.addItem('Неопределённый')
+        self.comboBox_coupons_type.addItem('Нет купонов')
+        self.comboBox_coupons_type.addItem('Разные купоны')
+        horizontalLayout_coupons_type.addWidget(self.comboBox_coupons_type, 0)
 
-        self.horizontalLayout_coupons_type.addStretch(1)
+        horizontalLayout_coupons_type.addStretch(1)
         '''-----------------------------------------------------------------------------------'''
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_coupons_type)
-        self.verticalLayout_main.setStretch(1, 1)
+        verticalLayout_main.addLayout(horizontalLayout_coupons_type, 0)
+        verticalLayout_main.addStretch(1)
 
     def setRange(self, minimum: int, maximum: int):
         """Устанавливает минимум и максимум для progressBar'а."""
@@ -267,6 +246,7 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = ...):
         super().__init__(parent)
+        self.setTitle('Общие фильтры')
         self.setObjectName(object_name)
 
         self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -276,8 +256,6 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         self.gridLayout_main = QtWidgets.QGridLayout()
         self.gridLayout_main.setHorizontalSpacing(7)
         self.gridLayout_main.setVerticalSpacing(2)
-
-        _translate = QtCore.QCoreApplication.translate
 
         """---------------Возможность торговать инструментом через API---------------"""
         self.label_api_trade_available_flag = FilterLabel(object_name='label_api_trade_available_flag',
@@ -292,8 +270,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """---------------------Признак доступности для ИИС---------------------"""
         self.label_for_iis_flag = FilterLabel(object_name='label_for_iis_flag',
-                                              text=_translate('MainWindow', 'Доступ ИИС:'),
-                                              tooltip=_translate('MainWindow', 'Признак доступности для ИИС.'),
+                                              text='Доступ ИИС:',
+                                              tooltip='Признак доступности для ИИС.',
                                               parent=self)
         self.gridLayout_main.addWidget(self.label_for_iis_flag, 1, 0, 1, 1)
 
@@ -303,8 +281,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """------Доступность торговли инструментом только для квалифицированных инвесторов------"""
         self.label_for_qual_investor_flag = FilterLabel(object_name='label_for_qual_investor_flag',
-                                                        text=_translate('MainWindow', 'Только \"квалы\":'),
-                                                        tooltip=_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.'),
+                                                        text='Только \"квалы\":',
+                                                        tooltip='Флаг отображающий доступность торговли инструментом только для квалифицированных инвесторов.',
                                                         parent=self)
         self.gridLayout_main.addWidget(self.label_for_qual_investor_flag, 2, 0, 1, 1)
 
@@ -314,8 +292,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """---------------------Флаг достаточной ликвидности---------------------"""
         self.label_liquidity_flag = FilterLabel(object_name='label_liquidity_flag',
-                                                text=_translate('MainWindow', 'Ликвидность:'),
-                                                tooltip=_translate('MainWindow', 'Флаг достаточной ликвидности.'),
+                                                text='Ликвидность:',
+                                                tooltip='Флаг достаточной ликвидности.',
                                                 parent=self)
         self.gridLayout_main.addWidget(self.label_liquidity_flag, 3, 0, 1, 1)
 
@@ -325,8 +303,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """---------------Признак доступности для операций в шорт---------------"""
         self.label_short_enabled_flag = FilterLabel(object_name='label_short_enabled_flag',
-                                                    text=_translate('MainWindow', 'Операции в шорт:'),
-                                                    tooltip=_translate('MainWindow', 'Признак доступности для операций в шорт.'),
+                                                    text='Операции в шорт:',
+                                                    tooltip='Признак доступности для операций в шорт.',
                                                     parent=self)
         self.gridLayout_main.addWidget(self.label_short_enabled_flag, 4, 0, 1, 1)
 
@@ -336,8 +314,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """------------------------Признак доступности для покупки------------------------"""
         self.label_buy_available_flag = FilterLabel(object_name='label_buy_available_flag',
-                                                    text=_translate('MainWindow', 'Доступность покупки:'),
-                                                    tooltip=_translate('MainWindow', 'Признак доступности для покупки.'),
+                                                    text='Доступность покупки:',
+                                                    tooltip='Признак доступности для покупки.',
                                                     parent=self)
         self.gridLayout_main.addWidget(self.label_buy_available_flag, 0, 2, 1, 1)
 
@@ -347,8 +325,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """------------------------Признак доступности для продажи------------------------"""
         self.label_sell_available_flag = FilterLabel(object_name='label_sell_available_flag',
-                                                     text=_translate('MainWindow', 'Доступность продажи:'),
-                                                     tooltip=_translate('MainWindow', 'Признак доступности для продажи.'),
+                                                     text='Доступность продажи:',
+                                                     tooltip='Признак доступности для продажи.',
                                                      parent=self)
         self.gridLayout_main.addWidget(self.label_sell_available_flag, 1, 2, 1, 1)
 
@@ -358,8 +336,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """------------Доступность торговли инструментом по выходным------------"""
         self.label_weekend_flag = FilterLabel(object_name='label_weekend_flag',
-                                              text=_translate('MainWindow', 'Торговля по выходным:'),
-                                              tooltip=_translate('MainWindow', 'Флаг отображающий доступность торговли инструментом по выходным.'),
+                                              text='Торговля по выходным:',
+                                              tooltip='Флаг отображающий доступность торговли инструментом по выходным.',
                                               parent=self)
         self.gridLayout_main.addWidget(self.label_weekend_flag, 2, 2, 1, 1)
 
@@ -369,8 +347,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """------------------Признак внебиржевой ценной бумаги------------------"""
         self.label_otc_flag = FilterLabel(object_name='label_otc_flag',
-                                          text=_translate('MainWindow', 'Внебиржевая бумага:'),
-                                          tooltip=_translate('MainWindow', 'Признак внебиржевой ценной бумаги.'),
+                                          text='Внебиржевая бумага:',
+                                          tooltip='Признак внебиржевой ценной бумаги.',
                                           parent=self)
         self.gridLayout_main.addWidget(self.label_otc_flag, 3, 2, 1, 1)
 
@@ -380,8 +358,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """---------------------Флаг заблокированного ТКС---------------------"""
         self.label_blocked_tca_flag = FilterLabel(object_name='label_blocked_tca_flag',
-                                                  text=_translate('MainWindow', 'Заблокированный ТКС:'),
-                                                  tooltip=_translate('MainWindow', 'Флаг заблокированного ТКС.'),
+                                                  text='Заблокированный ТКС:',
+                                                  tooltip='Флаг заблокированного ТКС.',
                                                   parent=self)
         self.gridLayout_main.addWidget(self.label_blocked_tca_flag, 4, 2, 1, 1)
 
@@ -391,8 +369,8 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
 
         """----------------------------Валюта----------------------------"""
         self.label_currency = FilterLabel(object_name='label_currency',
-                                          text=_translate('MainWindow', 'Валюта:'),
-                                          tooltip=_translate('MainWindow', 'Валюта расчётов.'),
+                                          text='Валюта:',
+                                          tooltip='Валюта расчётов.',
                                           parent=self)
         self.gridLayout_main.addWidget(self.label_currency, 5, 0, 1, 1)
 
@@ -401,10 +379,6 @@ class GroupBox_InstrumentsFilters(QtWidgets.QGroupBox):
         """--------------------------------------------------------------"""
 
         self.verticalLayout_main.addLayout(self.gridLayout_main)
-
-        """------------------------retranslateUi------------------------"""
-        self.setTitle('Общие фильтры')
-        """-------------------------------------------------------------"""
 
         self.filters: dict[str, BoolFilterComboBox | CurrencyFilterComboBox] = {
             'api_trade_available_flag': self.comboBox_api_trade_available_flag,
@@ -443,11 +417,10 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
     def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
         super().__init__(title='Фильтры облигаций', parent=parent)
         self.setObjectName(object_name)
-        _translate = QtCore.QCoreApplication.translate
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         self.gridLayout_main = QtWidgets.QGridLayout()
         self.gridLayout_main.setHorizontalSpacing(7)
@@ -455,8 +428,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
         """----------------------------Погашенность----------------------------"""
         self.label_maturity = FilterLabel(object_name='label_maturity',
-                                          text=_translate('MainWindow', 'Погашенность:'),
-                                          tooltip=_translate('MainWindow', 'Флаг, отображающий погашенность облигации к текущей дате.'),
+                                          text='Погашенность:',
+                                          tooltip='Флаг, отображающий погашенность облигации к текущей дате.',
                                           parent=self)
         self.gridLayout_main.addWidget(self.label_maturity, 0, 0, 1, 1)
 
@@ -466,8 +439,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
         """----------------------------Плавающий купон---------------------------"""
         self.label_floating_coupon_flag = FilterLabel(object_name='label_floating_coupon_flag',
-                                                      text=_translate('MainWindow', 'Плавающий купон:'),
-                                                      tooltip=_translate('MainWindow', 'Признак облигации с плавающим купоном.'),
+                                                      text='Плавающий купон:',
+                                                      tooltip='Признак облигации с плавающим купоном.',
                                                       parent=self)
         self.gridLayout_main.addWidget(self.label_floating_coupon_flag, 0, 2, 1, 1)
 
@@ -488,8 +461,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
         """----------------------------Бессрочность----------------------------"""
         self.label_perpetual_flag = FilterLabel(object_name='label_perpetual_flag',
-                                                text=_translate('MainWindow', 'Бессрочность:'),
-                                                tooltip=_translate('MainWindow', 'Признак бессрочной облигации.'),
+                                                text='Бессрочность:',
+                                                tooltip='Признак бессрочной облигации.',
                                                 parent=self)
         self.gridLayout_main.addWidget(self.label_perpetual_flag, 1, 2, 1, 1)
 
@@ -499,8 +472,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
         """-----------------------------Амортизация-----------------------------"""
         self.label_amortization_flag = FilterLabel(object_name='label_amortization_flag',
-                                                   text=_translate('MainWindow', 'Амортизация:'),
-                                                   tooltip=_translate('MainWindow', 'Признак облигации с амортизацией долга.'),
+                                                   text='Амортизация:',
+                                                   tooltip='Признак облигации с амортизацией долга.',
                                                    parent=self)
         self.gridLayout_main.addWidget(self.label_amortization_flag, 2, 0, 1, 1)
 
@@ -510,8 +483,8 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
 
         """-------------------------------Суборд-------------------------------"""
         self.label_subordinated_flag = FilterLabel(object_name='label_subordinated_flag',
-                                                   text=_translate('MainWindow', 'Суборд:'),
-                                                   tooltip=_translate('MainWindow', 'Признак субординированной облигации.'),
+                                                   text='Суборд:',
+                                                   tooltip='Признак субординированной облигации.',
                                                    parent=self)
         self.gridLayout_main.addWidget(self.label_subordinated_flag, 2, 2, 1, 1)
 
@@ -519,7 +492,7 @@ class GroupBox_OnlyBondsFilters(QtWidgets.QGroupBox):
         self.gridLayout_main.addWidget(self.comboBox_subordinated_flag, 2, 3, 1, 1)
         """--------------------------------------------------------------------"""
 
-        self.verticalLayout_main.addLayout(self.gridLayout_main)
+        verticalLayout_main.addLayout(self.gridLayout_main)
 
         self.filters: dict[str, BoolFilterComboBox] = {
             'amortization_flag': self.comboBox_amortization_flag,
@@ -579,16 +552,16 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         """--------------------------------------------------------------"""
 
         """----------------------Фильтры облигаций----------------------"""
-        self.horizontalLayout_bond_filters = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_bond_filters.setSpacing(0)
+        horizontalLayout_bond_filters = QtWidgets.QHBoxLayout()
+        horizontalLayout_bond_filters.setSpacing(0)
 
-        self.groupBox_bonds_filters: GroupBox_OnlyBondsFilters = GroupBox_OnlyBondsFilters('groupBox_bonds_filters', self)
+        self.groupBox_bonds_filters = GroupBox_OnlyBondsFilters('groupBox_bonds_filters', self)
         self.groupBox_bonds_filters.filtersChanged.connect(self.filtersChanged.emit)
-        self.horizontalLayout_bond_filters.addWidget(self.groupBox_bonds_filters)
+        horizontalLayout_bond_filters.addWidget(self.groupBox_bonds_filters)
 
-        self.horizontalLayout_bond_filters.addStretch(1)
+        horizontalLayout_bond_filters.addStretch(1)
 
-        self.verticalLayout_main.addLayout(self.horizontalLayout_bond_filters)
+        self.verticalLayout_main.addLayout(horizontalLayout_bond_filters)
         """-------------------------------------------------------------"""
 
     def setCount(self, count: int):
@@ -811,7 +784,7 @@ class new_BondsPage(QtWidgets.QWidget):
         """-------------------------------------------------------------"""
 
         """--------------Панель прогресса получения купонов--------------"""
-        self.groupBox_coupons_receiving: GroupBox_CouponsReceiving = GroupBox_CouponsReceiving('groupBox_coupons_receiving', self.layoutWidget)
+        self.groupBox_coupons_receiving = GroupBox_CouponsReceiving('groupBox_coupons_receiving', self.layoutWidget)
         self.horizontalLayout_top_top.addWidget(self.groupBox_coupons_receiving)
         self.horizontalLayout_top_top.setStretch(1, 1)
         """--------------------------------------------------------------"""

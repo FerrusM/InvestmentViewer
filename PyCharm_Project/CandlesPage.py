@@ -1057,7 +1057,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.stop_button.setText(self.STOP)
         self.horizontalLayout.addWidget(self.stop_button)
 
-        self.progressBar = ProgressBar_DataReceiving('progressBar_candles', self)
+        self.progressBar = ProgressBar_DataReceiving(parent=self)
         self.horizontalLayout.addWidget(self.progressBar)
 
         self.verticalLayout_main.addLayout(self.horizontalLayout)

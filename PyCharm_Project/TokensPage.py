@@ -24,20 +24,15 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
         horizontalLayout_title = QtWidgets.QHBoxLayout(self)
         horizontalLayout_title.setSpacing(0)
 
-        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
-        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(0, 20, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Minimum))
-        horizontalLayout_title.addWidget(TitleLabel(text='СОХРАНЁННЫЕ ТОКЕНЫ', parent=self))
+        horizontalLayout_title.addSpacing(10)
+        horizontalLayout_title.addStretch(1)
+        horizontalLayout_title.addWidget(TitleLabel(text='СОХРАНЁННЫЕ ТОКЕНЫ', parent=self), 0)
 
         self.label_count = QtWidgets.QLabel(text='0', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_count.sizePolicy().hasHeightForWidth())
-        self.label_count.setSizePolicy(sizePolicy)
         self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        horizontalLayout_title.addWidget(self.label_count)
+        horizontalLayout_title.addWidget(self.label_count, 1)
 
-        horizontalLayout_title.addSpacerItem(QtWidgets.QSpacerItem(10, 20, QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Minimum))
+        horizontalLayout_title.addSpacing(10)
 
         verticalLayout_main.addLayout(horizontalLayout_title)
         """----------------------------------------------------------"""
