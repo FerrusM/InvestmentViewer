@@ -1036,6 +1036,10 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
             def setType(self, instrument_type: str | None):
                 self._update(self.__token, self.__status, instrument_type)
 
+            @property
+            def uids(self) -> list[str]:
+                return [item[0] for item in self.__instruments]
+
         def __init__(self, token: TokenClass | None = None, status: str | None = None, instrument_type: str | None = None, parent: QtWidgets.QWidget | None = None):
             super().__init__(parent=parent)
             self.__current_item: tuple[str, str] | None = None

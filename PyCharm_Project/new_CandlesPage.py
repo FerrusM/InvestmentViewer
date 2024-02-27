@@ -669,7 +669,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.setStatus(token=token, instrument=instrument, interval=interval, status=status)
 
     @property
-    def token(self) -> TokenClass:
+    def token(self) -> TokenClass | None:
         return self.comboBox_token.token
 
     @token.setter

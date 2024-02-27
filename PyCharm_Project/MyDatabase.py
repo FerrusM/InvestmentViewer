@@ -4,7 +4,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
-    AssetCurrency, AssetSecurity
+    AssetCurrency, AssetSecurity, GetForecastResponse
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -1781,6 +1781,77 @@ class MainConnection(MyConnection):
 
             for instrument in assetfull.instruments:
                 MainConnection.addAssetInstrument(db, assetfull.uid, instrument)  # Добавляем идентификаторы инструмента актива в таблицу идентификаторов инструментов активов.
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def insertForecasts(cls, forecasts: GetForecastResponse):
+        insert_consensus_forecast_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"ticker\", \"recommendation\", 
+        \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", \"price_change\", 
+        \"price_change_rel\") VALUES (:uid, :ticker, :recommendation, :currency, :current_price, :consensus, 
+        :min_target, :max_target, :price_change, :price_change_rel) ON CONFLICT(\"uid\") DO UPDATE SET \"ticker\" = 
+        {1}.\"ticker\", \"recommendation\" = {1}.\"recommendation\", \"currency\" = {1}.\"currency\", \"current_price\" 
+        = {1}.\"current_price\", \"consensus\" = {1}.\"consensus\", \"min_target\" = {1}.\"min_target\", \"max_target\" 
+        = {1}.\"max_target\", \"price_change\" = {1}.\"price_change\", \"price_change_rel\" = {1}.\"price_change_rel\" 
+        WHERE \"ticker\" != {1}.\"ticker\" OR \"recommendation\" != {1}.\"recommendation\" OR \"currency\" != 
+        {1}.\"currency\" OR \"current_price\" != {1}.\"current_price\" OR \"consensus\" != {1}.\"consensus\" OR 
+        \"min_target\" != {1}.\"min_target\" OR \"max_target\" != {1}.\"max_target\" OR \"price_change\" != 
+        {1}.\"price_change\" OR \"price_change_rel\" != {1}.\"price_change_rel\";'''.format(
+            MyConnection.CONSENSUS_ITEMS_TABLE,
+            '\"excluded\"'
+        )
+
+        insert_target_forecast_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"ticker\", \"company\", 
+        \"recommendation\", \"recommendation_date\", \"currency\", \"current_price\", \"target_price\", 
+        \"price_change\", \"price_change_rel\", \"show_name\") VALUES (:uid, :ticker, :company, :recommendation, 
+        :recommendation_date, :currency, :current_price, :target_price, :price_change, :price_change_rel, :show_name) ON 
+        CONFLICT(\"uid\", \"company\", \"recommendation_date\") DO UPDATE SET \"ticker\" = {1}.\"ticker\", 
+        \"recommendation\" = {1}.\"recommendation\", \"currency\" = {1}.\"currency\", \"current_price\" = 
+        {1}.\"current_price\", \"target_price\" = {1}.\"target_price\", \"price_change\" = {1}.\"price_change\", 
+        \"price_change_rel\" = {1}.\"price_change_rel\", \"show_name\" = {1}.\"show_name\" WHERE \"ticker\" != 
+        {1}.\"ticker\" OR \"recommendation\" != {1}.\"recommendation\" OR \"currency\" != {1}.\"currency\" OR 
+        \"current_price\" != {1}.\"current_price\" OR \"target_price\" != {1}.\"target_price\" OR \"price_change\" != 
+        {1}.\"price_change\" OR \"price_change_rel\" != {1}.\"price_change_rel\" OR \"show_name\" != {1}.\"show_name\";
+        '''.format(MyConnection.TARGET_ITEMS_TABLE, '\"excluded\"')
+
+        db: QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            insert_consensus_query = QSqlQuery(db)
+            insert_consensus_prepare_flag: bool = insert_consensus_query.prepare(insert_consensus_forecast_command)
+            assert insert_consensus_prepare_flag, insert_consensus_query.lastError().text()
+            insert_consensus_query.bindValue(':uid', forecasts.consensus.uid)
+            insert_consensus_query.bindValue(':ticker', forecasts.consensus.ticker)
+            insert_consensus_query.bindValue(':recommendation', forecasts.consensus.recommendation.name)
+            insert_consensus_query.bindValue(':currency', forecasts.consensus.currency)
+            insert_consensus_query.bindValue(':current_price', MyQuotation.__repr__(forecasts.consensus.current_price))
+            insert_consensus_query.bindValue(':consensus', MyQuotation.__repr__(forecasts.consensus.consensus))
+            insert_consensus_query.bindValue(':min_target', MyQuotation.__repr__(forecasts.consensus.min_target))
+            insert_consensus_query.bindValue(':max_target', MyQuotation.__repr__(forecasts.consensus.max_target))
+            insert_consensus_query.bindValue(':price_change', MyQuotation.__repr__(forecasts.consensus.price_change))
+            insert_consensus_query.bindValue(':price_change_rel', MyQuotation.__repr__(forecasts.consensus.price_change_rel))
+            insert_consensus_exec_flag: bool = insert_consensus_query.exec()
+            assert insert_consensus_exec_flag, insert_consensus_query.lastError().text()
+
+            for target in forecasts.targets:
+                insert_target_query = QSqlQuery(db)
+                insert_target_prepare_flag: bool = insert_target_query.prepare(insert_target_forecast_command)
+                assert insert_target_prepare_flag, insert_target_query.lastError().text()
+                insert_target_query.bindValue(':uid', target.uid)
+                insert_target_query.bindValue(':ticker', target.ticker)
+                insert_target_query.bindValue(':company', target.company)
+                insert_target_query.bindValue(':recommendation', target.recommendation.name)
+                insert_target_query.bindValue(':recommendation_date', MyConnection.convertDateTimeToText(target.recommendation_date))
+                insert_target_query.bindValue(':currency', target.currency)
+                insert_target_query.bindValue(':current_price', MyQuotation.__repr__(target.current_price))
+                insert_target_query.bindValue(':target_price', MyQuotation.__repr__(target.target_price))
+                insert_target_query.bindValue(':price_change', MyQuotation.__repr__(target.price_change))
+                insert_target_query.bindValue(':price_change_rel', MyQuotation.__repr__(target.price_change_rel))
+                insert_target_query.bindValue(':show_name', target.show_name)
+                insert_target_exec_flag: bool = insert_target_query.exec()
+                assert insert_target_exec_flag, insert_target_query.lastError().text()
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()

@@ -3,6 +3,7 @@ from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
     InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset, AssetFull, HistoricCandle, \
     CandleInterval, Coupon
+from tinkoff.invest.schemas import GetForecastRequest, GetForecastResponse
 
 
 class RequestTryClass:
@@ -304,6 +305,36 @@ def getCandles(token: str, uid: str, interval: CandleInterval, from_: datetime |
     return MyResponse(method_name='get_candles()',
                       request_occurred=request_occurred,
                       response_data=candles,
+                      exception_flag=exception_flag,
+                      exception=exception,
+                      request_error_flag=request_error_flag,
+                      request_error=request_error)
+
+
+def getForecast(token: str, uid: str) -> MyResponse:
+    """Получает и возвращает прогнозы инвестдомов по инструменту."""
+    forecasts: GetForecastResponse | None = None
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            forecasts = client.instruments.get_forecast_by(request=GetForecastRequest(instrument_id=uid))
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse(method_name='get_forecast_by()',
+                      request_occurred=request_occurred,
+                      response_data=forecasts,
                       exception_flag=exception_flag,
                       exception=exception,
                       request_error_flag=request_error_flag,
