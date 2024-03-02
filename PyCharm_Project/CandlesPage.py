@@ -1139,15 +1139,15 @@ class GroupBox_Chart(QtWidgets.QGroupBox):
 
 class CandlesPage(QtWidgets.QWidget):
     """Страница свечей."""
-    def __init__(self, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         self.__instrument: MyBondClass | MyShareClass | None = None
         self.__candles: list[HistoricCandle] = []
 
         super().__init__(parent=parent)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
         self.splitter = QtWidgets.QSplitter(self)
         self.splitter.setOrientation(QtCore.Qt.Orientation.Vertical)
@@ -1155,41 +1155,41 @@ class CandlesPage(QtWidgets.QWidget):
         """========================Верхняя часть========================"""
         self.layoutWidget = QtWidgets.QWidget(self.splitter)
 
-        self.horizontalLayout_top = QtWidgets.QHBoxLayout(self.layoutWidget)
-        self.horizontalLayout_top.setContentsMargins(0, 0, 0, 0)
-        self.horizontalLayout_top.setSpacing(2)
+        horizontalLayout_top = QtWidgets.QHBoxLayout(self.layoutWidget)
+        horizontalLayout_top.setContentsMargins(0, 0, 0, 0)
+        horizontalLayout_top.setSpacing(2)
 
         '''-----Выбор инструмента и отображение информации об инструменте-----'''
-        self.verticalLayout_instrument = QtWidgets.QVBoxLayout(self.layoutWidget)
-        self.verticalLayout_instrument.setSpacing(2)
+        verticalLayout_instrument = QtWidgets.QVBoxLayout(self.layoutWidget)
+        verticalLayout_instrument.setSpacing(2)
 
         self.groupBox_instrument = GroupBox_InstrumentSelection(self.layoutWidget)  # Панель выбора инструмента.
-        self.verticalLayout_instrument.addWidget(self.groupBox_instrument)
+        verticalLayout_instrument.addWidget(self.groupBox_instrument)
 
         self.groupBox_info = GroupBox_InstrumentInfo(self.layoutWidget)  # Отображение информации об инструменте.
         self.groupBox_instrument.bondSelected.connect(self.groupBox_info.setInstrument)
         self.groupBox_instrument.shareSelected.connect(self.groupBox_info.setInstrument)
         self.groupBox_instrument.instrumentReset.connect(self.groupBox_info.reset)
-        self.verticalLayout_instrument.addWidget(self.groupBox_info)
+        verticalLayout_instrument.addWidget(self.groupBox_info)
 
-        self.horizontalLayout_top.addLayout(self.verticalLayout_instrument)
+        horizontalLayout_top.addLayout(verticalLayout_instrument)
         '''-------------------------------------------------------------------'''
 
         '''---------------Панели получения и отображения свечей---------------'''
-        self.verticalLayout_candles = QtWidgets.QVBoxLayout(self.layoutWidget)
-        self.verticalLayout_candles.setSpacing(2)
+        verticalLayout_candles = QtWidgets.QVBoxLayout(self.layoutWidget)
+        verticalLayout_candles.setSpacing(2)
 
         self.groupBox_candles_receiving = GroupBox_CandlesReceiving(self.layoutWidget)
         self.__interval: CandleInterval = self.groupBox_candles_receiving.currentInterval()
         self.groupBox_instrument.bondSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.shareSelected.connect(self.groupBox_candles_receiving.setInstrument)
         self.groupBox_instrument.instrumentReset.connect(self.groupBox_candles_receiving.reset)
-        self.verticalLayout_candles.addWidget(self.groupBox_candles_receiving)
+        verticalLayout_candles.addWidget(self.groupBox_candles_receiving)
 
         self.groupBox_candles_view = GroupBox_CandlesView(self.layoutWidget)
-        self.verticalLayout_candles.addWidget(self.groupBox_candles_view)
+        verticalLayout_candles.addWidget(self.groupBox_candles_view)
 
-        self.horizontalLayout_top.addLayout(self.verticalLayout_candles)
+        horizontalLayout_top.addLayout(verticalLayout_candles)
         '''-------------------------------------------------------------------'''
 
         # self.verticalLayout_main.addLayout(self.horizontalLayout_top)
@@ -1200,7 +1200,7 @@ class CandlesPage(QtWidgets.QWidget):
         # self.verticalLayout_main.addWidget(self.groupBox_chart)
         """============================================================"""
 
-        self.verticalLayout_main.addWidget(self.splitter)
+        verticalLayout_main.addWidget(self.splitter)
 
         def getCandlesFromDb() -> list[HistoricCandle]:
             uid: str = self.__instrument.instrument().uid
@@ -1248,6 +1248,8 @@ class CandlesPage(QtWidgets.QWidget):
 
         self.groupBox_candles_receiving.intervalChanged.connect(onIntervalChanged)
 
+        self.groupBox_candles_receiving.setTokensModel(tokens_model)  # Устанавливает модель токенов для ComboBox'а.
+
     @property
     def candles(self) -> list[HistoricCandle]:
         return self.__candles
@@ -1280,7 +1282,3 @@ class CandlesPage(QtWidgets.QWidget):
         else:
             self.groupBox_candles_view.setCandles(self.candles)
             self.groupBox_chart.setCandles(self.candles, self.__interval)
-
-    def setTokensModel(self, token_list_model: TokenListModel):
-        """Устанавливает модель токенов для ComboBox'а."""
-        self.groupBox_candles_receiving.setTokensModel(token_list_model)

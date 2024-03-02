@@ -2,7 +2,6 @@ import enum
 import typing
 from datetime import datetime
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import InstrumentStatus, Bond
 from tinkoff.invest.schemas import RiskLevel
 from old_BondsModel import BondsModel, BondsProxyModel
@@ -20,9 +19,8 @@ from TokenModel import TokenListModel
 
 class GroupBox_CouponsReceiving(QtWidgets.QGroupBox):
     """Панель прогресса получения купонов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        self.setObjectName(object_name)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -478,9 +476,8 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
 
 class BondsPage(QtWidgets.QWidget):
     """Страница облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        self.setObjectName(object_name)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -501,7 +498,7 @@ class BondsPage(QtWidgets.QWidget):
         horizontalLayout_top_top.addWidget(self.groupBox_request, 0)
         """-------------------------------------------------------------"""
         """--------------Панель прогресса получения купонов--------------"""
-        self.groupBox_coupons_receiving = GroupBox_CouponsReceiving('groupBox_coupons_receiving', layoutWidget)
+        self.groupBox_coupons_receiving = GroupBox_CouponsReceiving(layoutWidget)
         horizontalLayout_top_top.addWidget(self.groupBox_coupons_receiving, 1)
         """--------------------------------------------------------------"""
         verticalLayout_top.addLayout(horizontalLayout_top_top, 0)
@@ -611,6 +608,8 @@ class BondsPage(QtWidgets.QWidget):
 
         self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены выбранной облигации.
 
+        self.groupBox_request.comboBox_token.setModel(tokens_model)  # Устанавливает модель токенов для ComboBox'а.
+
     @property
     def token(self) -> TokenClass | None:
         return self.__token
@@ -618,10 +617,6 @@ class BondsPage(QtWidgets.QWidget):
     @token.setter
     def token(self, token: TokenClass | None):
         self.__token = token
-
-    def setTokensModel(self, token_list_model: TokenListModel):
-        """Устанавливает модель токенов для ComboBox'а."""
-        self.groupBox_request.comboBox_token.setModel(token_list_model)
 
     def __reset(self):
         """Сбрасывает облигации."""
@@ -634,7 +629,7 @@ class BondsPage(QtWidgets.QWidget):
         '''---------------------------------------------------------------------------------'''
         self.groupBox_coupons_receiving.reset()  # Сбрасывает progressBar.
 
-    @pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    @QtCore.pyqtSlot(InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onStatusChanged(self, instrument_status: InstrumentStatus):
         """Функция, выполняемая при изменении выбранного статуса инструмента."""
         self._stopCouponsThread()  # Останавливаем поток получения купонов.
@@ -665,14 +660,14 @@ class BondsPage(QtWidgets.QWidget):
             else:
                 self.__reset()  # Сбрасывает облигации.
 
-    @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenReset(self):
         """Функция, выполняемая при выборе пустого значения вместо токена."""
         self._stopCouponsThread()  # Останавливаем поток получения купонов.
         self.token = None
         self.__reset()  # Сбрасывает облигации.
 
-    @pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    @QtCore.pyqtSlot(TokenClass, InstrumentStatus)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def onTokenChanged(self, token: TokenClass, instrument_status: InstrumentStatus):
         """Функция, выполняемая при изменении выбранного токена."""
         self._stopCouponsThread()  # Останавливаем поток получения купонов.

@@ -3,7 +3,8 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtSql
 from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, pyqtSlot
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
-from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle
+from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, \
+    ConsensusItem, Recommendation
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
 
@@ -588,3 +589,20 @@ class MyConnection(ABC):
         time: datetime = cls.convertTextToDateTime(query.value('time'))
         is_complete: bool = cls.convertBlobToBool(query.value('is_complete'))
         return HistoricCandle(open=open_, high=high, low=low, close=close, volume=volume, time=time, is_complete=is_complete)
+
+    @classmethod
+    def getConsensusItem(cls, query: QtSql.QSqlQuery) -> ConsensusItem:
+        """Создаёт и возвращает экземпляр класса ConsensusItem."""
+        uid: str = query.value('uid')
+        ticker: str = query.value('ticker')
+        recommendation: Recommendation = Recommendation.from_string(query.value('recommendation'))
+        currency: str = query.value('currency')
+        current_price: Quotation = cls.convertTextToQuotation(query.value('current_price'))
+        consensus: Quotation = cls.convertTextToQuotation(query.value('consensus'))
+        min_target: Quotation = cls.convertTextToQuotation(query.value('min_target'))
+        max_target: Quotation = cls.convertTextToQuotation(query.value('max_target'))
+        price_change: Quotation = cls.convertTextToQuotation(query.value('price_change'))
+        price_change_rel: Quotation = cls.convertTextToQuotation(query.value('price_change_rel'))
+        return ConsensusItem(uid=uid, ticker=ticker, recommendation=recommendation, currency=currency,
+                             current_price=current_price, consensus=consensus, min_target=min_target,
+                             max_target=max_target, price_change=price_change, price_change_rel=price_change_rel)

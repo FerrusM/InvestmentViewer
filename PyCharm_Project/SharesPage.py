@@ -147,9 +147,8 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
 
 class GroupBox_DividendsView(QtWidgets.QGroupBox):
     """Панель отображения дивидендов акций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        self.setObjectName(object_name)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -312,7 +311,7 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
 
 class SharesPage(QtWidgets.QWidget):
     """Страница акций."""
-    def __init__(self, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -367,7 +366,7 @@ class SharesPage(QtWidgets.QWidget):
         horizontalLayout_top_bottom.addLayout(verticalLayout_top_bottom_left, 0)
 
         """----------------Панель отображения дивидендов----------------"""
-        self.groupBox_dividends = GroupBox_DividendsView('groupBox_dividends', layoutWidget)
+        self.groupBox_dividends = GroupBox_DividendsView(layoutWidget)
         horizontalLayout_top_bottom.addWidget(self.groupBox_dividends, 1)
         """-------------------------------------------------------------"""
 
@@ -447,9 +446,7 @@ class SharesPage(QtWidgets.QWidget):
         # self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(onCurrentRowChanged)  # Событие смены выбранной акции.
         self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_dividends.setData(self.groupBox_view.proxyModel().getShare(current)))  # Событие смены выбранной акции.
 
-    def setTokensModel(self, token_list_model: TokenListModel):
-        """Устанавливает модель токенов для ComboBox'а."""
-        self.groupBox_request.setTokensModel(token_list_model)
+        self.groupBox_request.setTokensModel(tokens_model)  # Устанавливает модель токенов для ComboBox'а.
 
     def __reset(self):
         """Сбрасывает акции."""

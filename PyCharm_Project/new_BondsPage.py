@@ -752,9 +752,8 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
 
 class new_BondsPage(QtWidgets.QWidget):
     """Страница облигаций."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        self.setObjectName(object_name)
 
         '''------------------------Аттрибуты экземпляра класса------------------------'''
         self.__token: TokenClass | None = None
@@ -849,6 +848,8 @@ class new_BondsPage(QtWidgets.QWidget):
         self.groupBox_calendar.calendarWidget.selectionChanged.connect(lambda: self.groupBox_view.setCalculationDateTime(self.groupBox_calendar.getDateTime()))
         self.groupBox_view.tableView.selectionModel().currentRowChanged.connect(lambda current, previous: self.groupBox_coupons.setData(self.groupBox_view.proxyModel().getBond(current)))  # Событие смены строки таблицы.
 
+        self.groupBox_request.comboBox_token.setModel(tokens_model)  # Устанавливает модель токенов для ComboBox'а.
+
     '''-------------------------------------Токен-------------------------------------'''
     def __getToken(self) -> TokenClass | None:
         return self.__token
@@ -881,7 +882,3 @@ class new_BondsPage(QtWidgets.QWidget):
 
     sql_condition = property(__getSqlCondition, __setSqlCondition)
     '''-------------------------------------------------------------------------------'''
-
-    def setTokensModel(self, token_list_model: TokenListModel):
-        """Устанавливает модель токенов для ComboBox'а."""
-        self.groupBox_request.comboBox_token.setModel(token_list_model)

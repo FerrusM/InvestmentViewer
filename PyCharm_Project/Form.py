@@ -37,7 +37,7 @@ class InvestmentForm(QtWidgets.QMainWindow):
 
         '''====================================Ui_MainWindow===================================='''
         '''------------------------------Создаём CentralWidget------------------------------'''
-        central_widget = QtWidgets.QWidget(self)
+        central_widget = QtWidgets.QWidget(parent=self)
 
         main_verticalLayout = QtWidgets.QVBoxLayout(central_widget)
         main_verticalLayout.setContentsMargins(1, 1, 0, 0)
@@ -46,30 +46,25 @@ class InvestmentForm(QtWidgets.QMainWindow):
         '''------------------------------Создаём tabWidget------------------------------'''
         self.tabWidget = QtWidgets.QTabWidget(parent=central_widget)  # Панель вкладок.
 
-        self.tab_tokens = TokensPage(token_model)  # Страница "Токены".
+        self.tab_tokens = TokensPage(token_model=token_model, parent=self)  # Страница "Токены".
         self.tabWidget.addTab(self.tab_tokens, 'Токены')
 
-        self.tab_limits = LimitsPage('tab_limits')  # Страница "Лимиты".
-        self.tab_limits.setTokensModel(token_list_model)
+        self.tab_limits = LimitsPage(tokens_model=token_list_model, parent=self)  # Страница "Лимиты".
         self.tabWidget.addTab(self.tab_limits, 'Лимиты')
 
-        self.tab_shares = SharesPage()  # Страница "Акции".
-        self.tab_shares.setTokensModel(token_list_model)
+        self.tab_shares = SharesPage(tokens_model=token_list_model, parent=self)  # Страница "Акции".
         self.tabWidget.addTab(self.tab_shares, 'Акции')
 
-        self.tab_bonds = BondsPage('tab_bonds')  # Страница "Облигации".
-        self.tab_bonds.setTokensModel(token_list_model)
+        self.tab_bonds = BondsPage(tokens_model=token_list_model, parent=self)  # Страница "Облигации".
         self.tabWidget.addTab(self.tab_bonds, 'Облигации')
 
-        self.new_tab_bonds = new_BondsPage('new_tab_bonds')  # Страница "Облигации".
-        self.new_tab_bonds.setTokensModel(token_list_model)
+        self.new_tab_bonds = new_BondsPage(tokens_model=token_list_model, parent=self)  # Страница "Облигации".
         self.tabWidget.addTab(self.new_tab_bonds, 'new_Облигации')
 
-        self.tab_forecasts = ForecastsPage(tokens_model=token_list_model)  # Страница "Прогнозы".
+        self.tab_forecasts = ForecastsPage(tokens_model=token_list_model, parent=self)  # Страница "Прогнозы".
         self.tabWidget.addTab(self.tab_forecasts, 'Прогнозы')
 
-        self.tab_candles = CandlesPage(parent=self)  # Страница "Свечи".
-        self.tab_candles.setTokensModel(token_list_model)
+        self.tab_candles = CandlesPage(tokens_model=token_list_model, parent=self)  # Страница "Свечи".
         self.tabWidget.addTab(self.tab_candles, 'Свечи')
 
         self.tab_candles_new = CandlesPage_new(token_model=token_list_model, parent=self)

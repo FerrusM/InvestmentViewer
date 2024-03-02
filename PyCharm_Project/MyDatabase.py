@@ -4,7 +4,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
-    AssetCurrency, AssetSecurity, GetForecastResponse
+    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -1491,6 +1491,33 @@ class MainConnection(MyConnection):
             assert commit_flag, db.lastError().text()
 
             return candles
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def getConsensusItems(cls, instrument_uid: str) -> list[ConsensusItem]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __select_consensuses_command: str = """SELECT \"ticker\", \"recommendation\", \"currency\", 
+            \"current_price\", \"consensus\", \"min_target\", \"max_target\", \"price_change\", \"price_change_rel\" 
+            FROM \"{0}\" WHERE \"uid\" = :instrument_uid;""".format(MyConnection.CONSENSUS_ITEMS_TABLE)
+
+            consensuses_query = QtSql.QSqlQuery(db)
+            consensuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            consensuses_prepare_flag: bool = consensuses_query.prepare(__select_consensuses_command)
+            assert consensuses_prepare_flag, consensuses_query.lastError().text()
+            consensuses_query.bindValue(':instrument_uid', instrument_uid)
+            consensuses_exec_flag: bool = consensuses_query.exec()
+            assert consensuses_exec_flag, consensuses_query.lastError().text()
+
+            consensuses: list[ConsensusItem] = []
+            while consensuses_query.next():
+                consensuses.append(MyConnection.getConsensusItem(consensuses_query))
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return consensuses
         else:
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 

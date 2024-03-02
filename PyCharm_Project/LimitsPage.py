@@ -60,9 +60,8 @@ class GroupBox_LimitsTreeView(QtWidgets.QGroupBox):
 
 class LimitsPage(QtWidgets.QWidget):
     """Страница лимитов."""
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
-        self.setObjectName(object_name)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -83,6 +82,4 @@ class LimitsPage(QtWidgets.QWidget):
         self.groupBox_request.currentTokenChanged.connect(self.groupBox_view.setToken)
         self.groupBox_request.currentTokenReset.connect(lambda: self.groupBox_view.setToken(None))
 
-    def setTokensModel(self, token_list_model: TokenListModel):
-        """Устанавливает модель токенов для ComboBox'а."""
-        self.groupBox_request.comboBox_token.setModel(token_list_model)
+        self.groupBox_request.comboBox_token.setModel(tokens_model)  # Устанавливает модель токенов для ComboBox'а.

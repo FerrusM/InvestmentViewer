@@ -6,7 +6,7 @@ from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyDatabase import MainConnection
 from MyDateTime import reportSignificantInfoFromDateTime
 from MyRequests import MyResponse, getUserTariff, getAccounts, RequestTryClass
-from PagesClasses import TitleLabel
+from PagesClasses import TitleLabel, TitleWithCount
 from TokenModel import TokenModel
 from TreeTokenModel import TreeProxyModel, TreeItem
 
@@ -21,20 +21,8 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         """------------Заголовок над отображением токенов------------"""
-        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
-        horizontalLayout_title.setSpacing(0)
-
-        horizontalLayout_title.addSpacing(10)
-        horizontalLayout_title.addStretch(1)
-        horizontalLayout_title.addWidget(TitleLabel(text='СОХРАНЁННЫЕ ТОКЕНЫ', parent=self), 0)
-
-        self.label_count = QtWidgets.QLabel(text='0', parent=self)
-        self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignTrailing | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        horizontalLayout_title.addWidget(self.label_count, 1)
-
-        horizontalLayout_title.addSpacing(10)
-
-        verticalLayout_main.addLayout(horizontalLayout_title)
+        self.titlebar = TitleWithCount(title='СОХРАНЁННЫЕ ТОКЕНЫ', count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.titlebar, 0)
         """----------------------------------------------------------"""
 
         self.treeView_saved_tokens = MyTreeView(self)  # Отображение токенов.
@@ -97,10 +85,9 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
 
     def onUpdateView(self):
         """Выполняется после обновления модели."""
-        model: TreeProxyModel = self.model()
         self.treeView_saved_tokens.expandAll()  # Разворачивает все элементы.
         self.treeView_saved_tokens.resizeColumnsToContents()  # Авторазмер всех столбцов под содержимое.
-        self.label_count.setText(str(model.getTokensCount()))  # Отображаем количество сохранённых токенов.
+        self.titlebar.setCount(str(self.model().getTokensCount()))  # Отображаем количество сохранённых токенов.
 
 
 class GroupBox_NewToken(QtWidgets.QGroupBox):
