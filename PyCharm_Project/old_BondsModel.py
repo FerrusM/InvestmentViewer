@@ -3,8 +3,8 @@ from datetime import datetime
 import enum
 import typing
 from decimal import Decimal
-from PyQt6.QtCore import QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel, pyqtSlot, QVariant
-from PyQt6.QtGui import QBrush
+from PyQt6 import QtGui, QtCore
+from PyQt6.QtCore import Qt, QModelIndex, pyqtSlot, QVariant
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon
 from Classes import reportTradingStatus, Column, update_class
 from CouponsThread import CouponsThread
@@ -28,8 +28,8 @@ def reportRiskLevel(risk_level: RiskLevel) -> str:
 
 class BondColumn(Column):
     """Класс столбца таблицы облигаций."""
-    MATURITY_COLOR: QBrush = QBrush(Qt.GlobalColor.lightGray)  # Цвет фона строк погашенных облигаций.
-    PERPETUAL_COLOR: QBrush = QBrush(Qt.GlobalColor.magenta)  # Цвет фона строк бессрочных облигаций.
+    MATURITY_COLOR: QtGui.QBrush = QtGui.QBrush(Qt.GlobalColor.lightGray)  # Цвет фона строк погашенных облигаций.
+    PERPETUAL_COLOR: QtGui.QBrush = QtGui.QBrush(Qt.GlobalColor.magenta)  # Цвет фона строк бессрочных облигаций.
 
     def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
                  background_function=lambda bond_class, *args: BondColumn.PERPETUAL_COLOR if bond_class.bond.perpetual_flag and ifDateTimeIsEmpty(bond_class.bond.maturity_date) else BondColumn.MATURITY_COLOR if MyBond.ifBondIsMaturity(bond_class.bond) else QVariant(),
@@ -253,7 +253,7 @@ def reportAbsoluteProfitCalculation(bond_class: MyBondClass, entered_datetime: d
     return report
 
 
-class BondsModel(QAbstractTableModel):
+class BondsModel(QtCore.QAbstractTableModel):
     """Модель облигаций."""
     @enum.unique  # Декоратор, требующий, чтобы все элементы имели разные значения.
     class Columns(enum.IntEnum):
@@ -313,8 +313,8 @@ class BondsModel(QAbstractTableModel):
                 assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), lessThan_MyMoneyValue_or_None.__name__)
                 return True
 
-        @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def lessThan_Decimal_or_None(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole):
+        @pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex, QtCore.Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def lessThan_Decimal_or_None(left: QtCore.QModelIndex, right: QtCore.QModelIndex, role: QtCore.Qt.ItemDataRole):
             """Функция сортировки для значений Decimal | None."""
             left_data: Decimal | None = left.data(role=role)
             right_data: Decimal | None = right.data(role=role)
@@ -338,8 +338,8 @@ class BondsModel(QAbstractTableModel):
                 assert False, 'Некорректный тип переменной \"left_data\" ({0}) в функции {1}!'.format(type(left_data), lessThan_Decimal_or_None.__name__)
                 return True
 
-        @pyqtSlot(QModelIndex, QModelIndex, Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def lessThan_RiskLevel(left: QModelIndex, right: QModelIndex, role: Qt.ItemDataRole) -> bool:
+        @pyqtSlot(QtCore.QModelIndex, QtCore.QModelIndex, QtCore.Qt.ItemDataRole)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def lessThan_RiskLevel(left: QtCore.QModelIndex, right: QtCore.QModelIndex, role: QtCore.Qt.ItemDataRole) -> bool:
             """Функция сортировки для столбца BOND_RISK_LEVEL."""
             left_data: RiskLevel = left.data(role=role)
             right_data: RiskLevel = right.data(role=role)
@@ -527,15 +527,15 @@ class BondsModel(QAbstractTableModel):
                            display_function=lambda bond_class: reportTradingStatus(bond_class.bond.trading_status))
         }
 
-    def rowCount(self, parent: QModelIndex = ...) -> int:
+    def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
         """Возвращает количество облигаций в модели."""
         return len(self._bond_class_list)
 
-    def columnCount(self, parent: QModelIndex = ...) -> int:
+    def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
         """Возвращает количество столбцов в модели."""
         return len(self.columns)
 
-    def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
+    def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
         column: BondColumn = self.columns[index.column()]
         bond_class: MyBondClass = self._bond_class_list[index.row()]
         return column(role, bond_class, self._calculation_datetime) if column.dependsOnEnteredDate() else column(role, bond_class)
@@ -548,7 +548,7 @@ class BondsModel(QAbstractTableModel):
         for row, bond_class in enumerate(self._bond_class_list):
             for column, bond_column in self.columns.items():
                 if bond_column.dependsOnCoupons():
-                    source_index: QModelIndex = self.index(row, column)
+                    source_index: QtCore.QModelIndex = self.index(row, column)
                     # bond_class.couponsChanged_signal.connect(lambda: self.dataChanged.emit(source_index, source_index))  # Подключаем слот обновления.
                     bond_class.couponsChanged_signal.connect(update_class(self, source_index, source_index))  # Подключаем слот обновления.
         self.endResetModel()  # Завершает операцию сброса модели.
@@ -561,8 +561,8 @@ class BondsModel(QAbstractTableModel):
             if bonds_count > 0:
                 for column, bond_column in self.columns.items():
                     if bond_column.dependsOnEnteredDate():
-                        top_index: QModelIndex = self.index(0, column)
-                        bottom_index: QModelIndex = self.index((bonds_count - 1), column)
+                        top_index: QtCore.QModelIndex = self.index(0, column)
+                        bottom_index: QtCore.QModelIndex = self.index((bonds_count - 1), column)
                         self.dataChanged.emit(top_index, bottom_index)
 
         self._calculation_datetime = entered_datetime
@@ -584,19 +584,19 @@ class BondsModel(QAbstractTableModel):
             self.coupons_receiving_thread = None
 
 
-class BondsProxyModel(QSortFilterProxyModel):
+class BondsProxyModel(QtCore.QSortFilterProxyModel):
     """Моя прокси-модель облигаций."""
-    DEPENDS_ON_DATE_COLOR: QBrush = QBrush(Qt.GlobalColor.darkRed)  # Цвет фона заголовков, зависящих от даты расчёта.
+    DEPENDS_ON_DATE_COLOR: QtGui.QBrush = QtGui.QBrush(QtCore.Qt.GlobalColor.darkRed)  # Цвет фона заголовков, зависящих от даты расчёта.
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
+    def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
         """Функция headerData объявлена в прокси-модели, чтобы названия строк не сортировались вместе с данными."""
-        if role == Qt.ItemDataRole.DisplayRole:
-            if orientation == Qt.Orientation.Vertical: return section + 1  # Проставляем номера строк.
-            if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header
-        elif role == Qt.ItemDataRole.ToolTipRole:  # Подсказки.
-            if orientation == Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header_tooltip
-        elif role == Qt.ItemDataRole.ForegroundRole:
-            if orientation == Qt.Orientation.Horizontal:
+        if role == QtCore.Qt.ItemDataRole.DisplayRole:
+            if orientation == QtCore.Qt.Orientation.Vertical: return section + 1  # Проставляем номера строк.
+            if orientation == QtCore.Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header
+        elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
+            if orientation == QtCore.Qt.Orientation.Horizontal: return self.sourceModel().columns[section].header_tooltip
+        elif role == QtCore.Qt.ItemDataRole.ForegroundRole:
+            if orientation == QtCore.Qt.Orientation.Horizontal:
                 if self.sourceModel().columns[section].dependsOnEnteredDate():
                     return self.DEPENDS_ON_DATE_COLOR
 

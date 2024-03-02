@@ -75,8 +75,7 @@ class InvestmentForm(QtWidgets.QMainWindow):
         self.tab_candles_new = CandlesPage_new(token_model=token_list_model, parent=self)
         self.tabWidget.addTab(self.tab_candles_new, 'Свечи_new')
 
-        self.tab_assets = AssetsPage('tab_assets')  # Страница "Активы".
-        self.tab_assets.setTokensModel(token_list_model)
+        self.tab_assets = AssetsPage(tokens_model=token_list_model, parent=self)  # Страница "Активы".
         self.tabWidget.addTab(self.tab_assets, 'Активы')
 
         self.tabWidget.setCurrentIndex(2)
