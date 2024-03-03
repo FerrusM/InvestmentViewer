@@ -3,7 +3,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentType, Asset
 from AssetsModel import AssetsTreeModel, AssetClass
 from Classes import TokenClass, MyTreeView
-from DatabaseWidgets import ComboBox_Token
+from DatabaseWidgets import TokenSelectionBar
 from MyDatabase import MainConnection
 from MyRequests import MyResponse, getAssets, RequestTryClass
 from PagesClasses import ProgressBar_DataReceiving, TitleWithCount, TitleLabel
@@ -27,21 +27,8 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         verticalLayout_main.addLayout(self.titlebar, 0)
 
         '''---------------------------Токен---------------------------'''
-        horizontalLayout_token = QtWidgets.QHBoxLayout()
-        horizontalLayout_token.setSpacing(0)
-
-        label_token = QtWidgets.QLabel(text='Токен:', parent=self)
-        label_token.setToolTip('Токен доступа.')
-        horizontalLayout_token.addWidget(label_token, 0)
-
-        horizontalLayout_token.addSpacing(4)
-
-        self.comboBox_token = ComboBox_Token(token_model=tokens_model, parent=self)
-        horizontalLayout_token.addWidget(self.comboBox_token)
-
-        horizontalLayout_token.addStretch(1)
-
-        verticalLayout_main.addLayout(horizontalLayout_token)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        verticalLayout_main.addLayout(self.token_bar, 0)
         '''-----------------------------------------------------------'''
 
         '''-----------------------Тип инструмента-----------------------'''
@@ -77,12 +64,12 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         def __onTokenSelected(token: TokenClass):
             self.currentTokenChanged.emit(token, self.instrument_type)
 
-        self.comboBox_token.tokenSelected.connect(__onTokenSelected)
-        self.comboBox_token.tokenReset.connect(self.currentTokenReset.emit)
+        self.token_bar.tokenSelected.connect(__onTokenSelected)
+        self.token_bar.tokenReset.connect(self.currentTokenReset.emit)
 
     @property
     def token(self) -> TokenClass | None:
-        return self.comboBox_token.token
+        return self.token_bar.token
 
     @property
     def instrument_type(self) -> InstrumentType:

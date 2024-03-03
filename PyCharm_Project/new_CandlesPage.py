@@ -7,7 +7,7 @@ from tinkoff.invest import HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesView import CandlesChartView
 from Classes import TokenClass, MyConnection, Column, print_slot
-from DatabaseWidgets import GroupBox_InstrumentSelection, ComboBox_Token
+from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -603,13 +603,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ', parent=self), 0)
 
         '''-----------Выбор токена для получения исторических свечей-----------'''
-        horizontalLayout_token = QtWidgets.QHBoxLayout(self)
-        horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self), 0)
-        horizontalLayout_token.addSpacing(4)
-        self.comboBox_token = ComboBox_Token(token_model=token_model, parent=self)
-        horizontalLayout_token.addWidget(self.comboBox_token, 0)
-        horizontalLayout_token.addStretch(1)
-        verticalLayout_main.addLayout(horizontalLayout_token, 0)
+        self.token_bar = TokenSelectionBar(tokens_model=token_model, parent=self)
+        verticalLayout_main.addLayout(self.token_bar, 0)
         '''--------------------------------------------------------------------'''
 
         '''-----------------------Выбор интервала свечей-----------------------'''
@@ -660,8 +655,8 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         def __onIntervalSelected(interval: CandleInterval):
             self.interval = interval
 
-        self.comboBox_token.tokenSelected.connect(__onTokenSelected)
-        self.comboBox_token.tokenReset.connect(__onTokenReset)
+        self.token_bar.tokenSelected.connect(__onTokenSelected)
+        self.token_bar.tokenReset.connect(__onTokenReset)
         self.comboBox_interval.intervalSelected.connect(__onIntervalSelected)
 
     def __onParameterChanged(self, token: TokenClass | None, instrument: MyShareClass | MyBondClass | None, interval: CandleInterval):
@@ -670,7 +665,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
 
     @property
     def token(self) -> TokenClass | None:
-        return self.comboBox_token.token
+        return self.token_bar.token
 
     @token.setter
     def token(self, token: TokenClass | None):

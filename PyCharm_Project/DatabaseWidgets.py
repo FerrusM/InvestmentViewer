@@ -61,36 +61,47 @@ class InstrumentsStatusModel(QtCore.QAbstractListModel):
             return QtCore.QVariant()
 
 
-class ComboBox_Token(QtWidgets.QComboBox):
-    """ComboBox для выбора токена."""
+class TokenSelectionBar(QtWidgets.QHBoxLayout):
+    """Строка выбора токена."""
+    __DEFAULT_INDEX: int = 0  # Индекс по умолчанию.
     tokenSelected = QtCore.pyqtSignal(TokenClass)  # Сигнал испускается при выборе токена.
     tokenReset = QtCore.pyqtSignal()  # Сигнал испускается при сбросе токена.
 
-    def __init__(self, token_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent=parent)
-        self.setEnabled(False)
-        self.__token: TokenClass | None = None
-        self.setModel(token_model)
-        self.setCurrentIndex(0)  # "Не выбран".
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent)
+        self.setSpacing(0)
+
+        label = QtWidgets.QLabel(text='Токен:', parent=parent)
+        label.setToolTip('Токен доступа.')
+        self.addWidget(label, 0)
+
+        self.addSpacing(4)
+
+        self.__comboBox = QtWidgets.QComboBox(parent=parent)
+        self.__comboBox.setModel(tokens_model)
+        self.__comboBox.setCurrentIndex(self.__DEFAULT_INDEX)  # "Не выбран".
+        self.__token: TokenClass | None = self.__comboBox.model().getToken(self.__DEFAULT_INDEX)
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __setCurrentToken(index: int):
-            self.token = self.model().getToken(index)
+            self.token = self.__comboBox.model().getToken(index)
 
-        self.currentIndexChanged.connect(__setCurrentToken)
-        self.setEnabled(True)
+        self.__comboBox.currentIndexChanged.connect(__setCurrentToken)
+        self.addWidget(self.__comboBox, 0)
+
+        self.addStretch(1)
 
     @property
-    def token(self) -> TokenClass | None:
+    def token(self):
         return self.__token
 
     @token.setter
     def token(self, token: TokenClass | None):
         self.__token = token
-        if self.__token is None:
+        if self.token is None:
             self.tokenReset.emit()
         else:
-            self.tokenSelected.emit(self.__token)
+            self.tokenSelected.emit(self.token)
 
 
 class InstrumentItem:
@@ -821,18 +832,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         '''--------------------------------------------------------------'''
 
         '''---------------------Строка выбора токена---------------------'''
-        horizontalLayout_token = QtWidgets.QHBoxLayout(self)
-        horizontalLayout_token.setSpacing(0)
-
-        horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self), 0)
-        horizontalLayout_token.addSpacing(4)
-
-        self.comboBox_token = ComboBox_Token(token_model=tokens_model, parent=self)
-        horizontalLayout_token.addWidget(self.comboBox_token, 0)
-
-        horizontalLayout_token.addStretch(1)
-
-        verticalLayout_main.addLayout(horizontalLayout_token, 0)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        verticalLayout_main.addLayout(self.token_bar, 0)
         '''--------------------------------------------------------------'''
 
         '''---------------Строка выбора статуса инструмента---------------'''
@@ -843,8 +844,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_status.addSpacing(4)
 
         self.comboBox_status = self.ComboBox_Status(token=self.token, parent=self)
-        self.comboBox_token.tokenSelected.connect(self.comboBox_status.setToken)
-        self.comboBox_token.tokenReset.connect(self.comboBox_status.setToken)
+        self.token_bar.tokenSelected.connect(self.comboBox_status.setToken)
+        self.token_bar.tokenReset.connect(self.comboBox_status.setToken)
         horizontalLayout_status.addWidget(self.comboBox_status, 0)
 
         horizontalLayout_status.addStretch(1)
@@ -860,8 +861,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_instrument_type.addSpacing(4)
 
         self.comboBox_instrument_type = self.ComboBox_InstrumentType(token=self.token, status=self.status, parent=self)
-        self.comboBox_token.tokenSelected.connect(self.comboBox_instrument_type.setToken)
-        self.comboBox_token.tokenReset.connect(self.comboBox_instrument_type.setToken)
+        self.token_bar.tokenSelected.connect(self.comboBox_instrument_type.setToken)
+        self.token_bar.tokenReset.connect(self.comboBox_instrument_type.setToken)
         self.comboBox_status.statusSelected.connect(self.comboBox_instrument_type.setStatus)
         self.comboBox_status.statusReset.connect(self.comboBox_instrument_type.setStatus)
         horizontalLayout_instrument_type.addWidget(self.comboBox_instrument_type, 0)
@@ -883,8 +884,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         self.comboBox_instrument.instrumentChanged.connect(self.__onCurrentInstrumentChanged)
         self.comboBox_instrument.instrumentReset.connect(self.__onCurrentInstrumentChanged)
         self.comboBox_instrument.instrumentsCountChanged.connect(self.__setCount)
-        self.comboBox_token.tokenSelected.connect(self.comboBox_instrument.setToken)
-        self.comboBox_token.tokenReset.connect(self.comboBox_instrument.setToken)
+        self.token_bar.tokenSelected.connect(self.comboBox_instrument.setToken)
+        self.token_bar.tokenReset.connect(self.comboBox_instrument.setToken)
         self.comboBox_status.statusSelected.connect(self.comboBox_instrument.setStatus)
         self.comboBox_status.statusReset.connect(self.comboBox_instrument.setStatus)
         self.comboBox_instrument_type.typeChanged.connect(self.comboBox_instrument.setType)
@@ -900,7 +901,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
     @property
     def token(self) -> TokenClass | None:
-        return self.comboBox_token.token
+        return self.token_bar.token
 
     @property
     def status(self) -> str | None:

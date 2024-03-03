@@ -4,7 +4,7 @@ from enum import Enum
 from PyQt6 import QtWidgets, QtCore
 from tinkoff.invest.schemas import GetForecastResponse, ConsensusItem
 from Classes import TokenClass, print_slot, Column
-from DatabaseWidgets import GroupBox_InstrumentSelection, ComboBox_Token
+from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getUtcDateTime
@@ -298,8 +298,8 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
         self.titlebar = TitleWithCount(title='ПОЛУЧЕНИЕ ПРОГНОЗОВ', count_text='0', parent=self)
         verticalLayout_main.addLayout(self.titlebar, 0)
 
-        self.comboBox_token = ComboBox_Token(token_model=tokens_model, parent=self)
-        verticalLayout_main.addWidget(self.comboBox_token, 0)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        verticalLayout_main.addLayout(self.token_bar, 0)
 
         self.progressBar = ProgressThreadManagerBar(parent=self)
         verticalLayout_main.addLayout(self.progressBar, 0)
@@ -321,8 +321,8 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
         def __onTokenReset():
             self.token = None
 
-        self.comboBox_token.tokenSelected.connect(__onTokenSelected)
-        self.comboBox_token.tokenReset.connect(__onTokenReset)
+        self.token_bar.tokenSelected.connect(__onTokenSelected)
+        self.token_bar.tokenReset.connect(__onTokenReset)
 
     def setStatus(self, token: TokenClass | None, uids: list[str], status: ThreadStatus):
         def stopThread():
@@ -580,7 +580,7 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
 
     @property
     def token(self) -> TokenClass | None:
-        return self.comboBox_token.token
+        return self.token_bar.token
 
     @token.setter
     def token(self, token: TokenClass | None):
