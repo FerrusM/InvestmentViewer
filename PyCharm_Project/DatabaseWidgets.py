@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 from PyQt6 import QtCore, QtWidgets, QtSql
 from Classes import MyConnection, TokenClass
@@ -92,11 +93,26 @@ class ComboBox_Token(QtWidgets.QComboBox):
             self.tokenSelected.emit(self.__token)
 
 
+class InstrumentItem:
+    def __init__(self, uid: str, name: str):
+        self.uid: str = uid
+        self.name: str = name
+
+    def __eq__(self, other: InstrumentItem) -> bool:
+        if type(other) == InstrumentItem:
+            return self.uid == other.uid and self.name == other.name
+        else:
+            raise TypeError('Класс {0} нельзя сравнивать с другими классами!'.format(self.__class__.__name__))
+
+
 class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
     """Панель выбора инструмента."""
+    instrumentChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал испускается при изменении текущего инструмента.
     bondSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyBondClass)  # Сигнал испускается при выборе облигации.
     shareSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyShareClass)  # Сигнал испускается при выборе акции.
     instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
+
+    instrumentsListChanged: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при изменении списка инструментов.
 
     class ComboBox_Status(QtWidgets.QComboBox):
         """ComboBox для выбора статуса инструмента."""
@@ -107,7 +123,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
             """Модель статусов инструментов."""
             ANY_STATUS: str = 'Любой'
             PARAMETER: str = 'status'
-            sql_command: str = '''SELECT DISTINCT \"{1}\" FROM \"{0}\" WHERE \"{0}\".\"token\" = :token;'''.format(
+            __sql_command: str = '''SELECT DISTINCT \"{1}\" FROM \"{0}\" WHERE \"{0}\".\"token\" = :token;'''.format(
                 MyConnection.INSTRUMENT_STATUS_TABLE,
                 PARAMETER
             )
@@ -116,9 +132,9 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 super().__init__(parent=parent)
                 self.__instrument_statuses: list[str] = []
                 self.__token: TokenClass | None = None
-                self._update(token)
+                self.__update(token)
 
-            def _update(self, token: TokenClass | None = None):
+            def __update(self, token: TokenClass | None = None):
                 """Обновляет данные модели."""
                 self.beginResetModel()
                 self.__token = token
@@ -129,7 +145,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                         '''---------------Получение статусов инструментов из бд---------------'''
                         statuses_query = QtSql.QSqlQuery(db)
                         statuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-                        statuses_prepare_flag: bool = statuses_query.prepare(self.sql_command)
+                        statuses_prepare_flag: bool = statuses_query.prepare(self.__sql_command)
                         assert statuses_prepare_flag, statuses_query.lastError().text()
                         statuses_query.bindValue(':token', self.__token.token)
                         statuses_exec_flag: bool = statuses_query.exec()
@@ -147,7 +163,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
             def setToken(self, token: TokenClass | None):
                 """Задаёт токен, который определяет отображаемый список статусов инструментов."""
-                self._update(token)
+                self.__update(token=token)
 
             def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
                 return len(self.__instrument_statuses) + 1
@@ -173,13 +189,14 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         def __init__(self, token: TokenClass | None = None, parent: QtWidgets.QWidget | None = None):
             super().__init__(parent=parent)
             self.__current_status: str | None = None
-            self.setModel(self.TokenStatusesModel(token=token, parent=self))
+            self.token_statuses_model = self.TokenStatusesModel(token=token, parent=self)
+            self.setModel(self.token_statuses_model)
             self.__status_changed_connection: QtCore.QMetaObject.Connection = self.currentIndexChanged.connect(self.__onCurrentStatusChanged)
             self.__setCurrentStatus(None)
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onCurrentStatusChanged(self, index: int):
-            self.__current_status = self.model().getStatus(index)
+            self.__current_status = self.token_statuses_model.getStatus(index)
             if self.__current_status is None:
                 self.statusReset.emit()
             else:
@@ -190,7 +207,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 self.setCurrentIndex(0)
                 return True
             else:
-                index: int | None = self.model().getStatusIndex(status)
+                index: int | None = self.token_statuses_model.getStatusIndex(status)
                 if index is None:
                     self.setCurrentIndex(0)
                     return False
@@ -200,7 +217,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         def setToken(self, token: TokenClass | None = None):
             self.currentIndexChanged.disconnect(self.__status_changed_connection)
-            self.model().setToken(token)
+            self.token_statuses_model.setToken(token)
             if not self.__setCurrentStatus(self.__current_status):
                 self.__current_status = None
                 self.statusReset.emit()
@@ -225,7 +242,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 self.__types: list[str] = []
                 self.__token: TokenClass | None = token
                 self.__status: str | None = status
-                self._update()
+                self.__update()
 
             def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
                 return len(self.__types) + 1
@@ -248,7 +265,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 else:
                     raise SystemError('Список типов инструментов содержит несколько искомых элементов!')
 
-            def _update(self):
+            def __update(self):
                 """Обновляет данные модели."""
                 self.beginResetModel()
 
@@ -342,22 +359,23 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
             def setToken(self, token: TokenClass | None):
                 self.__token = token
-                self._update()
+                self.__update()
 
             def setStatus(self, status: str | None):
                 self.__status = status
-                self._update()
+                self.__update()
 
         def __init__(self, token: TokenClass | None = None, status: str | None = None, parent: QtWidgets.QWidget | None = None):
             super().__init__(parent=parent)
             self.__current_instrument_type: str | None = None
-            self.setModel(self.InstrumentsTypeModel(token=token, status=status, parent=self))
+            self.instruments_type_model = self.InstrumentsTypeModel(token=token, status=status, parent=self)
+            self.setModel(self.instruments_type_model)
             self.__type_changed_connection: QtCore.QMetaObject.Connection = self.currentIndexChanged.connect(self.__onInstrumentTypeChanged)
             self.__setCurrentType(None)
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onInstrumentTypeChanged(self, index: int):
-            self.__current_instrument_type = self.model().getInstrumentType(index)
+            self.__current_instrument_type = self.instruments_type_model.getInstrumentType(index)
             if self.__current_instrument_type is None:
                 self.typeReset.emit()
             else:
@@ -368,7 +386,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 self.setCurrentIndex(0)
                 return True
             else:
-                index: int | None = self.model().getInstrumentTypeIndex(instrument_type)
+                index: int | None = self.instruments_type_model.getInstrumentTypeIndex(instrument_type)
                 if index is None:
                     self.setCurrentIndex(0)
                     return False
@@ -378,7 +396,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         def setToken(self, token: TokenClass | None = None):
             self.currentIndexChanged.disconnect(self.__type_changed_connection)
-            self.model().setToken(token)
+            self.instruments_type_model.setToken(token)
             if not self.__setCurrentType(self.__current_instrument_type):
                 self.__current_instrument_type = None
                 self.typeReset.emit()
@@ -386,7 +404,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         def setStatus(self, status: str | None = None):
             self.currentIndexChanged.disconnect(self.__type_changed_connection)
-            self.model().setStatus(status)
+            self.instruments_type_model.setStatus(status)
             if not self.__setCurrentType(self.__current_instrument_type):
                 self.__current_instrument_type = None
                 self.typeReset.emit()
@@ -401,6 +419,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         instrumentChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(str)  # Сигнал испускается при изменении выбранного типа.
         instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного типа.
         instrumentsCountChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(int)
+        instrumentsListChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(list)  # Сигнал испускается при изменении списка инструментов.
 
         class InstrumentsModel(QtCore.QAbstractListModel):
             """Модель инструментов."""
@@ -408,11 +427,11 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
             def __init__(self, token: TokenClass | None = None, status: str | None = None, instrument_type: str | None = None, parent: QtCore.QObject | None = None):
                 super().__init__(parent=parent)
-                self.__instruments: list[(str, str)] = []
+                self.__instruments: list[InstrumentItem] = []
                 self.__token: TokenClass | None = None
                 self.__status: str | None = None
                 self.__type: str | None = None
-                self._update(token, status, instrument_type)
+                self.__update(token, status, instrument_type)
 
             def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
                 return len(self.__instruments) + 1
@@ -422,15 +441,15 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 return len(self.__instruments)
 
             @staticmethod
-            def __show(item: (str, str)) -> str:
-                return '{0} | {1}'.format(item[0], item[1])
+            def __show(item: InstrumentItem) -> str:
+                return '{0} | {1}'.format(item.uid, item.name)
 
             def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
                 if role == QtCore.Qt.ItemDataRole.DisplayRole:
                     row: int = index.row()
                     return self.EMPTY if row == 0 else self.__show(self.__instruments[row - 1])
 
-            def _update(self, token: TokenClass | None, status: str | None, instrument_type: str | None):
+            def __update(self, token: TokenClass | None, status: str | None, instrument_type: str | None):
                 """Обновляет данные модели."""
                 self.beginResetModel()
 
@@ -458,7 +477,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             while instruments_query.next():
                                 name: str = instruments_query.value('name')
                                 uid: str = instruments_query.value('uid')
-                                self.__instruments.append((uid, name))
+                                self.__instruments.append(InstrumentItem(uid=uid, name=name))
 
                             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                             assert commit_flag, db.lastError().text()
@@ -513,7 +532,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                                 while instruments_query.next():
                                     name: str = instruments_query.value('name')
                                     uid: str = instruments_query.value('uid')
-                                    self.__instruments.append((uid, name))
+                                    self.__instruments.append(InstrumentItem(uid=uid, name=name))
 
                                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                                 assert commit_flag, db.lastError().text()
@@ -568,7 +587,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                                 while instruments_query.next():
                                     name: str = instruments_query.value('name')
                                     uid: str = instruments_query.value('uid')
-                                    self.__instruments.append((uid, name))
+                                    self.__instruments.append(InstrumentItem(uid=uid, name=name))
 
                                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                                 assert commit_flag, db.lastError().text()
@@ -598,7 +617,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                             while instruments_query.next():
                                 name: str = instruments_query.value('name')
                                 uid: str = instruments_query.value('uid')
-                                self.__instruments.append((uid, name))
+                                self.__instruments.append(InstrumentItem(uid=uid, name=name))
 
                             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                             assert commit_flag, db.lastError().text()
@@ -637,7 +656,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                                 while instruments_query.next():
                                     name: str = instruments_query.value('name')
                                     uid: str = instruments_query.value('uid')
-                                    self.__instruments.append((uid, name))
+                                    self.__instruments.append(InstrumentItem(uid=uid, name=name))
 
                                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                                 assert commit_flag, db.lastError().text()
@@ -676,7 +695,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                                 while instruments_query.next():
                                     name: str = instruments_query.value('name')
                                     uid: str = instruments_query.value('uid')
-                                    self.__instruments.append((uid, name))
+                                    self.__instruments.append(InstrumentItem(uid=uid, name=name))
 
                                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
                                 assert commit_flag, db.lastError().text()
@@ -686,13 +705,13 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 self.endResetModel()
 
             def getUid(self, index: int) -> str | None:
-                return None if index == 0 else self.__instruments[index - 1][0]
+                return None if index == 0 else self.__instruments[index - 1].uid
 
-            def getItem(self, index: int) -> tuple[str, str] | None:
+            def getItem(self, index: int) -> InstrumentItem | None:
                 return None if index == 0 else self.__instruments[index - 1]
 
-            def getItemIndex(self, item: tuple[str, str]) -> int | None:
-                indexes_list: list[int] = [i for i, itm in enumerate(self.__instruments) if itm[0] == item[0] and itm[1] == item[1]]
+            def getItemIndex(self, item: InstrumentItem) -> int | None:
+                indexes_list: list[int] = [i for i, itm in enumerate(self.__instruments) if itm.uid == item.uid and itm.name == item.name]
                 items_count: int = len(indexes_list)
                 if items_count == 0:
                     return None
@@ -702,74 +721,77 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                     raise SystemError('Список инструментов модели содержит несколько искомых элементов (uid = \'{0}\', name = \'{1}\')!'.format(item[0], item[1]))
 
             def setToken(self, token: TokenClass | None):
-                self._update(token, self.__status, self.__type)
+                self.__update(token, self.__status, self.__type)
 
             def setStatus(self, status: str | None):
-                self._update(self.__token, status, self.__type)
+                self.__update(self.__token, status, self.__type)
 
             def setType(self, instrument_type: str | None):
-                self._update(self.__token, self.__status, instrument_type)
+                self.__update(self.__token, self.__status, instrument_type)
 
             @property
             def uids(self) -> list[str]:
-                return [item[0] for item in self.__instruments]
+                return [item.uid for item in self.__instruments]
 
         def __init__(self, token: TokenClass | None = None, status: str | None = None, instrument_type: str | None = None, parent: QtWidgets.QWidget | None = None):
             super().__init__(parent=parent)
-            self.__current_item: tuple[str, str] | None = None
-            self.__instruments_count: int = 0  # Количество инструментов.
-            self.setModel(self.InstrumentsModel(token=token, status=status, instrument_type=instrument_type, parent=self))
+
+            self.instruments_model = self.InstrumentsModel(token=token, status=status, instrument_type=instrument_type, parent=self)
+            self.setModel(self.instruments_model)
+            self.__current_item: InstrumentItem | None = self.instruments_model.getItem(self.currentIndex())
+            self.__instruments_count: int = self.instruments_model.getInstrumentsCount()  # Количество инструментов.
+
             self.__instrument_changed_connection: QtCore.QMetaObject.Connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
-            self.instruments_count = self.model().getInstrumentsCount()
-            self.__setCurrentItem(None)
+
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onInstrumentChanged(self, index: int):
-            self.__current_item = self.model().getItem(index)
-            if self.__current_item is None:
-                self.instrumentReset.emit()
+            new_current_item: InstrumentItem | None = self.instruments_model.getItem(index)
+            if new_current_item is None:
+                if self.__current_item is not None:
+                    self.__current_item = None
+                    self.instrumentReset.emit()
+                    self.instrumentsListChanged.emit(self.instruments_model.uids)
             else:
-                self.instrumentChanged.emit(self.__current_item[0])
+                if self.__current_item is None:
+                    self.__current_item = new_current_item
+                    self.instrumentChanged.emit(self.__current_item.uid)
+                    self.instrumentsListChanged.emit([self.__current_item.uid])
+                else:
+                    if new_current_item != self.__current_item:
+                        self.__current_item = new_current_item
+                        self.instrumentChanged.emit(self.__current_item.uid)
+                        self.instrumentsListChanged.emit([self.__current_item.uid])
 
-        def __setCurrentItem(self, item: tuple[str, str] | None = None) -> bool:
-            if item is None:
+        def __onInstrumentsListChanged(self):
+            if self.__current_item is None:
                 self.setCurrentIndex(0)
-                return True
+                self.instrumentsListChanged.emit(self.instruments_model.uids)  # Испускается при изменении списка инструментов.
             else:
-                index: int | None = self.model().getItemIndex(item)
+                index: int | None = self.instruments_model.getItemIndex(self.__current_item)
                 if index is None:
                     self.setCurrentIndex(0)
-                    return False
+                    self.instrumentReset.emit()
+                    self.instrumentsListChanged.emit(self.instruments_model.uids)  # Испускается при изменении списка инструментов.
                 else:
                     self.setCurrentIndex(index)
-                    return True
+            self.instruments_count = self.instruments_model.getInstrumentsCount()
+            self.__instrument_changed_connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
 
         def setToken(self, token: TokenClass | None = None):
             self.currentIndexChanged.disconnect(self.__instrument_changed_connection)
-            self.model().setToken(token)
-            if not self.__setCurrentItem(self.__current_item):
-                self.__current_item = None
-                self.instrumentReset.emit()
-            self.instruments_count = self.model().getInstrumentsCount()
-            self.__instrument_changed_connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
+            self.instruments_model.setToken(token)
+            self.__onInstrumentsListChanged()
 
         def setStatus(self, status: str | None = None):
             self.currentIndexChanged.disconnect(self.__instrument_changed_connection)
-            self.model().setStatus(status)
-            if not self.__setCurrentItem(self.__current_item):
-                self.__current_item = None
-                self.instrumentReset.emit()
-            self.instruments_count = self.model().getInstrumentsCount()
-            self.__instrument_changed_connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
+            self.instruments_model.setStatus(status)
+            self.__onInstrumentsListChanged()
 
         def setType(self, instrument_type: str | None = None):
             self.currentIndexChanged.disconnect(self.__instrument_changed_connection)
-            self.model().setType(instrument_type)
-            if not self.__setCurrentItem(self.__current_item):
-                self.__current_item = None
-                self.instrumentReset.emit()
-            self.instruments_count = self.model().getInstrumentsCount()
-            self.__instrument_changed_connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
+            self.instruments_model.setType(instrument_type)
+            self.__onInstrumentsListChanged()
 
         @property
         def instruments_count(self) -> int:
@@ -783,7 +805,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         @property
         def uid(self) -> str | None:
-            return None if self.__current_item is None else self.__current_item[0]
+            return None if self.__current_item is None else self.__current_item.uid
 
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         self.__current_instrument: MyShareClass | MyBondClass | None = None
@@ -794,8 +816,8 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''-----------------------Строка заголовка-----------------------'''
-        self.title_widget = TitleWithCount(title='ВЫБОР ИНСТРУМЕНТА', count_text='0', parent=self)
-        verticalLayout_main.addLayout(self.title_widget, 0)
+        self.titlebar = TitleWithCount(title='ВЫБОР ИНСТРУМЕНТА', count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.titlebar, 0)
         '''--------------------------------------------------------------'''
 
         '''---------------------Строка выбора токена---------------------'''
@@ -830,7 +852,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         verticalLayout_main.addLayout(horizontalLayout_status, 0)
         '''---------------------------------------------------------------'''
 
-        '''------------Строка выбора типа инструмента------------'''
+        '''--------------Строка выбора типа инструмента--------------'''
         horizontalLayout_instrument_type = QtWidgets.QHBoxLayout(self)
         horizontalLayout_instrument_type.setSpacing(0)
 
@@ -847,7 +869,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_instrument_type.addStretch(1)
 
         verticalLayout_main.addLayout(horizontalLayout_instrument_type, 0)
-        '''------------------------------------------------------'''
+        '''----------------------------------------------------------'''
 
         '''---------------Строка выбора инструмента---------------'''
         horizontalLayout_instrument = QtWidgets.QHBoxLayout(self)
@@ -857,10 +879,10 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         horizontalLayout_instrument.addSpacing(4)
 
         self.comboBox_instrument = self.ComboBox_Instrument(token=self.token, status=self.status, instrument_type=self.instrument_type, parent=self)
-        self.title_widget.setCount(str(self.comboBox_instrument.instruments_count))
+        self.__setCount(self.comboBox_instrument.instruments_count)
         self.comboBox_instrument.instrumentChanged.connect(self.__onCurrentInstrumentChanged)
         self.comboBox_instrument.instrumentReset.connect(self.__onCurrentInstrumentChanged)
-        self.comboBox_instrument.instrumentsCountChanged.connect(lambda count: self.title_widget.setCount(str(count)))
+        self.comboBox_instrument.instrumentsCountChanged.connect(self.__setCount)
         self.comboBox_token.tokenSelected.connect(self.comboBox_instrument.setToken)
         self.comboBox_token.tokenReset.connect(self.comboBox_instrument.setToken)
         self.comboBox_status.statusSelected.connect(self.comboBox_instrument.setStatus)
@@ -893,6 +915,10 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         return self.comboBox_instrument.uid
 
     @property
+    def instruments_uids(self) -> list[str]:
+        return self.comboBox_instrument.instruments_model.uids
+
+    @property
     def instrument(self) -> MyShareClass | MyBondClass | None:
         return self.__current_instrument
 
@@ -913,3 +939,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 if self.__current_instrument is not None:
                     self.__current_instrument = None
                     self.instrumentReset.emit()
+
+    @QtCore.pyqtSlot(int)
+    def __setCount(self, count: int):
+        self.titlebar.setCount(str(count))
