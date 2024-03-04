@@ -5,7 +5,7 @@ from enum import Enum
 from PyQt6 import QtCore, QtWidgets, QtSql, QtCharts
 from tinkoff.invest import HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
-from CandlesView import CandlesChartView
+from CandlesChart import GroupBox_Chart
 from Classes import TokenClass, MyConnection, Column, print_slot
 from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
@@ -15,18 +15,17 @@ from MyDateTime import ifDateTimeIsEmpty, getUtcDateTime, getMoscowDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getCandles
 from MyShareClass import MyShareClass
-from PagesClasses import GroupBox_InstrumentInfo, TitleLabel, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentInfo, TitleLabel, ProgressBar_DataReceiving, TitleWithCount
 from TokenModel import TokenListModel
 
 
 class ComboBox_Interval(QtWidgets.QComboBox):
     """ComboBox для выбора интервала свечей."""
     intervalSelected = QtCore.pyqtSignal(CandleInterval)  # Сигнал испускается при выборе интервала свечей.
-    DEFAULT_INDEX: int = 0
+    __DEFAULT_INDEX: int = 0
 
     class CandleIntervalModel(QtCore.QAbstractListModel):
         """Модель интервалов свечей."""
-
         def __init__(self, parent: QtCore.QObject | None = None):
             super().__init__(parent=parent)
             self.__intervals: tuple[tuple[str, CandleInterval], ...] = (
@@ -64,8 +63,8 @@ class ComboBox_Interval(QtWidgets.QComboBox):
         super().__init__(parent=parent)
         self.setEnabled(False)
         self.setModel(self.CandleIntervalModel(parent=self))
-        self.setCurrentIndex(self.DEFAULT_INDEX)
-        self.__interval: CandleInterval = self.model().getInterval(self.DEFAULT_INDEX)
+        self.setCurrentIndex(self.__DEFAULT_INDEX)
+        self.__interval: CandleInterval = self.model().getInterval(self.__DEFAULT_INDEX)
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __setCurrentInterval(index: int):
@@ -1039,7 +1038,6 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
 
     class GroupBox_CandlesView(QtWidgets.QGroupBox):
         """Панель отображения свечей."""
-
         def __init__(self, candles_model, parent: QtWidgets.QWidget | None = None):
             super().__init__(parent=parent)
             self.setEnabled(False)
@@ -1049,19 +1047,8 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
             verticalLayout_main.setSpacing(2)
 
             '''------------------------Заголовок------------------------'''
-            horizontalLayout_title = QtWidgets.QHBoxLayout(self)
-            horizontalLayout_title.setSpacing(0)
-
-            horizontalLayout_title.addSpacing(10)
-            horizontalLayout_title.addStretch(1)
-            horizontalLayout_title.addWidget(TitleLabel(text='СВЕЧИ', parent=self), 0)
-
-            self.label_count = QtWidgets.QLabel(text='0', parent=self)
-            self.label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-            horizontalLayout_title.addWidget(self.label_count, 1)
-
-            horizontalLayout_title.addSpacing(10)
-            verticalLayout_main.addLayout(horizontalLayout_title, 0)
+            self.titlebar = TitleWithCount(title='СВЕЧИ', count_text='0', parent=self)
+            verticalLayout_main.addLayout(self.titlebar, 0)
             '''---------------------------------------------------------'''
 
             self.tableView = QtWidgets.QTableView(parent=self)
@@ -1075,7 +1062,6 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
 
     class GroupBox_Chart(QtWidgets.QGroupBox):
         """Панель с диаграммой."""
-
         def __init__(self, parent: QtWidgets.QWidget | None = None):
             super().__init__(parent=parent)
             self.setEnabled(False)
@@ -1087,9 +1073,6 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
             verticalLayout_main.addWidget(TitleLabel(text='ГРАФИК', parent=self), 0)
 
             '''---------------------QChartView---------------------'''
-            # self.chart_view = CandlesChartView(parent=self)
-            # verticalLayout_main.addWidget(self.chart_view)
-
             self.chart_view = QtCharts.QChartView(parent=self)
             self.chart_view.setRubberBand(QtCharts.QChartView.RubberBand.RectangleRubberBand)
             chart = CandlesChart()
@@ -1099,13 +1082,13 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
 
             self.setEnabled(True)
 
-    def __init__(self, parent: QtWidgets.QWidget | None = None):
+    def __init__(self, instrument_uid: str | None, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
         self.setEnabled(False)
 
         # self.__instrument_uid: str | None = None
         # self.__candles_model = self.__CandlesModel(parent=self)
-        self.__candles_model = self.__CandlesQueryModel(instrument_uid=None, interval=CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent=self)
+        # self.__candles_model = self.__CandlesQueryModel(instrument_uid=None, interval=CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent=self)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(0, 0, 0, 0)
@@ -1131,11 +1114,15 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
         verticalLayout.addLayout(horizontalLayout_interval, 0)
         '''--------------------------------------------------------------'''
 
+        self.__candles_model = self.__CandlesQueryModel(instrument_uid=instrument_uid,
+                                                        interval=self.interval,
+                                                        parent=self)
         self.groupBox_view = self.GroupBox_CandlesView(candles_model=self.__candles_model, parent=layoutWidget)
         verticalLayout.addWidget(self.groupBox_view, 1)
         '''-----------------------------------------------------------------------------'''
 
-        self.groupBox_chart = self.GroupBox_Chart(parent=splitter_horizontal)
+        # self.groupBox_chart = self.GroupBox_Chart(parent=splitter_horizontal)
+        self.groupBox_chart = GroupBox_Chart(instrument_uid=instrument_uid, interval=self.interval, parent=splitter_horizontal)
 
         verticalLayout_main.addWidget(splitter_horizontal)
 
@@ -1154,6 +1141,7 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
     def interval(self, interval: CandleInterval):
         self.__candles_model.interval = interval
         # self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=interval)
+        self.groupBox_chart.setInterval(interval)
 
     # @property
     # def candles(self) -> list[HistoricCandle]:
@@ -1185,6 +1173,7 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
         # self.__instrument_uid = instrument_uid
         self.__candles_model.instrument_uid = instrument_uid
         # self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=self.interval)
+        self.groupBox_chart.setInstrument(instrument_uid)
 
     def setInstrumentUid(self, instrument_uid: str | None = None):
         self.instrument_uid = instrument_uid
@@ -1288,7 +1277,7 @@ class CandlesPage_new(QtWidgets.QWidget):
 
         """========================Нижняя часть========================"""
         # self.groupBox_candles_view = GroupBox_CandlesView(parent=splitter_vertical)
-        self.groupBox_candles_view = CandlesViewAndGraphic(parent=splitter_vertical)
+        self.groupBox_candles_view = CandlesViewAndGraphic(instrument_uid=self.instrument_uid, parent=splitter_vertical)
         splitter_vertical.setStretchFactor(1, 1)
         """============================================================"""
 
@@ -1307,8 +1296,13 @@ class CandlesPage_new(QtWidgets.QWidget):
     def instrument(self) -> MyShareClass | MyBondClass | None:
         return self.groupBox_instrument.instrument
 
+    @property
+    def instrument_uid(self) -> str | None:
+        return None if self.instrument is None else self.instrument.uid
+
     @instrument.setter
     def instrument(self, instrument: MyShareClass | MyBondClass | None):
         self.groupBox_candles_view.setInstrumentUid(None if instrument is None else instrument.uid)
         self.groupBox_instrument_info.setInstrument(instrument)
         self.groupBox_candles_receiving.setInstrument(instrument)
+        self.groupBox_candles_view.setInstrumentUid(self.instrument_uid)

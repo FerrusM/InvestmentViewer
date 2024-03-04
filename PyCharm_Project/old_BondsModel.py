@@ -6,12 +6,25 @@ from decimal import Decimal
 from PyQt6 import QtGui, QtCore
 from PyQt6.QtCore import Qt, QModelIndex, pyqtSlot, QVariant
 from tinkoff.invest.schemas import RiskLevel, Quotation, Coupon
-from Classes import reportTradingStatus, Column, update_class
+from Classes import reportTradingStatus, Column
 from CouponsThread import CouponsThread
 from MyDateTime import reportSignificantInfoFromDateTime, reportDateIfOnlyDate, ifDateTimeIsEmpty, getUtcDateTime, getCountOfDaysBetweenTwoDateTimes
 from MyQuotation import MyQuotation, MyDecimal
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyBondClass import MyBondClass, MyLastPrice, TINKOFF_COMMISSION, NDFL, MyCoupon, MyBond, DAYS_IN_YEAR
+
+
+class update_class:
+    def __init__(self, model: QtCore.QAbstractTableModel, top_left_index: QModelIndex, bottom_right_index: QModelIndex):
+        self._model: QtCore.QAbstractTableModel = model
+        self._top_left_index: QModelIndex = top_left_index
+        self._bottom_right_index: QModelIndex = bottom_right_index
+
+    def __call__(self):
+        if not hasattr(self, '_model'):
+            pass
+            return
+        return self._model.dataChanged.emit(self._top_left_index, self._bottom_right_index)
 
 
 def reportRiskLevel(risk_level: RiskLevel) -> str:

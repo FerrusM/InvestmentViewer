@@ -1,10 +1,8 @@
 from abc import ABC
 from datetime import datetime
-from PyQt6 import QtWidgets, QtGui, QtSql
-from PyQt6.QtCore import Qt, QAbstractItemModel, QAbstractTableModel, QModelIndex, pyqtSlot
+from PyQt6 import QtWidgets, QtGui, QtSql, QtCore
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
-from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, \
-    ConsensusItem, Recommendation
+from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, ConsensusItem, Recommendation
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
 
@@ -22,7 +20,7 @@ def partition(array: list, length: int) -> list[list]:
     return list(__splitIntoParts())
 
 
-@pyqtSlot(str)
+@QtCore.pyqtSlot(str)
 def print_slot(text: str):
     """По моим наблюдениям, функция print с добавленным декоратором pyqtSlot работает быстрее.
     Но это следует проверить."""
@@ -36,24 +34,11 @@ class MyTreeView(QtWidgets.QTreeView):
             self.resizeColumnToContents(i)  # Авторазмер i-го столбца под содержимое.
 
 
-class update_class:
-    def __init__(self, model: QAbstractTableModel | QAbstractItemModel, top_left_index: QModelIndex, bottom_right_index: QModelIndex):
-        self._model: QAbstractTableModel | QAbstractItemModel = model
-        self._top_left_index: QModelIndex = top_left_index
-        self._bottom_right_index: QModelIndex = bottom_right_index
-
-    def __call__(self):
-        if not hasattr(self, '_model'):
-            pass
-            return
-        return self._model.dataChanged.emit(self._top_left_index, self._bottom_right_index)
-
-
 class Column:
     """Класс столбца."""
     def __init__(self, header: str | None = None, header_tooltip: str | None = None, data_function=None, display_function=None, tooltip_function=None,
                  background_function=None, foreground_function=None,
-                 lessThan=None, sort_role: Qt.ItemDataRole = Qt.ItemDataRole.UserRole):
+                 lessThan=None, sort_role: QtCore.Qt.ItemDataRole = QtCore.Qt.ItemDataRole.UserRole):
         self.header: str | None = header  # Название столбца.
         self.header_tooltip: str | None = header_tooltip  # Подсказка в заголовке.
         self.getData = data_function  # Функция для получения данных.
@@ -62,24 +47,24 @@ class Column:
         self.getBackground = background_function
         self.getForeground = foreground_function
 
-        self.getSortRole: Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
+        self.getSortRole: QtCore.Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
         self.lessThan = lessThan
 
-    def __call__(self, role: int = Qt.ItemDataRole.UserRole, *data):
+    def __call__(self, role: int = QtCore.Qt.ItemDataRole.UserRole, *data):
         match role:
-            case Qt.ItemDataRole.UserRole:
+            case QtCore.Qt.ItemDataRole.UserRole:
                 if self.getData is None: return None
                 return self.getData(*data)
-            case Qt.ItemDataRole.DisplayRole:
+            case QtCore.Qt.ItemDataRole.DisplayRole:
                 if self.getDisplay is None: return None
                 return self.getDisplay(*data)
-            case Qt.ItemDataRole.ToolTipRole:
+            case QtCore.Qt.ItemDataRole.ToolTipRole:
                 if self.getToolTip is None: return None
                 return self.getToolTip(*data)
-            case Qt.ItemDataRole.BackgroundRole:
+            case QtCore.Qt.ItemDataRole.BackgroundRole:
                 if self.getBackground is None: return None
                 return self.getBackground(*data)
-            case Qt.ItemDataRole.ForegroundRole:
+            case QtCore.Qt.ItemDataRole.ForegroundRole:
                 if self.getForeground is None: return None
                 return self.getForeground(*data)
 

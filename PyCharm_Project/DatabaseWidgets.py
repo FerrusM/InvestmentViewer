@@ -122,7 +122,6 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
     bondSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyBondClass)  # Сигнал испускается при выборе облигации.
     shareSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyShareClass)  # Сигнал испускается при выборе акции.
     instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
-
     instrumentsListChanged: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при изменении списка инструментов.
 
     class ComboBox_Status(QtWidgets.QComboBox):
@@ -284,7 +283,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                 if self.__token is None:
                     assert self.__status is None
                     '''Находим типы всех имеющихся инструментов.'''
-                    sql_command: str = '''SELECT DISTINCT \"{1}\" FROM \"{0}\";'''.format(
+                    __sql_command: str = '''SELECT DISTINCT \"{1}\" FROM \"{0}\";'''.format(
                         MyConnection.INSTRUMENT_UIDS_TABLE,
                         self.PARAMETER
                     )
@@ -293,7 +292,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
                     if db.transaction():
                         types_query = QtSql.QSqlQuery(db)
                         types_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
-                        types_prepare_flag: bool = types_query.prepare(sql_command)
+                        types_prepare_flag: bool = types_query.prepare(__sql_command)
                         assert types_prepare_flag, types_query.lastError().text()
                         types_exec_flag: bool = types_query.exec()
                         assert types_exec_flag, types_query.lastError().text()

@@ -3,7 +3,7 @@ import typing
 from datetime import datetime
 from PyQt6 import QtCore
 from tinkoff.invest import AssetInstrument, AssetType, InstrumentType, Asset, AssetFull
-from Classes import Column, update_class, TokenClass, print_slot
+from Classes import Column, TokenClass, print_slot
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getUtcDateTime
