@@ -4,7 +4,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
-    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem
+    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem
 from Classes import TokenClass, MyConnection, partition
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -1498,7 +1498,7 @@ class MainConnection(MyConnection):
     def getConsensusItems(cls, instrument_uid: str) -> list[ConsensusItem]:
         db: QtSql.QSqlDatabase = cls.getDatabase()
         if db.transaction():
-            __select_consensuses_command: str = """SELECT \"ticker\", \"recommendation\", \"currency\", 
+            __select_consensuses_command: str = """SELECT \"uid\", \"ticker\", \"recommendation\", \"currency\", 
             \"current_price\", \"consensus\", \"min_target\", \"max_target\", \"price_change\", \"price_change_rel\" 
             FROM \"{0}\" WHERE \"uid\" = :instrument_uid;""".format(MyConnection.CONSENSUS_ITEMS_TABLE)
 
@@ -1518,6 +1518,35 @@ class MainConnection(MyConnection):
             assert commit_flag, db.lastError().text()
 
             return consensuses
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def getTargetItems(cls, instrument_uid: str) -> list[TargetItem]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __select_targets_command: str = """SELECT \"uid\", \"ticker\", \"company\", \"recommendation\", 
+            \"recommendation_date\", \"currency\", \"current_price\", \"target_price\", \"price_change\", 
+            \"price_change_rel\", \"show_name\" FROM \"{0}\" WHERE \"uid\" = :instrument_uid;""".format(
+                MyConnection.TARGET_ITEMS_TABLE
+            )
+
+            targets_query = QtSql.QSqlQuery(db)
+            targets_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            targets_prepare_flag: bool = targets_query.prepare(__select_targets_command)
+            assert targets_prepare_flag, targets_query.lastError().text()
+            targets_query.bindValue(':instrument_uid', instrument_uid)
+            targets_exec_flag: bool = targets_query.exec()
+            assert targets_exec_flag, targets_query.lastError().text()
+
+            targets: list[TargetItem] = []
+            while targets_query.next():
+                targets.append(MyConnection.getTargetItem(targets_query))
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return targets
         else:
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 

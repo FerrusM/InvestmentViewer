@@ -1,8 +1,10 @@
+import typing
 from abc import ABC
 from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtSql, QtCore
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
-from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, ConsensusItem, Recommendation
+from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, \
+    ConsensusItem, Recommendation, TargetItem
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
 
@@ -50,7 +52,7 @@ class Column:
         self.getSortRole: QtCore.Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
         self.lessThan = lessThan
 
-    def __call__(self, role: int = QtCore.Qt.ItemDataRole.UserRole, *data):
+    def __call__(self, role: int = QtCore.Qt.ItemDataRole.UserRole, *data) -> typing.Any:
         match role:
             case QtCore.Qt.ItemDataRole.UserRole:
                 if self.getData is None: return None
@@ -67,6 +69,52 @@ class Column:
             case QtCore.Qt.ItemDataRole.ForegroundRole:
                 if self.getForeground is None: return None
                 return self.getForeground(*data)
+
+
+class Header:
+    """Класс заголовка."""
+    def __init__(self, title: str | None = None, tooltip: str | None = None):
+        self.__title: str | None = title  # Название столбца.
+        self.__tooltip: str | None = tooltip  # Подсказка в заголовке.
+
+    def __call__(self, role: int = ...) -> typing.Any:
+        match role:
+            case QtCore.Qt.ItemDataRole.DisplayRole:
+                return QtCore.QVariant() if self.__title is None else self.__title
+            case QtCore.Qt.ItemDataRole.ToolTipRole:
+                return QtCore.QVariant() if self.__tooltip is None else self.__tooltip
+
+
+class ColumnWithHeader:
+    def __init__(self, header: Header | None = None, data_function=None, display_function=None, tooltip_function=None,
+                 background_function=None, foreground_function=None,
+                 lessThan=None, sort_role: QtCore.Qt.ItemDataRole = QtCore.Qt.ItemDataRole.UserRole):
+        self.__header: Header | None = header
+        self.getData = data_function  # Функция для получения данных.
+        self.getDisplay = data_function if display_function is None else display_function  # Функция для отображения данных.
+        self.getToolTip = tooltip_function  # Функция для получения подсказки к отображаемым данным.
+        self.getBackground = background_function
+        self.getForeground = foreground_function
+
+        self.getSortRole: QtCore.Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
+        self.lessThan = lessThan
+
+    def header(self, role: int = ...) -> typing.Any:
+        if self.__header is not None:
+            return self.__header(role=role)
+
+    def __call__(self, role: int = QtCore.Qt.ItemDataRole.UserRole, *data) -> typing.Any:
+        match role:
+            case QtCore.Qt.ItemDataRole.UserRole:
+                return QtCore.QVariant() if self.getData is None else self.getData(*data)
+            case QtCore.Qt.ItemDataRole.DisplayRole:
+                return QtCore.QVariant() if self.getDisplay is None else self.getDisplay(*data)
+            case QtCore.Qt.ItemDataRole.ToolTipRole:
+                return QtCore.QVariant() if self.getToolTip is None else self.getToolTip(*data)
+            case QtCore.Qt.ItemDataRole.BackgroundRole:
+                return QtCore.QVariant() if self.getBackground is None else self.getBackground(*data)
+            case QtCore.Qt.ItemDataRole.ForegroundRole:
+                return QtCore.QVariant() if self.getForeground is None else self.getForeground(*data)
 
 
 class TokenClass:
@@ -591,3 +639,22 @@ class MyConnection(ABC):
         return ConsensusItem(uid=uid, ticker=ticker, recommendation=recommendation, currency=currency,
                              current_price=current_price, consensus=consensus, min_target=min_target,
                              max_target=max_target, price_change=price_change, price_change_rel=price_change_rel)
+
+    @classmethod
+    def getTargetItem(cls, query: QtSql.QSqlQuery) -> TargetItem:
+        """Создаёт и возвращает экземпляр класса TargetItem."""
+        uid: str = query.value('uid')
+        ticker: str = query.value('ticker')
+        company: str = query.value('company')
+        recommendation: Recommendation = Recommendation.from_string(query.value('recommendation'))
+        recommendation_date: datetime = cls.convertTextToDateTime(query.value('recommendation_date'))
+        currency: str = query.value('currency')
+        current_price: Quotation = cls.convertTextToQuotation(query.value('current_price'))
+        target_price: Quotation = cls.convertTextToQuotation(query.value('target_price'))
+        price_change: Quotation = cls.convertTextToQuotation(query.value('price_change'))
+        price_change_rel: Quotation = cls.convertTextToQuotation(query.value('price_change_rel'))
+        show_name: str = query.value('show_name')
+        return TargetItem(uid=uid, ticker=ticker, company=company, recommendation=recommendation,
+                          recommendation_date=recommendation_date, currency=currency, current_price=current_price,
+                          target_price=target_price, price_change=price_change, price_change_rel=price_change_rel,
+                          show_name=show_name)

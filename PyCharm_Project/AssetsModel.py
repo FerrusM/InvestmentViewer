@@ -213,7 +213,7 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
     '''-------------------------------------------------------'''
 
     def __init__(self, parent: QtCore.QObject | None = None):
-        self.__columns: (AssetColumn, Column) = (
+        self.__columns: tuple[tuple[AssetColumn, Column], ...] = (
             (AssetColumn(header='uid',
                          data_function=lambda item: item.data.asset.uid),
              Column(data_function=lambda item: item.data.uid)),
@@ -224,15 +224,12 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
             (AssetColumn(header='Наименование актива',
                          data_function=lambda item: item.data.asset.name),
              Column(data_function=lambda item: item.data.instrument_type)),
-            (AssetColumn(),
-             Column(header='Тикер',
-                    data_function=lambda item: item.data.ticker)),
-            (AssetColumn(),
-             Column(header='Класс-код',
-                    data_function=lambda item: item.data.class_code)),
-            (AssetColumn(),
-             Column(header='Тип инструмента',
-                    data_function=lambda item: item.data.asset.instrument_kind,
+            (AssetColumn(header='Тикер'),
+             Column(data_function=lambda item: item.data.ticker)),
+            (AssetColumn(header='Класс-код'),
+             Column(data_function=lambda item: item.data.class_code)),
+            (AssetColumn(header='Тип инструмента'),
+             Column(data_function=lambda item: item.data.asset.instrument_kind,
                     display_function=lambda item: reportInstrumentType(item.data.instrument_kind))),
             (AssetColumn(header='Наименование бренда',
                          header_tooltip='Наименование бренда.',
@@ -298,17 +295,6 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
         self.__assets = assets
 
         '''---------------Создание иерархической структуры---------------'''
-        # assets_items: list[TreeItem] = []
-        # for i, asset_instance in enumerate(self.__assets):
-        #     asset_item: TreeItem = TreeItem(i, 0, self.__root_item, asset_instance)
-        #     asset_instruments: list[TreeItem] = []
-        #     for j, instrument in enumerate(asset_instance.asset.instruments):
-        #         instrument_item: TreeItem = TreeItem(j, 1, asset_item, instrument)
-        #         asset_instruments.append(instrument_item)
-        #     asset_item.setChildren(asset_instruments)
-        #     assets_items.append(asset_item)
-        # self.__root_item.setChildren(assets_items)
-
         assets_items: list[TreeItem] = []
         for i, asset_instance in enumerate(self.__assets):
             asset_item: TreeItem = TreeItem(i, self.__root_item, asset_instance)

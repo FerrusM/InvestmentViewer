@@ -6,7 +6,7 @@ from tinkoff.invest import Bond, Quotation
 from tinkoff.invest.schemas import Share, HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesView import CandlesChartView
-from Classes import MyConnection, TokenClass, print_slot, Column
+from Classes import MyConnection, TokenClass, print_slot, ColumnWithHeader, Header
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
@@ -306,35 +306,28 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
     """Панель отображения свечей."""
     class CandlesModel(QtCore.QAbstractTableModel):
         def __init__(self, parent: QtCore.QObject | None = ...):
-            self.__columns: tuple[Column, ...] = (
-                Column(header='Открытие',
-                       header_tooltip='Цена открытия за 1 инструмент.',
-                       data_function=lambda candle: candle.open,
-                       display_function=lambda candle: MyQuotation.__str__(candle.open, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Макс. цена',
-                       header_tooltip='Максимальная цена за 1 инструмент.',
-                       data_function=lambda candle: candle.high,
-                       display_function=lambda candle: MyQuotation.__str__(candle.high, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Мин. цена',
-                       header_tooltip='Минимальная цена за 1 инструмент.',
-                       data_function=lambda candle: candle.low,
-                       display_function=lambda candle: MyQuotation.__str__(candle.low, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Закрытие',
-                       header_tooltip='Цена закрытия за 1 инструмент.',
-                       data_function=lambda candle: candle.close,
-                       display_function=lambda candle: MyQuotation.__str__(candle.close, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Объём',
-                       header_tooltip='Объём торгов в лотах.',
-                       data_function=lambda candle: candle.volume,
-                       display_function=lambda candle: str(candle.volume)),
-                Column(header='Время',
-                       header_tooltip='Время свечи в часовом поясе UTC.',
-                       data_function=lambda candle: candle.time,
-                       display_function=lambda candle: str(candle.time)),
-                Column(header='Завершённость',
-                       header_tooltip='Признак завершённости свечи. False значит, что свеча за текущий интервал ещё сформирована не полностью.',
-                       data_function=lambda candle: candle.is_complete,
-                       display_function=lambda candle: str(candle.is_complete))
+            self.__columns: tuple[ColumnWithHeader, ...] = (
+                ColumnWithHeader(header=Header(title='Открытие', tooltip='Цена открытия за 1 инструмент.'),
+                                 data_function=lambda candle: candle.open,
+                                 display_function=lambda candle: MyQuotation.__str__(candle.open, ndigits=8, delete_decimal_zeros=True)),
+                ColumnWithHeader(header=Header(title='Макс. цена', tooltip='Максимальная цена за 1 инструмент.'),
+                                 data_function=lambda candle: candle.high,
+                                 display_function=lambda candle: MyQuotation.__str__(candle.high, ndigits=8, delete_decimal_zeros=True)),
+                ColumnWithHeader(header=Header(title='Мин. цена', tooltip='Минимальная цена за 1 инструмент.'),
+                                 data_function=lambda candle: candle.low,
+                                 display_function=lambda candle: MyQuotation.__str__(candle.low, ndigits=8, delete_decimal_zeros=True)),
+                ColumnWithHeader(header=Header(title='Закрытие', tooltip='Цена закрытия за 1 инструмент.'),
+                                 data_function=lambda candle: candle.close,
+                                 display_function=lambda candle: MyQuotation.__str__(candle.close, ndigits=8, delete_decimal_zeros=True)),
+                ColumnWithHeader(header=Header(title='Объём', tooltip='Объём торгов в лотах.'),
+                                 data_function=lambda candle: candle.volume,
+                                 display_function=lambda candle: str(candle.volume)),
+                ColumnWithHeader(header=Header(title='Время', tooltip='Время свечи в часовом поясе UTC.'),
+                                 data_function=lambda candle: candle.time,
+                                 display_function=lambda candle: str(candle.time)),
+                ColumnWithHeader(header=Header(title='Завершённость', tooltip='Признак завершённости свечи. False значит, что свеча за текущий интервал ещё сформирована не полностью.'),
+                                 data_function=lambda candle: candle.is_complete,
+                                 display_function=lambda candle: str(candle.is_complete))
             )
             self.__candles: list[HistoricCandle] = []
             super().__init__(parent)
@@ -346,7 +339,7 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
             return len(self.__candles)
 
         def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
-            column: Column = self.__columns[index.column()]
+            column: ColumnWithHeader = self.__columns[index.column()]
             candle: HistoricCandle = self.__candles[index.row()]
             return column(role, candle)
 
@@ -355,10 +348,7 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
                 if role == QtCore.Qt.ItemDataRole.DisplayRole:
                     return section + 1  # Проставляем номера строк.
             elif orientation == QtCore.Qt.Orientation.Horizontal:
-                if role == QtCore.Qt.ItemDataRole.DisplayRole:
-                    return self.__columns[section].header
-                elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
-                    return self.__columns[section].header_tooltip
+                return self.__columns[section].header(role=role)
 
         def setCandles(self, candles: list[HistoricCandle]):
             self.beginResetModel()

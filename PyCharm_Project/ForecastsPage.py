@@ -2,8 +2,8 @@ import typing
 from datetime import datetime
 from enum import Enum
 from PyQt6 import QtWidgets, QtCore
-from tinkoff.invest.schemas import GetForecastResponse, ConsensusItem
-from Classes import TokenClass, print_slot, Column
+from tinkoff.invest.schemas import GetForecastResponse, ConsensusItem, TargetItem
+from Classes import TokenClass, print_slot, ColumnWithHeader, Header
 from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
@@ -15,39 +15,30 @@ from TokenModel import TokenListModel
 
 
 class ConsensusItemsModel(QtCore.QAbstractTableModel):
-    """Модель консенсус-прогнозов инструментов."""
+    """Модель консенсус-прогнозов."""
     def __init__(self, instrument_uid: str | None = None, parent: QtCore.QObject | None = None):
         super().__init__(parent=parent)
         self.__instrument_uid: str | None = instrument_uid
         self.__consensus_items: list[ConsensusItem] = []
-        self.__columns: tuple[Column, ...] = (
-            Column(header='Тикер',
-                   header_tooltip='Тикер инструмента',
-                   data_function=lambda cf: cf.ticker),
-            Column(header='Прогноз',
-                   header_tooltip='Прогноз',
-                   data_function=lambda cf: cf.recommendation.name),
-            Column(header='Валюта',
-                   header_tooltip='Валюта',
-                   data_function=lambda cf: cf.currency),
-            Column(header='Текущая цена',
-                   header_tooltip='Текущая цена',
-                   data_function=lambda cf: MyQuotation.__str__(cf.current_price, ndigits=8, delete_decimal_zeros=True)),
-            Column(header='Прогнозируемая цена',
-                   header_tooltip='Прогнозируемая цена',
-                   data_function=lambda cf: MyQuotation.__str__(cf.consensus, ndigits=8, delete_decimal_zeros=True)),
-            Column(header='Минимальная цена',
-                   header_tooltip='Минимальная цена прогноза',
-                   data_function=lambda cf: MyQuotation.__str__(cf.min_target, ndigits=8, delete_decimal_zeros=True)),
-            Column(header='Максимальная цена',
-                   header_tooltip='Максимальная цена прогноза',
-                   data_function=lambda cf: MyQuotation.__str__(cf.max_target, ndigits=8, delete_decimal_zeros=True)),
-            Column(header='Изменение',
-                   header_tooltip='Изменение цены',
-                   data_function=lambda cf: MyQuotation.__str__(cf.price_change, ndigits=8, delete_decimal_zeros=True)),
-            Column(header='Относительное изменение',
-                   header_tooltip='Относительное изменение цены',
-                   data_function=lambda cf: MyQuotation.__str__(cf.price_change_rel, ndigits=8, delete_decimal_zeros=True))
+        self.__columns: tuple[ColumnWithHeader, ...] = (
+            ColumnWithHeader(header=Header(title='Тикер', tooltip='Тикер инструмента'),
+                             data_function=lambda cf: cf.ticker),
+            ColumnWithHeader(header=Header(title='Прогноз', tooltip='Прогноз'),
+                             data_function=lambda cf: cf.recommendation.name),
+            ColumnWithHeader(header=Header(title='Валюта', tooltip='Валюта'),
+                             data_function=lambda cf: cf.currency),
+            ColumnWithHeader(header=Header(title='Текущая цена', tooltip='Текущая цена'),
+                             data_function=lambda cf: MyQuotation.__str__(cf.current_price, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Прогноз. цена', tooltip='Прогнозируемая цена'),
+                             data_function=lambda cf: MyQuotation.__str__(cf.consensus, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Мин. цена', tooltip='Минимальная цена прогноза'),
+                             data_function=lambda cf: MyQuotation.__str__(cf.min_target, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Макс. цена', tooltip='Максимальная цена прогноза'),
+                             data_function=lambda cf: MyQuotation.__str__(cf.max_target, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Изменение', tooltip='Изменение цены'),
+                             data_function=lambda cf: MyQuotation.__str__(cf.price_change, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Относ. изменение', tooltip='Относительное изменение цены'),
+                             data_function=lambda cf: MyQuotation.__str__(cf.price_change_rel, ndigits=8, delete_decimal_zeros=True))
         )
         self.__update()
 
@@ -67,7 +58,7 @@ class ConsensusItemsModel(QtCore.QAbstractTableModel):
         self.endResetModel()
 
     def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
-        column = self.__columns[index.column()]
+        column: ColumnWithHeader = self.__columns[index.column()]
         return column(role, self.__consensus_items[index.row()])
 
     def resetInstrument(self):
@@ -87,10 +78,77 @@ class ConsensusItemsModel(QtCore.QAbstractTableModel):
             if role == QtCore.Qt.ItemDataRole.DisplayRole:
                 return section + 1  # Проставляем номера строк.
         elif orientation == QtCore.Qt.Orientation.Horizontal:
+            return self.__columns[section].header(role=role)
+
+
+class TargetItemsModel(QtCore.QAbstractTableModel):
+    """Модель прогнозов."""
+    def __init__(self, instrument_uid: str | None = None, parent: QtCore.QObject | None = None):
+        super().__init__(parent=parent)
+        self.__instrument_uid: str | None = instrument_uid
+        self.__target_items: list[TargetItem] = []
+        self.__columns: tuple[ColumnWithHeader, ...] = (
+            ColumnWithHeader(header=Header(title='Тикер', tooltip='Тикер инструмента'),
+                             data_function=lambda ti: ti.ticker),
+            ColumnWithHeader(header=Header(title='Компания', tooltip='Название компании, давшей прогноз'),
+                             data_function=lambda ti: ti.company),
+            ColumnWithHeader(header=Header(title='Прогноз', tooltip='Прогноз'),
+                             data_function=lambda ti: ti.recommendation.name),
+            ColumnWithHeader(header=Header(title='Дата прогноза', tooltip='Дата прогноза'),
+                             display_function=lambda ti: str(ti.recommendation_date),
+                             data_function=lambda ti: ti.recommendation_date),
+            ColumnWithHeader(header=Header(title='Валюта', tooltip='Валюта'),
+                             data_function=lambda ti: ti.currency),
+            ColumnWithHeader(header=Header(title='Текущая цена', tooltip='Текущая цена'),
+                             data_function=lambda ti: MyQuotation.__str__(ti.current_price, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Прогноз. цена', tooltip='Прогнозируемая цена'),
+                             data_function=lambda ti: MyQuotation.__str__(ti.target_price, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Изменение', tooltip='Изменение цены'),
+                             data_function=lambda ti: MyQuotation.__str__(ti.price_change, ndigits=8, delete_decimal_zeros=True)),
+            ColumnWithHeader(header=Header(title='Относ. изменение', tooltip='Относительное изменение цены'),
+                             data_function=lambda ti: MyQuotation.__str__(ti.price_change_rel, ndigits=8, delete_decimal_zeros=True)),
+            # ColumnWithHeader(header=Header(title='Имя', tooltip='Наименование инструмента'),
+            #                  data_function=lambda ti: ti.show_name)
+        )
+        self.__update()
+
+    def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
+        return len(self.__target_items)
+
+    def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
+        return len(self.__columns)
+
+    def __update(self):
+        """Обновляет модель."""
+        self.beginResetModel()
+        if self.__instrument_uid is None:
+            self.__target_items.clear()
+        else:
+            self.__target_items = MainConnection.getTargetItems(instrument_uid=self.__instrument_uid)
+        self.endResetModel()
+
+    def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
+        column: ColumnWithHeader = self.__columns[index.column()]
+        return column(role, self.__target_items[index.row()])
+
+    def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
+        if orientation == QtCore.Qt.Orientation.Vertical:
             if role == QtCore.Qt.ItemDataRole.DisplayRole:
-                return self.__columns[section].header
-            elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
-                return self.__columns[section].header_tooltip
+                return section + 1  # Проставляем номера строк.
+        elif orientation == QtCore.Qt.Orientation.Horizontal:
+            return self.__columns[section].header(role=role)
+
+    def resetInstrument(self):
+        if self.__instrument_uid is not None:
+            self.__instrument_uid = None
+            self.__update()
+
+    def setInstrument(self, instrument_uid: str | None):
+        if instrument_uid is None:
+            self.resetInstrument()
+        else:
+            self.__instrument_uid = instrument_uid
+            self.__update()
 
 
 class MyTableViewGroupBox(QtWidgets.QGroupBox):
@@ -102,25 +160,40 @@ class MyTableViewGroupBox(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------------Заголовок------------------------------'''
-        self.title_widget = TitleWithCount(title=title, count_text='0', parent=self)
-        verticalLayout_main.addLayout(self.title_widget, 0)
+        self.__titlebar = TitleWithCount(title=title, count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.__titlebar, 0)
         '''---------------------------------------------------------------------'''
 
         '''------------------------------Отображение------------------------------'''
-        self.tableView = QtWidgets.QTableView(parent=self)
-        self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tableView.setSortingEnabled(True)
+        self.__tableView = QtWidgets.QTableView(parent=self)
+        self.__tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.__tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.__tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.__tableView.setSortingEnabled(True)
+
+        self.__model_reset_connection: QtCore.QMetaObject.Connection
 
         self.setModel(model)  # Подключаем модель к таблице.
 
-        verticalLayout_main.addWidget(self.tableView, 1)
+        verticalLayout_main.addWidget(self.__tableView, 1)
         '''-----------------------------------------------------------------------'''
 
     def setModel(self, model: QtCore.QAbstractItemModel | None):
-        self.tableView.setModel(model)  # Подключаем модель к таблице.
-        self.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+        old_model: QtCore.QAbstractItemModel | None = self.__tableView.model()
+        if old_model is not None:
+            disconnect_flag: bool = old_model.disconnect(self.__model_reset_connection)
+            assert disconnect_flag, 'Не удалось отключить слот!'
+
+        self.__tableView.setModel(model)  # Подключаем модель к таблице.
+
+        if model is not None:
+            def __onModelUpdated():
+                """Выполняется при изменении модели."""
+                self.__titlebar.setCount(str(model.rowCount()))
+                self.__tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+            __onModelUpdated()
+            self.__model_reset_connection = model.modelReset.connect(__onModelUpdated)
 
 
 class ProgressThreadManagerBar(QtWidgets.QHBoxLayout):
@@ -598,19 +671,6 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
 
 class ForecastsPage(QtWidgets.QWidget):
     """Страница прогнозов."""
-    class ConsensusItemsModel(QtCore.QAbstractTableModel):
-        def __init__(self, parent: QtCore.QObject | None = None):
-            super().__init__(parent=parent)
-            pass
-            self.__items: list = []
-
-        def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
-            return len(self.__items)
-
-        def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
-            pass
-            return 0
-
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)
 
@@ -636,33 +696,33 @@ class ForecastsPage(QtWidgets.QWidget):
 
         verticalLayout_main.addLayout(horizontalLayout_top, 0)
 
-        horizontalLayout_bottom = QtWidgets.QHBoxLayout()
-        horizontalLayout_bottom.setSpacing(2)
+        '''------------------------------------------Нижняя часть------------------------------------------'''
+        splitter_bottom = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Horizontal, parent=self)
 
-        self.consensuses_view = MyTableViewGroupBox(title='КОНСЕНСУС-ПРОГНОЗЫ', model=None, parent=self)
+        self.consensuses_view = MyTableViewGroupBox(title='КОНСЕНСУС-ПРОГНОЗЫ', model=None, parent=splitter_bottom)
         consensuses_model = ConsensusItemsModel(instrument_uid=self.instrument_uid, parent=self.consensuses_view)
+        self.consensuses_view.setModel(consensuses_model)
+
+        self.targets_view = MyTableViewGroupBox(title='ПРОГНОЗЫ', model=None, parent=splitter_bottom)
+        targets_model = TargetItemsModel(instrument_uid=self.instrument_uid, parent=self.targets_view)
+        self.targets_view.setModel(targets_model)
 
         @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onInstrumentChanged(instrument_uid: str):
             consensuses_model.setInstrument(instrument_uid)
-            self.consensuses_view.tableView.resizeColumnsToContents()
+            targets_model.setInstrument(instrument_uid)
 
         self.groupBox_instrument_selection.comboBox_instrument.instrumentChanged.connect(__onInstrumentChanged)
 
         @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onInstrumentReset():
             consensuses_model.setInstrument(None)
-            self.consensuses_view.tableView.resizeColumnsToContents()
+            targets_model.setInstrument(None)
 
         self.groupBox_instrument_selection.comboBox_instrument.instrumentReset.connect(__onInstrumentReset)
 
-        self.consensuses_view.setModel(consensuses_model)
-        horizontalLayout_bottom.addWidget(self.consensuses_view, 1)
-
-        self.targets_view = MyTableViewGroupBox(title='ПРОГНОЗЫ', model=ForecastsPage.ConsensusItemsModel(self), parent=self)
-        horizontalLayout_bottom.addWidget(self.targets_view, 1)
-
-        verticalLayout_main.addLayout(horizontalLayout_bottom, 1)
+        verticalLayout_main.addWidget(splitter_bottom, 1)
+        '''------------------------------------------------------------------------------------------------'''
 
     @property
     def instrument_uid(self) -> str | None:
