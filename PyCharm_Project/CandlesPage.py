@@ -207,11 +207,15 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self), 0)
 
+        horizontalLayout_instrument_type.addSpacing(4)
+
         self.comboBox_instrument_type = self.ComboBox_InstrumentType(self)
         self.__instrument_type: str | None = self.comboBox_instrument_type.currentData(QtCore.Qt.ItemDataRole.DisplayRole)
         horizontalLayout_instrument_type.addWidget(self.comboBox_instrument_type)
 
-        verticalLayout_main.addLayout(horizontalLayout_instrument_type)
+        horizontalLayout_instrument_type.addStretch(1)
+
+        verticalLayout_main.addLayout(horizontalLayout_instrument_type, 0)
         '''------------------------------------------------------'''
 
         '''---------------Строка выбора инструмента---------------'''
@@ -220,23 +224,27 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
 
         horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self), 0)
 
+        horizontalLayout_instrument.addSpacing(4)
+
         self.comboBox_instrument = self.ComboBox_Instrument(self.instrument_type, self)
         horizontalLayout_instrument.addWidget(self.comboBox_instrument)
 
-        verticalLayout_main.addLayout(horizontalLayout_instrument)
+        horizontalLayout_instrument.addStretch(1)
+
+        verticalLayout_main.addLayout(horizontalLayout_instrument, 0)
         '''-------------------------------------------------------'''
 
         @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def onInstrumentTypeChanged(instrument_type: str):
+        def __onInstrumentTypeChanged(instrument_type: str):
             self.instrument_type = instrument_type
 
-        self.comboBox_instrument_type.typeChanged.connect(onInstrumentTypeChanged)
+        self.comboBox_instrument_type.typeChanged.connect(__onInstrumentTypeChanged)
 
         @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def onInstrumentTypeReset():
+        def __onInstrumentTypeReset():
             self.instrument_type = None
 
-        self.comboBox_instrument_type.typeReset.connect(onInstrumentTypeReset)
+        self.comboBox_instrument_type.typeReset.connect(__onInstrumentTypeReset)
 
         @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def onInstrumentChanged(instrument_uid: str):

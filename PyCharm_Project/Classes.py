@@ -4,7 +4,7 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtSql, QtCore
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, \
-    ConsensusItem, Recommendation, TargetItem
+    ConsensusItem, Recommendation, TargetItem, GetForecastResponse
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
 
@@ -34,6 +34,60 @@ class MyTreeView(QtWidgets.QTreeView):
         """Авторазмер всех столбцов TreeView под содержимое."""
         for i in range(self.model().columnCount()):
             self.resizeColumnToContents(i)  # Авторазмер i-го столбца под содержимое.
+
+
+def getForecastResponseEq(first: GetForecastResponse, second: GetForecastResponse) -> bool:
+    """Метод сравнения GetForecastResponse'ов."""
+    def getConsensusItemEq(frst: ConsensusItem, scd: ConsensusItem) -> bool:
+        """Метод сравнения ConsensusItem'ов."""
+        if frst.uid == scd.uid and frst.ticker == scd.ticker and frst.recommendation == scd.recommendation and \
+                frst.currency == scd.currency and frst.current_price == scd.current_price and frst.consensus == \
+                scd.consensus and frst.min_target == scd.min_target and frst.max_target == scd.max_target and \
+                frst.price_change == scd.price_change and frst.price_change_rel == scd.price_change_rel:
+            return True
+        else:
+            return False
+
+    def getTargetItemEq(frst: TargetItem, scd: TargetItem) -> bool:
+        """Метод сравнения TargetItem'ов."""
+        if frst.uid == scd.uid and frst.ticker == scd.ticker and frst.company == scd.company and \
+                frst.recommendation == scd.recommendation and frst.recommendation_date == scd.recommendation_date and \
+                frst.currency == scd.currency and frst.current_price == scd.current_price and frst.target_price == \
+                scd.target_price and frst.price_change == scd.price_change and frst.price_change_rel == \
+                scd.price_change_rel and frst.show_name == scd.show_name:
+            return True
+        else:
+            return False
+
+    if getConsensusItemEq(first.consensus, second.consensus):
+        if len(first.targets) == len(second.targets):
+            for i in range(len(first.targets)):
+                if not getTargetItemEq(first.targets[i], second.targets[i]):
+                    return False
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+class ConsensusFull(GetForecastResponse):
+    """Класс, который содержит консенсус-прогноз, его номер и соответствующие ему таргет-прогнозы."""
+    def __init__(self, number: int, forecast: GetForecastResponse):
+        self.__number: int = number
+        self.__forecast: GetForecastResponse = forecast
+
+    @property
+    def number(self) -> int:
+        return self.__number
+
+    @property
+    def targets(self) -> list[TargetItem]:
+        return self.__forecast.targets
+
+    @property
+    def consensus(self) -> ConsensusItem:
+        return self.__forecast.consensus
 
 
 class Column:
@@ -69,6 +123,34 @@ class Column:
             case QtCore.Qt.ItemDataRole.ForegroundRole:
                 if self.getForeground is None: return None
                 return self.getForeground(*data)
+
+
+class ColumnWithoutHeader:
+    """Класс столбца без заголовка."""
+    def __init__(self, data_function=None, display_function=None, tooltip_function=None,
+                 background_function=None, foreground_function=None,
+                 lessThan=None, sort_role: QtCore.Qt.ItemDataRole = QtCore.Qt.ItemDataRole.UserRole):
+        self.getData = data_function  # Функция для получения данных.
+        self.getDisplay = data_function if display_function is None else display_function  # Функция для отображения данных.
+        self.getToolTip = tooltip_function  # Функция для получения подсказки к отображаемым данным.
+        self.getBackground = background_function
+        self.getForeground = foreground_function
+
+        self.getSortRole: QtCore.Qt.ItemDataRole = sort_role  # Роль элементов, используемая для сортировки столбца.
+        self.lessThan = lessThan
+
+    def __call__(self, role: int = ..., *data) -> typing.Any:
+        match role:
+            case QtCore.Qt.ItemDataRole.UserRole:
+                return QtCore.QVariant() if self.getData is None else self.getData(*data)
+            case QtCore.Qt.ItemDataRole.DisplayRole:
+                return QtCore.QVariant() if self.getDisplay is None else self.getDisplay(*data)
+            case QtCore.Qt.ItemDataRole.ToolTipRole:
+                return QtCore.QVariant() if self.getToolTip is None else self.getToolTip(*data)
+            case QtCore.Qt.ItemDataRole.BackgroundRole:
+                return QtCore.QVariant() if self.getBackground is None else self.getBackground(*data)
+            case QtCore.Qt.ItemDataRole.ForegroundRole:
+                return QtCore.QVariant() if self.getForeground is None else self.getForeground(*data)
 
 
 class Header:
@@ -626,7 +708,7 @@ class MyConnection(ABC):
     @classmethod
     def getConsensusItem(cls, query: QtSql.QSqlQuery) -> ConsensusItem:
         """Создаёт и возвращает экземпляр класса ConsensusItem."""
-        uid: str = query.value('uid')
+        uid: str = query.value('instrument_uid')
         ticker: str = query.value('ticker')
         recommendation: Recommendation = Recommendation.from_string(query.value('recommendation'))
         currency: str = query.value('currency')
@@ -643,7 +725,7 @@ class MyConnection(ABC):
     @classmethod
     def getTargetItem(cls, query: QtSql.QSqlQuery) -> TargetItem:
         """Создаёт и возвращает экземпляр класса TargetItem."""
-        uid: str = query.value('uid')
+        uid: str = query.value('instrument_uid')
         ticker: str = query.value('ticker')
         company: str = query.value('company')
         recommendation: Recommendation = Recommendation.from_string(query.value('recommendation'))

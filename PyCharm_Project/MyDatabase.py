@@ -4,8 +4,8 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
-    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem
-from Classes import TokenClass, MyConnection, partition
+    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem, Recommendation
+from Classes import TokenClass, MyConnection, partition, ConsensusFull, getForecastResponseEq
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
@@ -667,58 +667,31 @@ class MainConnection(MyConnection):
             assert instruments_status_exec_flag, instruments_status_query.lastError().text()
             '''------------------------------------------------------------------------------'''
 
+            """==============================Новые таблицы прогнозов=============================="""
             recommendation_column_name: str = '\"recommendation\"'
-            recommendation_check_str: str = ' CHECK({0} = \'RECOMMENDATION_UNSPECIFIED\' OR {0} = \'RECOMMENDATION_BUY\' OR {0} = \'RECOMMENDATION_HOLD\' OR {0} = \'RECOMMENDATION_SELL\')'.format(recommendation_column_name)
-
-            '''------------------------Создание таблицы прогнозов------------------------'''
-            target_items_query_str: str = '''
-            CREATE TABLE IF NOT EXISTS \"{0}\" (
-            \"uid\" TEXT NOT NULL,
-            \"ticker\" TEXT NOT NULL,
-            \"company\" TEXT NOT NULL,
-            {2} TEXT NOT NULL{3},
-            \"recommendation_date\" TEXT NOT NULL,
-            \"currency\" TEXT NOT NULL,
-            \"current_price\" TEXT NOT NULL,
-            \"target_price\" TEXT NOT NULL,
-            \"price_change\" TEXT NOT NULL,
-            \"price_change_rel\" TEXT NOT NULL,
-            \"show_name\" TEXT NOT NULL,
-            UNIQUE (\"uid\", \"company\", \"recommendation_date\"),
-            FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
-            );'''.format(
-                MyConnection.TARGET_ITEMS_TABLE,
-                MyConnection.INSTRUMENT_UIDS_TABLE,
-                recommendation_column_name,
-                recommendation_check_str
-            )
-            target_items_query = QSqlQuery(db)
-            target_items_prepare_flag: bool = target_items_query.prepare(target_items_query_str)
-            assert target_items_prepare_flag, target_items_query.lastError().text()
-            target_items_exec_flag: bool = target_items_query.exec()
-            assert target_items_exec_flag, target_items_query.lastError().text()
-            '''--------------------------------------------------------------------------'''
+            recommendation_check_str: str | None = getCheckConstraintForColumnFromEnum(recommendation_column_name, Recommendation)
+            recommendation_column: str = '{0} TEXT NOT NULL{1}'.format(recommendation_column_name, '' if recommendation_check_str is None else ' {0}'.format(recommendation_check_str))
 
             '''-------------------Создание таблицы консенсус-прогнозов-------------------'''
             consensus_items_query_str: str = '''
             CREATE TABLE IF NOT EXISTS \"{0}\" (
-            \"uid\" TEXT NOT NULL,
+            \"instrument_uid\" TEXT NOT NULL,
+            \"consensus_number\" INTEGER NOT NULL,
             \"ticker\" TEXT NOT NULL,
-            {2} TEXT NOT NULL{3},
+            {2},
             \"currency\" TEXT NOT NULL,
             \"current_price\" TEXT NOT NULL,
             \"consensus\" TEXT NOT NULL,
             \"min_target\" TEXT NOT NULL,
             \"max_target\" TEXT NOT NULL,
             \"price_change\" TEXT NOT NULL,
-            \"price_change_rel\" TEXT NOT NULL,
-            UNIQUE (\"uid\"),
-            FOREIGN KEY (\"uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
+            \"price_change_rel\" TEXT NOT NULL, 
+            PRIMARY KEY (\"instrument_uid\", \"consensus_number\"), 
+            FOREIGN KEY (\"instrument_uid\") REFERENCES \"{1}\"(\"uid\") ON DELETE CASCADE
             );'''.format(
                 MyConnection.CONSENSUS_ITEMS_TABLE,
                 MyConnection.INSTRUMENT_UIDS_TABLE,
-                recommendation_column_name,
-                recommendation_check_str
+                recommendation_column
             )
             consensus_items_query = QSqlQuery(db)
             consensus_items_prepare_flag: bool = consensus_items_query.prepare(consensus_items_query_str)
@@ -726,6 +699,37 @@ class MainConnection(MyConnection):
             consensus_items_exec_flag: bool = consensus_items_query.exec()
             assert consensus_items_exec_flag, consensus_items_query.lastError().text()
             '''--------------------------------------------------------------------------'''
+
+            '''------------------------Создание таблицы прогнозов------------------------'''
+            target_items_query_str: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"instrument_uid\" TEXT NOT NULL,
+            \"consensus_number\" INTEGER NOT NULL,
+            \"ticker\" TEXT NOT NULL,
+            \"company\" TEXT NOT NULL,
+            {3},
+            \"recommendation_date\" TEXT NOT NULL,
+            \"currency\" TEXT NOT NULL,
+            \"current_price\" TEXT NOT NULL,
+            \"target_price\" TEXT NOT NULL,
+            \"price_change\" TEXT NOT NULL,
+            \"price_change_rel\" TEXT NOT NULL,
+            \"show_name\" TEXT NOT NULL, 
+            FOREIGN KEY (\"instrument_uid\", \"consensus_number\") REFERENCES \"{1}\"(\"instrument_uid\", \"consensus_number\") ON DELETE CASCADE, 
+            FOREIGN KEY (\"instrument_uid\") REFERENCES \"{2}\"(\"uid\") ON DELETE CASCADE
+            );'''.format(
+                MyConnection.TARGET_ITEMS_TABLE,
+                MyConnection.CONSENSUS_ITEMS_TABLE,
+                MyConnection.INSTRUMENT_UIDS_TABLE,
+                recommendation_column
+            )
+            target_items_query = QSqlQuery(db)
+            target_items_prepare_flag: bool = target_items_query.prepare(target_items_query_str)
+            assert target_items_prepare_flag, target_items_query.lastError().text()
+            target_items_exec_flag: bool = target_items_query.exec()
+            assert target_items_exec_flag, target_items_query.lastError().text()
+            '''--------------------------------------------------------------------------'''
+            """==================================================================================="""
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
@@ -1498,9 +1502,11 @@ class MainConnection(MyConnection):
     def getConsensusItems(cls, instrument_uid: str) -> list[ConsensusItem]:
         db: QtSql.QSqlDatabase = cls.getDatabase()
         if db.transaction():
-            __select_consensuses_command: str = """SELECT \"uid\", \"ticker\", \"recommendation\", \"currency\", 
-            \"current_price\", \"consensus\", \"min_target\", \"max_target\", \"price_change\", \"price_change_rel\" 
-            FROM \"{0}\" WHERE \"uid\" = :instrument_uid;""".format(MyConnection.CONSENSUS_ITEMS_TABLE)
+            __select_consensuses_command: str = '''SELECT \"instrument_uid\", \"ticker\", \"recommendation\", 
+            \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", \"price_change\", 
+            \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid;'''.format(
+                MyConnection.CONSENSUS_ITEMS_TABLE
+            )
 
             consensuses_query = QtSql.QSqlQuery(db)
             consensuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
@@ -1525,9 +1531,9 @@ class MainConnection(MyConnection):
     def getTargetItems(cls, instrument_uid: str) -> list[TargetItem]:
         db: QtSql.QSqlDatabase = cls.getDatabase()
         if db.transaction():
-            __select_targets_command: str = """SELECT \"uid\", \"ticker\", \"company\", \"recommendation\", 
+            __select_targets_command: str = '''SELECT \"instrument_uid\", \"ticker\", \"company\", \"recommendation\", 
             \"recommendation_date\", \"currency\", \"current_price\", \"target_price\", \"price_change\", 
-            \"price_change_rel\", \"show_name\" FROM \"{0}\" WHERE \"uid\" = :instrument_uid;""".format(
+            \"price_change_rel\", \"show_name\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid;'''.format(
                 MyConnection.TARGET_ITEMS_TABLE
             )
 
@@ -1547,6 +1553,63 @@ class MainConnection(MyConnection):
             assert commit_flag, db.lastError().text()
 
             return targets
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @staticmethod
+    def __getTargets(db: QtSql.QSqlDatabase, uid: str, number: int) -> list[TargetItem]:
+        __select_targets_command: str = '''SELECT \"instrument_uid\", \"ticker\", \"company\", \"recommendation\", 
+        \"recommendation_date\", \"currency\", \"current_price\", \"target_price\", \"price_change\", 
+        \"price_change_rel\", \"show_name\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid AND 
+        \"consensus_number\" = :consensus_number;'''.format(
+            MyConnection.TARGET_ITEMS_TABLE
+        )
+
+        targets_query = QtSql.QSqlQuery(db)
+        targets_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+        targets_prepare_flag: bool = targets_query.prepare(__select_targets_command)
+        assert targets_prepare_flag, targets_query.lastError().text()
+        targets_query.bindValue(':instrument_uid', uid)
+        targets_query.bindValue(':consensus_number', number)
+        targets_exec_flag: bool = targets_query.exec()
+        assert targets_exec_flag, targets_query.lastError().text()
+
+        target_items: list[TargetItem] = []
+        while targets_query.next():
+            target_items.append(MyConnection.getTargetItem(targets_query))
+
+        return target_items
+
+    @classmethod
+    def getConsensusFulls(cls, instrument_uid: str) -> list[ConsensusFull]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __select_consensuses_command: str = '''SELECT \"instrument_uid\", \"consensus_number\", \"ticker\", 
+            \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", 
+            \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid;'''.format(
+                MyConnection.CONSENSUS_ITEMS_TABLE
+            )
+
+            consensuses_query = QtSql.QSqlQuery(db)
+            consensuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            consensuses_prepare_flag: bool = consensuses_query.prepare(__select_consensuses_command)
+            assert consensuses_prepare_flag, consensuses_query.lastError().text()
+            consensuses_query.bindValue(':instrument_uid', instrument_uid)
+            consensuses_exec_flag: bool = consensuses_query.exec()
+            assert consensuses_exec_flag, consensuses_query.lastError().text()
+
+            consensus_fulls: list[ConsensusFull] = []
+            while consensuses_query.next():
+                consensus_number: int = consensuses_query.value('consensus_number')
+                consensus_item: ConsensusItem = MyConnection.getConsensusItem(consensuses_query)
+                targets: list[TargetItem] = cls.__getTargets(db=db, uid=instrument_uid, number=consensus_number)
+                forecast_response: GetForecastResponse = GetForecastResponse(consensus=consensus_item, targets=targets)
+                consensus_fulls.append(ConsensusFull(number=consensus_number, forecast=forecast_response))
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return consensus_fulls
         else:
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
@@ -1844,58 +1907,91 @@ class MainConnection(MyConnection):
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
-    def insertForecasts(cls, forecasts: GetForecastResponse):
-        insert_consensus_forecast_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"ticker\", \"recommendation\", 
-        \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", \"price_change\", 
-        \"price_change_rel\") VALUES (:uid, :ticker, :recommendation, :currency, :current_price, :consensus, 
-        :min_target, :max_target, :price_change, :price_change_rel) ON CONFLICT(\"uid\") DO UPDATE SET \"ticker\" = 
-        {1}.\"ticker\", \"recommendation\" = {1}.\"recommendation\", \"currency\" = {1}.\"currency\", \"current_price\" 
-        = {1}.\"current_price\", \"consensus\" = {1}.\"consensus\", \"min_target\" = {1}.\"min_target\", \"max_target\" 
-        = {1}.\"max_target\", \"price_change\" = {1}.\"price_change\", \"price_change_rel\" = {1}.\"price_change_rel\" 
-        WHERE \"ticker\" != {1}.\"ticker\" OR \"recommendation\" != {1}.\"recommendation\" OR \"currency\" != 
-        {1}.\"currency\" OR \"current_price\" != {1}.\"current_price\" OR \"consensus\" != {1}.\"consensus\" OR 
-        \"min_target\" != {1}.\"min_target\" OR \"max_target\" != {1}.\"max_target\" OR \"price_change\" != 
-        {1}.\"price_change\" OR \"price_change_rel\" != {1}.\"price_change_rel\";'''.format(
-            MyConnection.CONSENSUS_ITEMS_TABLE,
-            '\"excluded\"'
-        )
-
-        insert_target_forecast_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"ticker\", \"company\", 
-        \"recommendation\", \"recommendation_date\", \"currency\", \"current_price\", \"target_price\", 
-        \"price_change\", \"price_change_rel\", \"show_name\") VALUES (:uid, :ticker, :company, :recommendation, 
-        :recommendation_date, :currency, :current_price, :target_price, :price_change, :price_change_rel, :show_name) ON 
-        CONFLICT(\"uid\", \"company\", \"recommendation_date\") DO UPDATE SET \"ticker\" = {1}.\"ticker\", 
-        \"recommendation\" = {1}.\"recommendation\", \"currency\" = {1}.\"currency\", \"current_price\" = 
-        {1}.\"current_price\", \"target_price\" = {1}.\"target_price\", \"price_change\" = {1}.\"price_change\", 
-        \"price_change_rel\" = {1}.\"price_change_rel\", \"show_name\" = {1}.\"show_name\" WHERE \"ticker\" != 
-        {1}.\"ticker\" OR \"recommendation\" != {1}.\"recommendation\" OR \"currency\" != {1}.\"currency\" OR 
-        \"current_price\" != {1}.\"current_price\" OR \"target_price\" != {1}.\"target_price\" OR \"price_change\" != 
-        {1}.\"price_change\" OR \"price_change_rel\" != {1}.\"price_change_rel\" OR \"show_name\" != {1}.\"show_name\";
-        '''.format(MyConnection.TARGET_ITEMS_TABLE, '\"excluded\"')
-
+    def insertForecasts(cls, forecast: GetForecastResponse):
         db: QSqlDatabase = cls.getDatabase()
         if db.transaction():
-            insert_consensus_query = QSqlQuery(db)
-            insert_consensus_prepare_flag: bool = insert_consensus_query.prepare(insert_consensus_forecast_command)
+            def getLastConsensusFull(instrument_uid: str) -> ConsensusFull | None:
+                # __select_last_consensus: str = '''SELECT \"instrument_uid\", MAX(\"consensus_number\") AS
+                # \"consensus_number\", \"ticker\", \"recommendation\", \"currency\", \"current_price\", \"consensus\",
+                # \"min_target\", \"max_target\", \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE
+                # \"instrument_uid\" = :instrument_uid ORDER BY \"instrument_uid\";'''.format(
+                #     MyConnection.CONSENSUS_ITEMS_TABLE
+                # )
+
+                __select_last_consensus: str = '''SELECT \"instrument_uid\", \"consensus_number\", \"ticker\", 
+                \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", 
+                \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid AND 
+                \"consensus_number\" = (SELECT MAX(\"consensus_number\") FROM \"{0}\" WHERE \"instrument_uid\" = 
+                :instrument_uid);'''.format(MyConnection.CONSENSUS_ITEMS_TABLE)
+
+                last_consensus_query = QtSql.QSqlQuery(db)
+                last_consensus_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+                last_consensus_prepare_flag: bool = last_consensus_query.prepare(__select_last_consensus)
+                assert last_consensus_prepare_flag, last_consensus_query.lastError().text()
+                last_consensus_query.bindValue(':instrument_uid', instrument_uid)
+                last_consensus_exec_flag: bool = last_consensus_query.exec()
+                assert last_consensus_exec_flag, last_consensus_query.lastError().text()
+
+                consensus_full_count: int = 0
+                consensus_full: ConsensusFull | None = None
+                while last_consensus_query.next():
+                    consensus_full_count += 1
+                    if consensus_full_count > 1:
+                        SystemError('Таблица {0} не должна содержать несколько прогнозов для одного инструмента (\'{1}\') с одинаковым номером ({2})!'.format(MyConnection.CONSENSUS_ITEMS_TABLE, forecast.consensus.uid, consensus_full.number))
+                    consensus_number: int = last_consensus_query.value('consensus_number')
+                    consensus_item: ConsensusItem = MyConnection.getConsensusItem(last_consensus_query)
+                    targets: list[TargetItem] = cls.__getTargets(db=db, uid=instrument_uid, number=consensus_number)
+                    forecast_response: GetForecastResponse = GetForecastResponse(consensus=consensus_item, targets=targets)
+                    consensus_full = ConsensusFull(number=consensus_number, forecast=forecast_response)
+
+                return consensus_full
+
+            last_consensus_full: ConsensusFull | None = getLastConsensusFull(forecast.consensus.uid)
+            if last_consensus_full is None:
+                new_consensus_number: int = 0
+            elif getForecastResponseEq(forecast, last_consensus_full):
+                commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                assert commit_flag, db.lastError().text()
+                return
+            else:
+                new_consensus_number: int = last_consensus_full.number + 1
+
+            __insert_consensus_command: str = '''INSERT INTO \"{0}\" (\"instrument_uid\", \"consensus_number\", 
+            \"ticker\", \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", 
+            \"max_target\", \"price_change\", \"price_change_rel\") VALUES (:instrument_uid, :consensus_number, :ticker, 
+            :recommendation, :currency, :current_price, :consensus, :min_target, :max_target, :price_change, 
+            :price_change_rel);'''.format(MyConnection.CONSENSUS_ITEMS_TABLE)
+
+            insert_consensus_query = QtSql.QSqlQuery(db)
+            insert_consensus_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            insert_consensus_prepare_flag: bool = insert_consensus_query.prepare(__insert_consensus_command)
             assert insert_consensus_prepare_flag, insert_consensus_query.lastError().text()
-            insert_consensus_query.bindValue(':uid', forecasts.consensus.uid)
-            insert_consensus_query.bindValue(':ticker', forecasts.consensus.ticker)
-            insert_consensus_query.bindValue(':recommendation', forecasts.consensus.recommendation.name)
-            insert_consensus_query.bindValue(':currency', forecasts.consensus.currency)
-            insert_consensus_query.bindValue(':current_price', MyQuotation.__repr__(forecasts.consensus.current_price))
-            insert_consensus_query.bindValue(':consensus', MyQuotation.__repr__(forecasts.consensus.consensus))
-            insert_consensus_query.bindValue(':min_target', MyQuotation.__repr__(forecasts.consensus.min_target))
-            insert_consensus_query.bindValue(':max_target', MyQuotation.__repr__(forecasts.consensus.max_target))
-            insert_consensus_query.bindValue(':price_change', MyQuotation.__repr__(forecasts.consensus.price_change))
-            insert_consensus_query.bindValue(':price_change_rel', MyQuotation.__repr__(forecasts.consensus.price_change_rel))
+            insert_consensus_query.bindValue(':instrument_uid', forecast.consensus.uid)
+            insert_consensus_query.bindValue(':consensus_number', new_consensus_number)
+            insert_consensus_query.bindValue(':ticker', forecast.consensus.ticker)
+            insert_consensus_query.bindValue(':recommendation', forecast.consensus.recommendation.name)
+            insert_consensus_query.bindValue(':currency', forecast.consensus.currency)
+            insert_consensus_query.bindValue(':current_price', MyQuotation.__repr__(forecast.consensus.current_price))
+            insert_consensus_query.bindValue(':consensus', MyQuotation.__repr__(forecast.consensus.consensus))
+            insert_consensus_query.bindValue(':min_target', MyQuotation.__repr__(forecast.consensus.min_target))
+            insert_consensus_query.bindValue(':max_target', MyQuotation.__repr__(forecast.consensus.max_target))
+            insert_consensus_query.bindValue(':price_change', MyQuotation.__repr__(forecast.consensus.price_change))
+            insert_consensus_query.bindValue(':price_change_rel', MyQuotation.__repr__(forecast.consensus.price_change_rel))
             insert_consensus_exec_flag: bool = insert_consensus_query.exec()
             assert insert_consensus_exec_flag, insert_consensus_query.lastError().text()
 
-            for target in forecasts.targets:
+            __insert_target_command: str = '''INSERT INTO \"{0}\" (\"instrument_uid\", \"consensus_number\", \"ticker\", 
+            \"company\", \"recommendation\", \"recommendation_date\", \"currency\", \"current_price\", \"target_price\", 
+            \"price_change\", \"price_change_rel\", \"show_name\") VALUES (:instrument_uid, :consensus_number, :ticker, 
+            :company, :recommendation, :recommendation_date, :currency, :current_price, :target_price, :price_change, 
+            :price_change_rel, :show_name);'''.format(MyConnection.TARGET_ITEMS_TABLE)
+
+            for target in forecast.targets:
                 insert_target_query = QSqlQuery(db)
-                insert_target_prepare_flag: bool = insert_target_query.prepare(insert_target_forecast_command)
+                insert_target_prepare_flag: bool = insert_target_query.prepare(__insert_target_command)
                 assert insert_target_prepare_flag, insert_target_query.lastError().text()
-                insert_target_query.bindValue(':uid', target.uid)
+                insert_target_query.bindValue(':instrument_uid', target.uid)
+                insert_target_query.bindValue(':consensus_number', new_consensus_number)
                 insert_target_query.bindValue(':ticker', target.ticker)
                 insert_target_query.bindValue(':company', target.company)
                 insert_target_query.bindValue(':recommendation', target.recommendation.name)
