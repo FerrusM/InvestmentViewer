@@ -331,6 +331,7 @@ class MyConnection(ABC):
     INSTRUMENT_STATUS_TABLE: str = 'InstrumentsStatus'
     TARGET_ITEMS_TABLE: str = 'TargetItems'
     CONSENSUS_ITEMS_TABLE: str = 'ConsensusItems'
+    CONSENSUS_FORECASTS_TABLE: str = 'ConsensusForecasts'
     ASSETS_TABLE: str = 'Assets'
     INSTRUMENT_LINKS_TABLE: str = 'InstrumentLinks'
     ASSET_INSTRUMENTS_TABLE: str = 'AssetInstruments'

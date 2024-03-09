@@ -731,6 +731,37 @@ class MainConnection(MyConnection):
             '''--------------------------------------------------------------------------'''
             """==================================================================================="""
 
+            '''----------------------Создание таблицы консенсус-прогнозов----------------------'''
+            consensus_column_name: str = '\"consensus\"'
+            consensus_check_str: str | None = getCheckConstraintForColumnFromEnum(consensus_column_name, Recommendation)
+            consensus_column: str = '{0} TEXT NOT NULL{1}'.format(consensus_column_name, '' if consensus_check_str is None else ' {0}'.format(consensus_check_str))
+
+            consensus_forecasts_create_command: str = '''
+            CREATE TABLE IF NOT EXISTS \"{0}\" (
+            \"uid\" TEXT NOT NULL,
+            \"asset_uid\" TEXT NOT NULL,
+            \"created_at\" TEXT NOT NULL,
+            \"best_target_price\" TEXT NOT NULL,
+            \"best_target_low\" TEXT NOT NULL,
+            \"best_target_high\" TEXT NOT NULL,
+            \"total_buy_recommend\" INTEGER NOT NULL,
+            \"total_hold_recommend\" INTEGER NOT NULL,
+            \"total_sell_recommend\" INTEGER NOT NULL,
+            \"currency\" TEXT NOT NULL,
+            {1},
+            \"prognosis_date\" TEXT NOT NULL,
+            PRIMARY KEY (\"uid\", \"created_at\")
+            );'''.format(
+                MyConnection.CONSENSUS_FORECASTS_TABLE,
+                consensus_column
+            )
+            consensus_forecasts_query = QSqlQuery(db)
+            consensus_forecasts_prepare_flag: bool = consensus_forecasts_query.prepare(consensus_forecasts_create_command)
+            assert consensus_forecasts_prepare_flag, consensus_forecasts_query.lastError().text()
+            consensus_forecasts_exec_flag: bool = consensus_forecasts_query.exec()
+            assert consensus_forecasts_exec_flag, consensus_forecasts_query.lastError().text()
+            '''--------------------------------------------------------------------------------'''
+
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()
         else:
@@ -1593,6 +1624,39 @@ class MainConnection(MyConnection):
             consensuses_query = QtSql.QSqlQuery(db)
             consensuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             consensuses_prepare_flag: bool = consensuses_query.prepare(__select_consensuses_command)
+            assert consensuses_prepare_flag, consensuses_query.lastError().text()
+            consensuses_query.bindValue(':instrument_uid', instrument_uid)
+            consensuses_exec_flag: bool = consensuses_query.exec()
+            assert consensuses_exec_flag, consensuses_query.lastError().text()
+
+            consensus_fulls: list[ConsensusFull] = []
+            while consensuses_query.next():
+                consensus_number: int = consensuses_query.value('consensus_number')
+                consensus_item: ConsensusItem = MyConnection.getConsensusItem(consensuses_query)
+                targets: list[TargetItem] = cls.__getTargets(db=db, uid=instrument_uid, number=consensus_number)
+                forecast_response: GetForecastResponse = GetForecastResponse(consensus=consensus_item, targets=targets)
+                consensus_fulls.append(ConsensusFull(number=consensus_number, forecast=forecast_response))
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return consensus_fulls
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def getLastConsensusFulls(cls, instrument_uid: str) -> list[ConsensusFull]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __select_last_consensuses: str = '''SELECT \"instrument_uid\", \"consensus_number\", \"ticker\", 
+            \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", 
+            \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid AND 
+            \"consensus_number\" = (SELECT MAX(\"consensus_number\") FROM \"{0}\" WHERE \"instrument_uid\" = 
+            :instrument_uid);'''.format(MyConnection.CONSENSUS_ITEMS_TABLE)
+
+            consensuses_query = QtSql.QSqlQuery(db)
+            consensuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            consensuses_prepare_flag: bool = consensuses_query.prepare(__select_last_consensuses)
             assert consensuses_prepare_flag, consensuses_query.lastError().text()
             consensuses_query.bindValue(':instrument_uid', instrument_uid)
             consensuses_exec_flag: bool = consensuses_query.exec()

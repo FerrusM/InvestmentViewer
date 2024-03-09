@@ -3,7 +3,9 @@ from datetime import datetime
 from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimit, GetUserTariffResponse, \
     InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset, AssetFull, HistoricCandle, \
     CandleInterval, Coupon
-from tinkoff.invest.schemas import GetForecastRequest, GetForecastResponse
+from tinkoff.invest.schemas import GetForecastRequest, GetForecastResponse, GetConsensusForecastsRequest, \
+    GetConsensusForecastsResponse
+from tinkoff.invest.services import InstrumentsService
 
 
 class RequestTryClass:
@@ -332,7 +334,37 @@ def getForecast(token: str, uid: str) -> MyResponse:
             exception_flag = False  # Флаг наличия исключения.
             request_error_flag = False  # Флаг наличия RequestError.
         request_occurred = True  # Флаг произведённого запроса.
-    return MyResponse(method_name='get_forecast_by()',
+    return MyResponse(method_name=InstrumentsService.get_forecast_by.__name__,
+                      request_occurred=request_occurred,
+                      response_data=forecasts,
+                      exception_flag=exception_flag,
+                      exception=exception,
+                      request_error_flag=request_error_flag,
+                      request_error=request_error)
+
+
+def getConsensusForecasts(token: str) -> MyResponse:
+    """Получает и возвращает консенсус-прогнозы."""
+    forecasts: GetConsensusForecastsResponse | None = None
+    request_occurred: bool = False  # Флаг произведённого запроса.
+    exception_flag: bool | None = None  # Флаг наличия исключения.
+    exception: Exception | None = None  # Исключение.
+    request_error_flag: bool | None = None  # Флаг наличия RequestError.
+    request_error: RequestError | None = None  # RequestError.
+    with Client(token) as client:
+        try:
+            forecasts = client.instruments.get_consensus_forecasts(request=GetConsensusForecastsRequest())
+        except RequestError as error:
+            request_error_flag = True  # Флаг наличия RequestError.
+            request_error = error  # RequestError.
+        except Exception as error:
+            exception_flag = True  # Флаг наличия исключения.
+            exception = error  # Исключение.
+        else:  # Если исключения не было.
+            exception_flag = False  # Флаг наличия исключения.
+            request_error_flag = False  # Флаг наличия RequestError.
+        request_occurred = True  # Флаг произведённого запроса.
+    return MyResponse(method_name=InstrumentsService.get_consensus_forecasts.__name__,
                       request_occurred=request_occurred,
                       response_data=forecasts,
                       exception_flag=exception_flag,

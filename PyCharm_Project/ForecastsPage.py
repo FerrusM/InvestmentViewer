@@ -11,138 +11,8 @@ from MyDatabase import MainConnection
 from MyDateTime import getMoscowDateTime, getUtcDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getForecast
-from PagesClasses import ProgressBar_DataReceiving, TitleWithCount
+from PagesClasses import ProgressBar_DataReceiving, TitleWithCount, MyTableViewGroupBox
 from TokenModel import TokenListModel
-
-
-# class TreeItem:
-#     def __init__(self, row: int, parent_item: TreeItem | None = None, data: AssetClass | AssetInstrument | None = None, children: list[TreeItem] | None = None):
-#         self.__parent: TreeItem | None = parent_item  # Родительский элемент.
-#         self.__data: AssetClass | AssetInstrument | None = data
-#         self.__children: list[TreeItem] = [] if children is None else children  # Список дочерних элементов.
-#         self.__row: int = row  # Номер строки элемента.
-#         self.__hierarchy_level: int = -1 if parent_item is None else (parent_item.getHierarchyLevel() + 1)
-#
-#     @property
-#     def data(self) -> AssetClass | AssetInstrument | None:
-#         return self.__data
-#
-#     def parent(self) -> TreeItem | None:
-#         """Возвращает родительский элемент."""
-#         return self.__parent
-#
-#     def setChildren(self, children: list[TreeItem] | None):
-#         if children is None:
-#             self.__children.clear()
-#         else:
-#             self.__children = children
-#
-#     @property
-#     def children_count(self) -> int:
-#         """Возвращает количество дочерних элементов."""
-#         return len(self.__children)
-#
-#     def child(self, row: int) -> TreeItem | None:
-#         return None if row >= self.children_count or row < 0 else self.__children[row]
-#
-#     def row(self) -> int:
-#         """Возвращает номер строки элемента."""
-#         return self.__row
-#
-#     def getHierarchyLevel(self) -> int:
-#         """Возвращает уровень иерархии элемента."""
-#         return self.__hierarchy_level
-
-
-# class ForecastsModel(QtCore.QAbstractItemModel):
-#     """Модель прогнозов."""
-#     class ColumnItem:
-#         def __init__(self, header: Header, consensus_column: ColumnWithoutHeader, target_column: ColumnWithoutHeader):
-#             self.__header: Header = header
-#             self.__consensus_column: ColumnWithoutHeader = consensus_column
-#             self.__target_column: ColumnWithoutHeader = target_column
-#
-#         def consensus_column(self, role: int = QtCore.Qt.ItemDataRole.UserRole):
-#             return self.__consensus_column(role=role)
-#
-#     def __init__(self, instrument_uid: str | None = None, parent: QtCore.QObject | None = None):
-#         super().__init__(parent=parent)
-#         self.__instrument_uid: str | None = instrument_uid
-#         self.__consensus_fulls: list[ConsensusFull] = []
-#         self.__columns: tuple[ForecastsModel.ColumnItem, ...] = (
-#             ForecastsModel.ColumnItem(
-#                 header=Header(
-#                     title='Тикер',
-#                     tooltip='Тикер инструмента'
-#                 ),
-#                 consensus_column=ColumnWithoutHeader(
-#                     data_function=lambda ci: ci.ticker
-#                 ),
-#                 target_column=ColumnWithoutHeader(
-#                     data_function=lambda ti: ti.ticker
-#                 )
-#             ),
-#             ForecastsModel.ColumnItem(
-#                 header=Header(
-#                     title='Прогноз',
-#                     tooltip='Прогноз'
-#                 ),
-#                 consensus_column=ColumnWithoutHeader(
-#                     data_function=lambda ci: ci.recommendation.name
-#                 ),
-#                 target_column=ColumnWithoutHeader(
-#                     data_function=lambda ti: ti.recommendation.name
-#                 )
-#             ),
-#             ForecastsModel.ColumnItem(
-#                 header=Header(
-#                     title='Дата прогноза',
-#                     tooltip='Дата прогноза'
-#                 ),
-#                 consensus_column=ColumnWithoutHeader(
-#                     data_function=lambda ci: ci.consensus_number,
-#                     display_function=lambda ci: str(ci.consensus_number)
-#                 ),
-#                 target_column=ColumnWithoutHeader(
-#                     data_function=lambda ti: ti.recommendation_date,
-#                     display_function=lambda ti: str(ti.recommendation_date)
-#                 )
-#             )
-#         )
-#         self.__update()
-#
-#     def __update(self):
-#         """Обновляет модель."""
-#         self.beginResetModel()
-#         if self.__instrument_uid is None:
-#             self.__items.clear()
-#         else:
-#             self.__items = MainConnection.getConsensusFulls(instrument_uid=self.__instrument_uid)
-#         self.endResetModel()
-#
-#     def index(self, row: int, column: int, parent: QtCore.QModelIndex = ...) -> QtCore.QModelIndex:
-#         if parent.isValid():  # Если индекс parent действителен.
-#             consensus_full: ConsensusFull = parent.internalPointer()  # Указатель на внутреннюю структуру данных.
-#             return self.createIndex(row, column, consensus_full.targets[row])
-#         else:
-#             return self.createIndex(row, column, self.__consensus_fulls[row])
-#
-#     def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
-#         if parent.isValid():  # Если индекс parent действителен.
-#             consensus_full: ConsensusFull = parent.internalPointer()  # Указатель на внутреннюю структуру данных.
-#             return len(consensus_full.targets)
-#         else:
-#             return len(self.__consensus_fulls)
-#
-#     def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
-#         return len(self.__columns)
-#
-#     def parent(self, child: QtCore.QModelIndex) -> QtCore.QModelIndex:
-#         if child.isValid():  # Если индекс child действителен.
-#             target_item: TargetItem = child.internalPointer()  # Указатель на внутреннюю структуру данных.
-#             ...
-#         else:
-#             ...
 
 
 class ConsensusItemsModel(QtCore.QAbstractTableModel):
@@ -280,51 +150,6 @@ class TargetItemsModel(QtCore.QAbstractTableModel):
         else:
             self.__instrument_uid = instrument_uid
             self.__update()
-
-
-class MyTableViewGroupBox(QtWidgets.QGroupBox):
-    def __init__(self, title: str, model: QtCore.QAbstractItemModel | None = None, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent=parent)
-
-        verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        verticalLayout_main.setSpacing(2)
-
-        '''------------------------------Заголовок------------------------------'''
-        self.__titlebar = TitleWithCount(title=title, count_text='0', parent=self)
-        verticalLayout_main.addLayout(self.__titlebar, 0)
-        '''---------------------------------------------------------------------'''
-
-        '''------------------------------Отображение------------------------------'''
-        self.__tableView = QtWidgets.QTableView(parent=self)
-        self.__tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.__tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.__tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.__tableView.setSortingEnabled(True)
-
-        self.__model_reset_connection: QtCore.QMetaObject.Connection
-
-        self.setModel(model)  # Подключаем модель к таблице.
-
-        verticalLayout_main.addWidget(self.__tableView, 1)
-        '''-----------------------------------------------------------------------'''
-
-    def setModel(self, model: QtCore.QAbstractItemModel | None):
-        old_model: QtCore.QAbstractItemModel | None = self.__tableView.model()
-        if old_model is not None:
-            disconnect_flag: bool = old_model.disconnect(self.__model_reset_connection)
-            assert disconnect_flag, 'Не удалось отключить слот!'
-
-        self.__tableView.setModel(model)  # Подключаем модель к таблице.
-
-        if model is not None:
-            def __onModelUpdated():
-                """Выполняется при изменении модели."""
-                self.__titlebar.setCount(str(model.rowCount()))
-                self.__tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-
-            __onModelUpdated()
-            self.__model_reset_connection = model.modelReset.connect(__onModelUpdated)
 
 
 class ProgressThreadManagerBar(QtWidgets.QHBoxLayout):
@@ -489,7 +314,6 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
 
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         self.__instruments_uids: list[str] = []
-
         self.__forecasts_receiving_thread: ForecastsReceivingGroupBox.ForecastsThread | None = None
         self.__thread_status: ForecastsReceivingGroupBox.ThreadStatus = self.ThreadStatus.START_NOT_POSSIBLE
 

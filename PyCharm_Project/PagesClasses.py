@@ -666,6 +666,51 @@ class ProgressBar_DataReceiving(QtWidgets.QProgressBar):
         super().reset()  # Сбрасывает progressBar.
 
 
+class MyTableViewGroupBox(QtWidgets.QGroupBox):
+    def __init__(self, title: str, model: QtCore.QAbstractItemModel | None = None, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
+
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
+
+        '''------------------------------Заголовок------------------------------'''
+        self.__titlebar = TitleWithCount(title=title, count_text='0', parent=self)
+        verticalLayout_main.addLayout(self.__titlebar, 0)
+        '''---------------------------------------------------------------------'''
+
+        '''------------------------------Отображение------------------------------'''
+        self.__tableView = QtWidgets.QTableView(parent=self)
+        self.__tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.__tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.__tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.__tableView.setSortingEnabled(True)
+
+        self.__model_reset_connection: QtCore.QMetaObject.Connection = QtCore.QMetaObject.Connection()
+
+        self.setModel(model)  # Подключаем модель к таблице.
+
+        verticalLayout_main.addWidget(self.__tableView, 1)
+        '''-----------------------------------------------------------------------'''
+
+    def setModel(self, model: QtCore.QAbstractItemModel | None):
+        old_model: QtCore.QAbstractItemModel | None = self.__tableView.model()
+        if old_model is not None:
+            disconnect_flag: bool = old_model.disconnect(self.__model_reset_connection)
+            assert disconnect_flag, 'Не удалось отключить слот!'
+
+        self.__tableView.setModel(model)  # Подключаем модель к таблице.
+
+        if model is not None:
+            def __onModelUpdated():
+                """Выполняется при изменении модели."""
+                self.__titlebar.setCount(str(model.rowCount()))
+                self.__tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
+
+            __onModelUpdated()
+            self.__model_reset_connection = model.modelReset.connect(__onModelUpdated)
+
+
 def zipWithLastPrices3000(token: TokenClass, class_list: list[Share] | list[Bond]) -> list[tuple[Share, LastPrice | None]] | list[tuple[Bond, LastPrice | None]]:
     """Возвращает список пар акций и последних цен или облигаций и последних цен.
     Функция предусматривает ограничение на количество единоразово запрашиваемых последних цен инструментов (до 3000)."""
