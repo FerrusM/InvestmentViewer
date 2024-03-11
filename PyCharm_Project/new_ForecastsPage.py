@@ -2,19 +2,539 @@ from __future__ import annotations
 import typing
 from datetime import datetime
 from enum import Enum, StrEnum
-from PyQt6 import QtCore, QtWidgets, QtGui
+from PyQt6 import QtCore, QtWidgets, QtGui, QtSql
 from grpc import StatusCode
 from tinkoff.invest.schemas import GetForecastResponse, TargetItem, Quotation, Recommendation
-from tinkoff.invest.services import InstrumentsService
-from Classes import TokenClass, Header, MyTreeView, ColumnWithoutHeader, ConsensusFull
-from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
+from Classes import TokenClass, Header, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection
+from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
+from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
-from MyDateTime import getUtcDateTime
+from MyDateTime import getUtcDateTime, reportSignificantInfoFromDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getForecast
+from MyShareClass import MyShareClass
 from PagesClasses import TitleWithCount, ProgressBar_DataReceiving, TitleLabel
 from ReceivingThread import ManagedReceivingThread
 from TokenModel import TokenListModel
+
+
+class InstrumentItem:
+    def __init__(self, uid: str, name: str):
+        self.uid: str = uid
+        self.name: str = name
+
+    def __eq__(self, other: InstrumentItem) -> bool:
+        if type(other) is InstrumentItem:
+            return self.uid == other.uid and self.name == other.name
+        else:
+            raise TypeError('Класс {0} нельзя сравнивать с другими классами!'.format(self.__class__.__name__))
+
+
+class InstrumentsModel(QtCore.QAbstractListModel):
+    """Модель инструментов."""
+    __EMPTY: str = 'Не выбран'
+
+    def __init__(self, token: TokenClass | None = None, status: str | None = None, instrument_type: str | None = None,
+                 only_with_forecasts_flag: bool = False, parent: QtCore.QObject | None = None):
+        super().__init__(parent=parent)
+        self.__instruments: list[InstrumentItem] = []
+        '''----Параметры поиска инструментов----'''
+        self.__token: TokenClass | None = None
+        self.__status: str | None = None
+        self.__type: str | None = None
+        self.__only_with_forecasts: bool = False
+        '''-------------------------------------'''
+        self.__update(token=token, status=status, instrument_type=instrument_type, only_with_forecasts=only_with_forecasts_flag)
+
+    def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
+        return len(self.__instruments) + 1
+
+    def getInstrumentsCount(self) -> int:
+        """Возвращает количество инструментов в модели."""
+        return len(self.__instruments)
+
+    def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
+        if role == QtCore.Qt.ItemDataRole.DisplayRole:
+            def __show(item: InstrumentItem) -> str:
+                return '{0} | {1}'.format(item.uid, item.name)
+
+            row: int = index.row()
+            return self.__EMPTY if row == 0 else __show(self.__instruments[row - 1])
+
+    def __update(self, token: TokenClass | None, status: str | None, instrument_type: str | None, only_with_forecasts: bool):
+        """Обновляет данные модели."""
+        self.beginResetModel()
+
+        '''--------Параметры поиска инструментов--------'''
+        self.__token = token
+        self.__status = status
+        self.__type = instrument_type
+        self.__only_with_forecasts = only_with_forecasts
+        '''---------------------------------------------'''
+
+        self.__instruments.clear()
+
+        """========================================Новый поиск инструментов========================================"""
+        __select_consensuses_uids: str = 'SELECT DISTINCT \"instrument_uid\" AS \"uid\" FROM \"{0}\"'.format(
+            MyConnection.CONSENSUS_ITEMS_TABLE
+        )
+        __select_all_uids_and_names: str = '''SELECT \"name\", \"uid\" FROM \"{0}\" UNION ALL SELECT \"name\", \"uid\" 
+        FROM \"{1}\"'''.format(
+            MyConnection.SHARES_TABLE,
+            MyConnection.BONDS_TABLE
+        )
+
+        if self.__token is None:
+            if self.__status is None:
+                if self.__type is None:
+                    __select_uids_and_names: str = '({0})'.format(__select_all_uids_and_names)
+                else:
+                    if self.__type == 'share':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.SHARES_TABLE)
+                    elif self.__type == 'bond':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.BONDS_TABLE)
+                    else:
+                        raise ValueError('Неизвестный тип инструмента ({0})!'.format(self.__type))
+
+                if self.__only_with_forecasts:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN {1} 
+                    ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_consensuses_uids)
+                    )
+                else:
+                    select_instruments_command: str = 'SELECT \"name\", \"uid\" FROM {0} ORDER BY \"name\";'.format(
+                        __select_uids_and_names
+                    )
+
+                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+                if db.transaction():
+                    instruments_query = QtSql.QSqlQuery(db)
+                    instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+                    instruments_prepare_flag: bool = instruments_query.prepare(select_instruments_command)
+                    assert instruments_prepare_flag, instruments_query.lastError().text()
+                    instruments_exec_flag: bool = instruments_query.exec()
+                    assert instruments_exec_flag, instruments_query.lastError().text()
+
+                    while instruments_query.next():
+                        name: str = instruments_query.value('name')
+                        uid: str = instruments_query.value('uid')
+                        self.__instruments.append(InstrumentItem(uid=uid, name=name))
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+                else:
+                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+            else:
+                if self.__type is None:
+                    __select_uids_and_names: str = '({0})'.format(__select_all_uids_and_names)
+                else:
+                    if self.__type == 'share':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.SHARES_TABLE)
+                    elif self.__type == 'bond':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.BONDS_TABLE)
+                    else:
+                        raise ValueError('Неизвестный тип инструмента ({0})!'.format(self.__type))
+
+                __select_statuses_uids: str = 'SELECT \"uid\" FROM \"{0}\" WHERE \"status\" = :status'.format(
+                    MyConnection.INSTRUMENT_STATUS_TABLE
+                )
+
+                if self.__only_with_forecasts:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN 
+                    (SELECT \"a\".\"uid\" FROM {1} AS \"a\" INNER JOIN {2} AS \"b\" ON \"a\".\"uid\" = \"b\".\"uid\") 
+                    ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_statuses_uids),
+                        '({0})'.format(__select_consensuses_uids)
+                    )
+                else:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN {1} 
+                    ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_statuses_uids)
+                    )
+
+                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+                if db.transaction():
+                    instruments_query = QtSql.QSqlQuery(db)
+                    instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+                    instruments_prepare_flag: bool = instruments_query.prepare(select_instruments_command)
+                    assert instruments_prepare_flag, instruments_query.lastError().text()
+                    instruments_query.bindValue(':status', self.__status)
+                    instruments_exec_flag: bool = instruments_query.exec()
+                    assert instruments_exec_flag, instruments_query.lastError().text()
+
+                    while instruments_query.next():
+                        name: str = instruments_query.value('name')
+                        uid: str = instruments_query.value('uid')
+                        self.__instruments.append(InstrumentItem(uid=uid, name=name))
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+                else:
+                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+        else:
+            if status is None:
+                if self.__type is None:
+                    __select_uids_and_names: str = '({0})'.format(__select_all_uids_and_names)
+                else:
+                    if self.__type == 'share':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.SHARES_TABLE)
+                    elif self.__type == 'bond':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.BONDS_TABLE)
+                    else:
+                        raise ValueError('Неизвестный тип инструмента ({0})!'.format(self.__type))
+
+                __select_statuses_uids: str = 'SELECT \"uid\" FROM \"{0}\" WHERE \"token\" = :token'.format(
+                    MyConnection.INSTRUMENT_STATUS_TABLE
+                )
+
+                if self.__only_with_forecasts:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN 
+                    (SELECT \"a\".\"uid\" FROM {1} AS \"a\" INNER JOIN {2} AS \"b\" ON \"a\".\"uid\" = \"b\".\"uid\") 
+                    ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_statuses_uids),
+                        '({0})'.format(__select_consensuses_uids)
+                    )
+                else:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN 
+                    {1} ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_statuses_uids)
+                    )
+
+                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+                if db.transaction():
+                    instruments_query = QtSql.QSqlQuery(db)
+                    instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+                    instruments_prepare_flag: bool = instruments_query.prepare(select_instruments_command)
+                    assert instruments_prepare_flag, instruments_query.lastError().text()
+                    instruments_query.bindValue(':token', self.__token.token)
+                    instruments_exec_flag: bool = instruments_query.exec()
+                    assert instruments_exec_flag, instruments_query.lastError().text()
+
+                    while instruments_query.next():
+                        name: str = instruments_query.value('name')
+                        uid: str = instruments_query.value('uid')
+                        self.__instruments.append(InstrumentItem(uid=uid, name=name))
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+                else:
+                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+            else:
+                if self.__type is None:
+                    __select_uids_and_names: str = '({0})'.format(__select_all_uids_and_names)
+                else:
+                    if self.__type == 'share':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.SHARES_TABLE)
+                    elif self.__type == 'bond':
+                        __select_uids_and_names: str = '\"{0}\"'.format(MyConnection.BONDS_TABLE)
+                    else:
+                        raise ValueError('Неизвестный тип инструмента ({0})!'.format(self.__type))
+
+                __select_statuses_uids: str = '''SELECT \"uid\" FROM \"{0}\" WHERE \"token\" = :token AND 
+                \"status\" = :status'''.format(
+                    MyConnection.INSTRUMENT_STATUS_TABLE
+                )
+
+                if self.__only_with_forecasts:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN 
+                    (SELECT \"a\".\"uid\" FROM {1} AS \"a\" INNER JOIN {2} AS \"b\" ON \"a\".\"uid\" = \"b\".\"uid\") 
+                    ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_statuses_uids),
+                        '({0})'.format(__select_consensuses_uids)
+                    )
+                else:
+                    select_instruments_command: str = '''SELECT \"name\", \"uid\" FROM {0} WHERE \"uid\" IN 
+                    {1} ORDER BY \"name\";'''.format(
+                        __select_uids_and_names,
+                        '({0})'.format(__select_statuses_uids)
+                    )
+
+                db: QtSql.QSqlDatabase = MainConnection.getDatabase()
+                if db.transaction():
+                    instruments_query = QtSql.QSqlQuery(db)
+                    instruments_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+                    instruments_prepare_flag: bool = instruments_query.prepare(select_instruments_command)
+                    assert instruments_prepare_flag, instruments_query.lastError().text()
+                    instruments_query.bindValue(':token', self.__token.token)
+                    instruments_query.bindValue(':status', self.__status)
+                    instruments_exec_flag: bool = instruments_query.exec()
+                    assert instruments_exec_flag, instruments_query.lastError().text()
+
+                    while instruments_query.next():
+                        name: str = instruments_query.value('name')
+                        uid: str = instruments_query.value('uid')
+                        self.__instruments.append(InstrumentItem(uid=uid, name=name))
+
+                    commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+                    assert commit_flag, db.lastError().text()
+                else:
+                    raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+        """========================================================================================================"""
+        self.endResetModel()
+
+    def getUid(self, index: int) -> str | None:
+        return None if index == 0 else self.__instruments[index - 1].uid
+
+    def getItem(self, index: int) -> InstrumentItem | None:
+        return None if index == 0 else self.__instruments[index - 1]
+
+    def getItemIndex(self, item: InstrumentItem) -> int | None:
+        indexes_list: list[int] = [i for i, itm in enumerate(self.__instruments) if itm.uid == item.uid and itm.name == item.name]
+        items_count: int = len(indexes_list)
+        if items_count == 0:
+            return None
+        elif items_count == 1:
+            return indexes_list[0] + 1
+        else:
+            raise SystemError('Список инструментов модели содержит несколько искомых элементов (uid = \'{0}\', name = \'{1}\')!'.format(item.uid, item.name))
+
+    def setToken(self, token: TokenClass | None):
+        self.__update(token=token, status=self.__status, instrument_type=self.__type, only_with_forecasts=self.__only_with_forecasts)
+
+    def setStatus(self, status: str | None):
+        self.__update(token=self.__token, status=status, instrument_type=self.__type, only_with_forecasts=self.__only_with_forecasts)
+
+    def setType(self, instrument_type: str | None):
+        self.__update(token=self.__token, status=self.__status, instrument_type=instrument_type, only_with_forecasts=self.__only_with_forecasts)
+
+    def setOnlyForecastsFlag(self, flag: bool):
+        self.__update(token=self.__token, status=self.__status, instrument_type=self.__type, only_with_forecasts=flag)
+
+    @property
+    def uids(self) -> list[str]:
+        return [item.uid for item in self.__instruments]
+
+
+class ComboBox_Instrument(QtWidgets.QComboBox):
+    """ComboBox для выбора инструмента."""
+    instrumentsListChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(list)  # Сигнал испускается при изменении списка инструментов.
+
+    def __init__(self, token: TokenClass | None, status: str | None, instrument_type: str | None,
+                 only_with_forecasts_flag: bool, parent: QtWidgets.QWidget | None = None):
+        super().__init__(parent=parent)
+        self.instruments_model = InstrumentsModel(token=token, status=status, instrument_type=instrument_type,
+                                                  only_with_forecasts_flag=only_with_forecasts_flag, parent=self)
+        self.setModel(self.instruments_model)
+        self.__current_item: InstrumentItem | None = self.instruments_model.getItem(self.currentIndex())
+        self.__instrument_changed_connection: QtCore.QMetaObject.Connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
+
+    @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def __onInstrumentChanged(self, index: int):
+        new_current_item: InstrumentItem | None = self.instruments_model.getItem(index)
+        if new_current_item is None:
+            if self.__current_item is not None:
+                self.__current_item = None
+                self.instrumentsListChanged.emit(self.uids)
+        else:
+            if self.__current_item is None:
+                self.__current_item = new_current_item
+                self.instrumentsListChanged.emit([self.__current_item.uid])
+            else:
+                if new_current_item != self.__current_item:
+                    self.__current_item = new_current_item
+                    self.instrumentsListChanged.emit([self.__current_item.uid])
+
+    @staticmethod
+    def __model_update(decorated_function):
+        def wrapper_function(self: ComboBox_Instrument, parameter):
+            self.currentIndexChanged.disconnect(self.__instrument_changed_connection)
+            decorated_function(self, parameter)
+            '''---------------Устанавливаем текущий элемент---------------'''
+            if self.__current_item is None:
+                self.setCurrentIndex(0)
+                self.instrumentsListChanged.emit(self.uids)  # Испускается при изменении списка инструментов.
+            else:
+                index: int | None = self.instruments_model.getItemIndex(self.__current_item)
+                if index is None:
+                    self.setCurrentIndex(0)
+                    self.__current_item = None
+                    self.instrumentsListChanged.emit(self.uids)  # Испускается при изменении списка инструментов.
+                else:
+                    self.setCurrentIndex(index)
+            '''-----------------------------------------------------------'''
+            self.__instrument_changed_connection = self.currentIndexChanged.connect(self.__onInstrumentChanged)
+
+        return wrapper_function
+
+    @__model_update
+    def setToken(self, token: TokenClass | None = None):
+        self.instruments_model.setToken(token)
+
+    @__model_update
+    def setStatus(self, status: str | None = None):
+        self.instruments_model.setStatus(status)
+
+    @__model_update
+    def setType(self, instrument_type: str | None = None):
+        self.instruments_model.setType(instrument_type)
+
+    @__model_update
+    def setOnlyWithForecastsFlag(self, flag: bool):
+        self.instruments_model.setOnlyForecastsFlag(flag)
+
+    @property
+    def instruments_count(self) -> int:
+        return self.instruments_model.getInstrumentsCount()
+
+    @property
+    def uid(self) -> str | None:
+        return None if self.__current_item is None else self.__current_item.uid
+
+    @property
+    def uids(self) -> list[str]:
+        return self.instruments_model.uids
+
+
+class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
+    """Панель выбора инструмента."""
+    bondSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyBondClass)  # Сигнал испускается при выборе облигации.
+    shareSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyShareClass)  # Сигнал испускается при выборе акции.
+    instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
+
+    instrumentsListChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(list)  # Сигнал испускается при изменении списка инструментов.
+
+    def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
+        self.__instruments_uids: list[str] = []
+        super().__init__(parent=parent)
+
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
+
+        '''------------------------------Заголовок------------------------------'''
+        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title.setSpacing(0)
+
+        horizontalLayout_title.addSpacing(10)
+
+        self.__checkBox = QtWidgets.QCheckBox(text='Только с прогнозами', parent=self)
+        horizontalLayout_title.addWidget(self.__checkBox, 1)
+
+        horizontalLayout_title.addWidget(TitleLabel(text='ВЫБОР ИНСТРУМЕНТОВ', parent=self), 0)
+
+        self.__label_count = QtWidgets.QLabel(text='0', parent=self)
+        self.__label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        horizontalLayout_title.addWidget(self.__label_count, 1)
+
+        horizontalLayout_title.addSpacing(10)
+        verticalLayout_main.addLayout(horizontalLayout_title, 0)
+        '''---------------------------------------------------------------------'''
+
+        '''---------------------Строка выбора токена---------------------'''
+        self.__token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        verticalLayout_main.addLayout(self.__token_bar, 0)
+        '''--------------------------------------------------------------'''
+
+        '''---------------Строка выбора статуса инструмента---------------'''
+        horizontalLayout_status = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_status.setSpacing(0)
+
+        horizontalLayout_status.addWidget(QtWidgets.QLabel(text='Статус:', parent=self), 0)
+        horizontalLayout_status.addSpacing(4)
+
+        self.__comboBox_status = ComboBox_Status(token=self.token, parent=self)
+        self.__token_bar.tokenSelected.connect(self.__comboBox_status.setToken)
+        self.__token_bar.tokenReset.connect(self.__comboBox_status.setToken)
+        horizontalLayout_status.addWidget(self.__comboBox_status, 0)
+
+        horizontalLayout_status.addStretch(1)
+
+        verticalLayout_main.addLayout(horizontalLayout_status, 0)
+        '''---------------------------------------------------------------'''
+
+        '''--------------Строка выбора типа инструмента--------------'''
+        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument_type.setSpacing(0)
+
+        horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self), 0)
+        horizontalLayout_instrument_type.addSpacing(4)
+
+        self.__comboBox_instrument_type = ComboBox_InstrumentType(token=self.token, status=self.status, parent=self)
+        self.__token_bar.tokenSelected.connect(self.__comboBox_instrument_type.setToken)
+        self.__token_bar.tokenReset.connect(self.__comboBox_instrument_type.setToken)
+        self.__comboBox_status.statusSelected.connect(self.__comboBox_instrument_type.setStatus)
+        self.__comboBox_status.statusReset.connect(self.__comboBox_instrument_type.setStatus)
+        horizontalLayout_instrument_type.addWidget(self.__comboBox_instrument_type, 0)
+
+        horizontalLayout_instrument_type.addStretch(1)
+
+        verticalLayout_main.addLayout(horizontalLayout_instrument_type, 0)
+        '''----------------------------------------------------------'''
+
+        '''---------------Строка выбора инструмента---------------'''
+        horizontalLayout_instrument = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument.setSpacing(0)
+
+        horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self), 0)
+        horizontalLayout_instrument.addSpacing(4)
+
+        self.__comboBox_instrument = ComboBox_Instrument(token=self.token,
+                                                         status=self.status,
+                                                         instrument_type=self.instrument_type,
+                                                         only_with_forecasts_flag=self.only_with_forecasts_flag,
+                                                         parent=self)
+        self.__setCount(self.__comboBox_instrument.instruments_count)
+
+        @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def __stateChanged(state: int):
+            match state:
+                case 2:  # QtCore.Qt.CheckState.Checked
+                    self.__comboBox_instrument.setOnlyWithForecastsFlag(True)
+                case 0:  # QtCore.Qt.CheckState.Unchecked
+                    self.__comboBox_instrument.setOnlyWithForecastsFlag(False)
+                case _:
+                    raise ValueError('Неизвестное значение checkBox\'а!')
+
+        self.__comboBox_instrument.instrumentsListChanged.connect(self.__onInstrumentsListChanged)
+        self.__token_bar.tokenSelected.connect(self.__comboBox_instrument.setToken)
+        self.__token_bar.tokenReset.connect(self.__comboBox_instrument.setToken)
+        self.__comboBox_status.statusSelected.connect(self.__comboBox_instrument.setStatus)
+        self.__comboBox_status.statusReset.connect(self.__comboBox_instrument.setStatus)
+        self.__comboBox_instrument_type.typeChanged.connect(self.__comboBox_instrument.setType)
+        self.__comboBox_instrument_type.typeReset.connect(self.__comboBox_instrument.setType)
+        self.__checkBox.stateChanged.connect(__stateChanged)
+        horizontalLayout_instrument.addWidget(self.__comboBox_instrument, 0)
+
+        horizontalLayout_instrument.addStretch(1)
+
+        verticalLayout_main.addLayout(horizontalLayout_instrument, 0)
+        '''-------------------------------------------------------'''
+
+        verticalLayout_main.addStretch(1)
+
+    @property
+    def only_with_forecasts_flag(self) -> bool:
+        return self.__checkBox.isChecked()
+
+    @property
+    def token(self) -> TokenClass | None:
+        return self.__token_bar.token
+
+    @property
+    def status(self) -> str | None:
+        return self.__comboBox_status.status
+
+    @property
+    def instrument_type(self) -> str | None:
+        return self.__comboBox_instrument_type.instrument_type
+
+    def __onInstrumentsListChanged(self, uids: list[str]):
+        self.__setCount(len(uids))
+        self.instrumentsListChanged.emit(uids)
+
+    @QtCore.pyqtSlot(int)
+    def __setCount(self, count: int):
+        self.__label_count.setText(str(count))
+
+    @property
+    def uids(self) -> list[str]:
+        return self.__comboBox_instrument.uids
 
 
 class TreeItem:
@@ -68,9 +588,9 @@ class ForecastsModel(QtCore.QAbstractItemModel):
         def header(self, role: int = QtCore.Qt.ItemDataRole.UserRole):
             return self.__header(role=role)
 
-    def __init__(self, instrument_uid: str | None, last_fulls_flag: bool, parent: QtCore.QObject | None = None):
+    def __init__(self, instruments_uids: list[str], last_fulls_flag: bool, parent: QtCore.QObject | None = None):
         super().__init__(parent=parent)
-        self.__instrument_uid: str | None = instrument_uid
+        self.__instruments_uids: list[str] = instruments_uids
         self.__last_fulls_flag: bool = last_fulls_flag  # Если True, то модель должна отображать только последние прогнозы.
         self.__consensus_fulls: list[ConsensusFull] = []
         self.__root_item: TreeItem = TreeItem(row=0, parent_item=None, children=None)
@@ -145,7 +665,7 @@ class ForecastsModel(QtCore.QAbstractItemModel):
                 ),
                 target_column=ColumnWithoutHeader(
                     data_function=lambda ti: ti.recommendation_date,
-                    display_function=lambda ti: str(ti.recommendation_date)
+                    display_function=lambda ti: reportSignificantInfoFromDateTime(ti.recommendation_date)
                 )
             ),
             ForecastsModel.ColumnItem(
@@ -244,20 +764,21 @@ class ForecastsModel(QtCore.QAbstractItemModel):
         """Обновляет модель."""
         self.beginResetModel()
         self.__root_item.setChildren(None)
-        if self.__instrument_uid is None:
-            self.__consensus_fulls.clear()
-        else:
-            if self.__last_fulls_flag:
-                self.__consensus_fulls = MainConnection.getLastConsensusFulls(instrument_uid=self.__instrument_uid)
-            else:
-                self.__consensus_fulls = MainConnection.getConsensusFulls(instrument_uid=self.__instrument_uid)
 
-            items: list[TreeItem] = []
-            for i, consensus_full in enumerate(self.__consensus_fulls):
-                parent_item: TreeItem = TreeItem(row=i, parent_item=None, children=None)
-                parent_item.setChildren([TreeItem(row=j, parent_item=parent_item, children=None) for j, target in enumerate(consensus_full.targets)])
-                items.append(parent_item)
-            self.__root_item.setChildren(items)
+        self.__consensus_fulls.clear()
+        if self.__last_fulls_flag:
+            for uid in self.__instruments_uids:
+                self.__consensus_fulls.extend(MainConnection.getLastConsensusFulls(instrument_uid=uid))
+        else:
+            for uid in self.__instruments_uids:
+                self.__consensus_fulls.extend(MainConnection.getConsensusFulls(instrument_uid=uid))
+
+        items: list[TreeItem] = []
+        for i, consensus_full in enumerate(self.__consensus_fulls):
+            parent_item: TreeItem = TreeItem(row=i, parent_item=None, children=None)
+            parent_item.setChildren([TreeItem(row=j, parent_item=parent_item, children=None) for j, target in enumerate(consensus_full.targets)])
+            items.append(parent_item)
+        self.__root_item.setChildren(items)
 
         self.endResetModel()
 
@@ -318,17 +839,15 @@ class ForecastsModel(QtCore.QAbstractItemModel):
             self.__last_fulls_flag = flag
             self.__update()
 
-    def resetInstrument(self):
-        if self.__instrument_uid is not None:
-            self.__instrument_uid = None
-            self.__update()
+    def setInstrumentsUids(self, instruments_uids: list[str]):
+        self.__instruments_uids = instruments_uids
+        self.__update()
 
-    def setInstrument(self, instrument_uid: str | None):
-        if instrument_uid is None:
-            self.resetInstrument()
-        else:
-            self.__instrument_uid = instrument_uid
-            self.__update()
+
+class ForecastsProxyModel(QtCore.QSortFilterProxyModel):
+    def __init__(self, source_model: ForecastsModel, parent: QtCore.QObject | None = None):
+        super().__init__(parent=parent)
+        self.setSourceModel(source_model)
 
 
 class ForecastsThread(ManagedReceivingThread):
@@ -896,14 +1415,14 @@ class new_ForecastsPage(QtWidgets.QWidget):
         horizontalLayout_top = QtWidgets.QHBoxLayout()
         horizontalLayout_top.setSpacing(2)
 
-        self.groupBox_instrument_selection = GroupBox_InstrumentSelection(tokens_model=tokens_model, parent=self)
+        self.groupBox_instrument_selection = ForecastsInstrumentSelectionGroupBox(tokens_model=tokens_model, parent=self)
         horizontalLayout_top.addWidget(self.groupBox_instrument_selection, 1)
 
         verticalLayout_progressBar = QtWidgets.QVBoxLayout(self)
         verticalLayout_progressBar.setSpacing(0)
         self.progressBar = ForecastsReceivingGroupBox(tokens_model=tokens_model, parent=self)
-        self.progressBar.setInstruments(self.groupBox_instrument_selection.comboBox_instrument.model().uids)
-        self.groupBox_instrument_selection.comboBox_instrument.instrumentsListChanged.connect(self.progressBar.setInstruments)
+        self.progressBar.setInstruments(self.groupBox_instrument_selection.uids)
+        self.groupBox_instrument_selection.instrumentsListChanged.connect(self.progressBar.setInstruments)
         verticalLayout_progressBar.addWidget(self.progressBar, 0)
         verticalLayout_progressBar.addStretch(1)
         horizontalLayout_top.addLayout(verticalLayout_progressBar, 1)
@@ -921,7 +1440,7 @@ class new_ForecastsPage(QtWidgets.QWidget):
         verticalLayout_forecasts_view.addLayout(__titlebar, 0)
 
         self.forecasts_view = MyTreeView(parent=layoutWidget)
-        forecasts_model = ForecastsModel(instrument_uid=self.instrument_uid, last_fulls_flag=__titlebar.isChecked(), parent=self.forecasts_view)
+        forecasts_model = ForecastsModel(instruments_uids=self.uids, last_fulls_flag=__titlebar.isChecked(), parent=self.forecasts_view)
         self.forecasts_view.setModel(forecasts_model)  # Подключаем модель к таблице.
 
         verticalLayout_forecasts_view.addWidget(self.forecasts_view, 1)
@@ -940,8 +1459,7 @@ class new_ForecastsPage(QtWidgets.QWidget):
 
         __titlebar.stateChanged.connect(forecasts_model.setOnlyLastFlag)
 
-        self.groupBox_instrument_selection.comboBox_instrument.instrumentChanged.connect(forecasts_model.setInstrument)
-        self.groupBox_instrument_selection.comboBox_instrument.instrumentReset.connect(forecasts_model.resetInstrument)
+        self.groupBox_instrument_selection.instrumentsListChanged.connect(forecasts_model.setInstrumentsUids)
 
         @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onExpanded(index: QtCore.QModelIndex):
@@ -950,5 +1468,5 @@ class new_ForecastsPage(QtWidgets.QWidget):
         self.forecasts_view.expanded.connect(__onExpanded)
 
     @property
-    def instrument_uid(self) -> str | None:
-        return self.groupBox_instrument_selection.uid
+    def uids(self) -> list[str]:
+        return self.groupBox_instrument_selection.uids
