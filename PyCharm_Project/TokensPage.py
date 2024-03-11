@@ -36,9 +36,9 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
             def getTokenFromIndex(model_index: QtCore.QModelIndex) -> str:
                 """Получает и возвращает токен, соответствующий индексу."""
                 tree_item: TreeItem = model_index.internalPointer()  # Указатель на внутреннюю структуру данных.
-                assert type(tree_item) == TreeItem
+                assert type(tree_item) is TreeItem
                 token_class: TokenClass = tree_item.data
-                assert type(token_class) == TokenClass
+                assert type(token_class) is TokenClass
                 return token_class.token
 
             @QtCore.pyqtSlot(str)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
@@ -80,7 +80,7 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
     def model(self):
         """Возвращает модель."""
         model = self.treeView_saved_tokens.model()
-        assert type(model) == TreeProxyModel
+        assert type(model) is TreeProxyModel
         return typing.cast(TreeProxyModel, model)
 
     def onUpdateView(self):

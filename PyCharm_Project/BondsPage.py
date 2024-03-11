@@ -448,7 +448,7 @@ class GroupBox_BondsView(QtWidgets.QGroupBox):
     def proxyModel(self) -> BondsProxyModel:
         """Возвращает прокси-модель облигаций."""
         proxy_model = self.tableView.model()
-        assert type(proxy_model) == BondsProxyModel
+        assert type(proxy_model) is BondsProxyModel
         return typing.cast(BondsProxyModel, proxy_model)
 
     def sourceModel(self) -> BondsModel:

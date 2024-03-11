@@ -230,7 +230,7 @@ class TokenListModel(QIdentityProxyModel):
 
     def sourceModel(self) -> TokenModel:
         source_model = super().sourceModel()
-        assert type(source_model) == TokenModel
+        assert type(source_model) is TokenModel
         return typing.cast(TokenModel, source_model)
 
     def rowCount(self, parent: QModelIndex = ...) -> int:

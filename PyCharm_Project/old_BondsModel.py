@@ -306,8 +306,8 @@ class BondsModel(QtCore.QAbstractTableModel):
             """Функция сортировки для значений MyMoneyValue | None."""
             left_data: MyMoneyValue | None = left.data(role=role)
             right_data: MyMoneyValue | None = right.data(role=role)
-            if type(left_data) == MyMoneyValue:
-                if type(right_data) == MyMoneyValue:
+            if type(left_data) is MyMoneyValue:
+                if type(right_data) is MyMoneyValue:
                     return left_data < right_data
                 elif right_data is None:
                     return False
@@ -315,7 +315,7 @@ class BondsModel(QtCore.QAbstractTableModel):
                     assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), lessThan_MyMoneyValue_or_None.__name__)
                     return False
             elif left_data is None:
-                if type(right_data) == MyMoneyValue:
+                if type(right_data) is MyMoneyValue:
                     return True
                 elif right_data is None:
                     return False
@@ -331,8 +331,8 @@ class BondsModel(QtCore.QAbstractTableModel):
             """Функция сортировки для значений Decimal | None."""
             left_data: Decimal | None = left.data(role=role)
             right_data: Decimal | None = right.data(role=role)
-            if type(left_data) == Decimal:
-                if type(right_data) == Decimal:
+            if type(left_data) is Decimal:
+                if type(right_data) is Decimal:
                     return left_data < right_data
                 elif right_data is None:
                     return False
@@ -340,7 +340,7 @@ class BondsModel(QtCore.QAbstractTableModel):
                     assert False, 'Некорректный тип переменной \"right_data\" ({0}) в функции {1}!'.format(type(right_data), lessThan_Decimal_or_None.__name__)
                     return False
             elif left_data is None:
-                if type(right_data) == Decimal:
+                if type(right_data) is Decimal:
                     return True
                 elif right_data is None:
                     return False
@@ -356,7 +356,7 @@ class BondsModel(QtCore.QAbstractTableModel):
             """Функция сортировки для столбца BOND_RISK_LEVEL."""
             left_data: RiskLevel = left.data(role=role)
             right_data: RiskLevel = right.data(role=role)
-            if type(left_data) == RiskLevel and type(right_data) == RiskLevel:
+            if type(left_data) is RiskLevel and type(right_data) is RiskLevel:
                 if left_data == RiskLevel.RISK_LEVEL_UNSPECIFIED:
                     if right_data in (RiskLevel.RISK_LEVEL_LOW, RiskLevel.RISK_LEVEL_MODERATE, RiskLevel.RISK_LEVEL_HIGH):
                         return False
@@ -616,7 +616,7 @@ class BondsProxyModel(QtCore.QSortFilterProxyModel):
     def sourceModel(self) -> BondsModel:
         """Возвращает исходную модель."""
         source_model = super().sourceModel()
-        assert type(source_model) == BondsModel
+        assert type(source_model) is BondsModel
         return typing.cast(BondsModel, source_model)
 
     def getBond(self, proxy_index: QModelIndex) -> MyBondClass | None:

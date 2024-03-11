@@ -74,7 +74,7 @@ class TreeProxyModel(QAbstractItemModel):
                 else:
                     return None
             tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(tree_item) == TreeItem
+            assert type(tree_item) is TreeItem
             item_data: TokenClass | Account = tree_item.data
             data_type: int | None = checkDataType(item_data)
             assert data_type is not None, 'Недопустимый тип элемента: Тип: {0}, Значение: {1}!'.format(type(item_data), item_data)
@@ -228,7 +228,7 @@ class TreeProxyModel(QAbstractItemModel):
         if parent.column() > 0: return 0
         if parent.isValid():  # Если индекс parent действителен, то текущий элемент - это счёт или токен.
             tree_item: TreeItem = parent.internalPointer()
-            assert type(tree_item) == TreeItem
+            assert type(tree_item) is TreeItem
         else:  # Если parent недействителен, то parent - корневой элемент.
             tree_item: TreeItem = self.__root_item
         return len(tree_item.children)
@@ -250,7 +250,7 @@ class TreeProxyModel(QAbstractItemModel):
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         """Возвращает данные, на которые ссылается index."""
         tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-        assert type(tree_item) == TreeItem
+        assert type(tree_item) is TreeItem
         item_data: TokenClass | Account = tree_item.data
         data_type: int | None = self._checkDataType(item_data)
         assert data_type is not None, 'Недопустимый тип элемента: Тип: {0}, Значение: {1}!'.format(type(item_data), item_data)
@@ -280,7 +280,7 @@ class TreeProxyModel(QAbstractItemModel):
         """Возвращает индекс элемента в модели."""
         if parent.isValid():  # Если индекс parent действителен, то parent - это токен.
             token_item: TreeItem = parent.internalPointer()
-            assert type(token_item) == TreeItem and token_item.parent() == self.__root_item
+            assert type(token_item) is TreeItem and token_item.parent() == self.__root_item
             account_item: TreeItem | None = token_item.child(row)
             if account_item is None:
                 return QModelIndex()
@@ -297,7 +297,7 @@ class TreeProxyModel(QAbstractItemModel):
         """Возвращает родителя элемента."""
         if child.isValid():  # Если индекс child действителен, то parent - это корневой элемент или токен.
             tree_item: TreeItem = child.internalPointer()
-            assert type(tree_item) == TreeItem
+            assert type(tree_item) is TreeItem
             parent_item: TreeItem | None = tree_item.parent()
             if parent_item is None:
                 return QModelIndex()
@@ -315,7 +315,7 @@ class TreeProxyModel(QAbstractItemModel):
     # def mapToSource(self, index: QModelIndex) -> QModelIndex | None:
     #     """Находит и возвращает индекс исходной модели, соответствующий переданному индексу текущей модели."""
     #     tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-    #     assert type(tree_item) == TreeItem
+    #     assert type(tree_item) is TreeItem
     #     item_data: TokenClass | Account = tree_item.data
     #     data_type: int | None = self._checkDataType(item_data)
     #     if data_type != TreeLevel.TOKEN: return None
@@ -326,11 +326,11 @@ class TreeProxyModel(QAbstractItemModel):
 
         """---Определяем индекс соответствующего элемента в исходной модели---"""
         tree_item: TreeItem = token_index.internalPointer()  # Указатель на внутреннюю структуру данных.
-        assert type(tree_item) == TreeItem
+        assert type(tree_item) is TreeItem
         item_data: TokenClass | Account | None = tree_item.data
         data_type: int | None = self._checkDataType(item_data)
         if data_type != TreeLevel.TOKEN: return False
-        assert type(item_data) == TokenClass
+        assert type(item_data) is TokenClass
         """-------------------------------------------------------------------"""
 
         MainConnection.deleteToken(item_data.token)  # Удаление токена из базы данных.

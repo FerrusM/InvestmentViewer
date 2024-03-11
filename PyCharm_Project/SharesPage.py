@@ -252,7 +252,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
     def proxyModel(self) -> SharesProxyModel:
         """Возвращает прокси-модель акций."""
         proxy_model = self.tableView.model()
-        assert type(proxy_model) == SharesProxyModel
+        assert type(proxy_model) is SharesProxyModel
         return typing.cast(SharesProxyModel, proxy_model)
 
     def sourceModel(self) -> SharesModel:

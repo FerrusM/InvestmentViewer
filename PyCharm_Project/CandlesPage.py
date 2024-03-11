@@ -1241,7 +1241,7 @@ class CandlesPage(QtWidgets.QWidget):
     def candles(self, candles: list[HistoricCandle]):
         self.__candles = candles
 
-        if type(self.__instrument) == MyBondClass:
+        if type(self.__instrument) is MyBondClass:
             '''------------------------Вычисляем цену для облигаций------------------------'''
             def convertPointsToPriceInCandle(candle: HistoricCandle) -> HistoricCandle:
                 nominal: MyMoneyValue = MoneyValueToMyMoneyValue(self.__instrument.bond.nominal)

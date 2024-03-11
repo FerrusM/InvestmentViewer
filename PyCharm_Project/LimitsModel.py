@@ -149,7 +149,7 @@ class LimitsTreeModel(QAbstractItemModel):
         if parent.column() > 0: return 0
         if parent.isValid():  # Если индекс parent действителен.
             tree_item: TreeItem = parent.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(tree_item) == TreeItem
+            assert type(tree_item) is TreeItem
         else:  # Если parent недействителен, то parent - корневой элемент.
             tree_item: TreeItem = self._root_item
         return tree_item.childrenCount()
@@ -162,7 +162,7 @@ class LimitsTreeModel(QAbstractItemModel):
         """Возвращает родителя элемента."""
         if child.isValid():  # Если индекс child действителен.
             child_item: TreeItem = child.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(child_item) == TreeItem
+            assert type(child_item) is TreeItem
             parent_item: TreeItem | None = child_item.parent()
             if parent_item is None:
                 return QModelIndex()
@@ -177,7 +177,7 @@ class LimitsTreeModel(QAbstractItemModel):
         """Возвращает индекс элемента в модели."""
         if parent.isValid():  # Если индекс parent действителен.
             parent_item: TreeItem = parent.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(parent_item) == TreeItem
+            assert type(parent_item) is TreeItem
         else:
             parent_item: TreeItem = self._root_item
         tree_item: TreeItem | None = parent_item.child(row)
@@ -204,7 +204,7 @@ class LimitsTreeModel(QAbstractItemModel):
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         """Возвращает данные, на которые ссылается index."""
         tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-        assert type(tree_item) == TreeItem
+        assert type(tree_item) is TreeItem
         item_data: list[MyUnaryLimit] | list[MyStreamLimit] | MyUnaryLimit | MyStreamLimit | MyMethod = tree_item.data
         data_type: int | None = self._checkDataType(item_data)
         if data_type is None: return None

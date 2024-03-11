@@ -327,7 +327,7 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
         if parent.column() > 0: return 0
         if parent.isValid():  # Если индекс parent действителен.
             tree_item: TreeItem = parent.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(tree_item) == TreeItem
+            assert type(tree_item) is TreeItem
         else:  # Если parent недействителен, то parent - корневой элемент.
             tree_item: TreeItem = self.__root_item
         return tree_item.children_count
@@ -340,7 +340,7 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
         """Возвращает родителя элемента."""
         if child.isValid():  # Если индекс child действителен.
             child_item: TreeItem = child.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(child_item) == TreeItem
+            assert type(child_item) is TreeItem
             parent_item: TreeItem | None = child_item.parent()
             if parent_item is None:
                 return QtCore.QModelIndex()
@@ -355,7 +355,7 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
         """Возвращает индекс элемента в модели."""
         if parent.isValid():  # Если индекс parent действителен.
             parent_item: TreeItem = parent.internalPointer()  # Указатель на внутреннюю структуру данных.
-            assert type(parent_item) == TreeItem
+            assert type(parent_item) is TreeItem
         else:
             parent_item: TreeItem = self.__root_item
         tree_item: TreeItem | None = parent_item.child(row)
@@ -364,7 +364,7 @@ class AssetsTreeModel(QtCore.QAbstractItemModel):
     def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
         """Возвращает данные, на которые ссылается index."""
         tree_item: TreeItem = index.internalPointer()  # Указатель на внутреннюю структуру данных.
-        assert type(tree_item) == TreeItem
+        assert type(tree_item) is TreeItem
         hierarchy_level: int = tree_item.getHierarchyLevel()
         if hierarchy_level >= 0:
             current_column: Column = self.__columns[index.column()][hierarchy_level]

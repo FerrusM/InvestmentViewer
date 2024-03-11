@@ -3,7 +3,6 @@ from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from CandlesPage import CandlesPage
 from Classes import MyConnection
-from ForecastsPage import ForecastsPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
 from SharesPage import SharesPage
@@ -11,7 +10,7 @@ from TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
 from new_BondsPage import new_BondsPage
 from new_CandlesPage import CandlesPage_new
-from new_ForecastsPage import new_ForecastsPage
+from ForecastsPage import ForecastsPage
 
 
 class InvestmentForm(QtWidgets.QMainWindow):
@@ -62,11 +61,8 @@ class InvestmentForm(QtWidgets.QMainWindow):
         self.new_tab_bonds = new_BondsPage(tokens_model=token_list_model, parent=self)  # Страница "Облигации".
         self.tabWidget.addTab(self.new_tab_bonds, 'new_Облигации')
 
-        self.tab_forecasts = ForecastsPage(tokens_model=token_list_model, parent=self)  # Страница "Прогнозы".
-        self.tabWidget.addTab(self.tab_forecasts, 'Прогнозы')
-
-        self.new_tab_forecasts = new_ForecastsPage(tokens_model=token_list_model, parent=self)  # Страница "Прогнозы".
-        self.tabWidget.addTab(self.new_tab_forecasts, 'new_Прогнозы')
+        self.new_tab_forecasts = ForecastsPage(tokens_model=token_list_model, parent=self)  # Страница "Прогнозы".
+        self.tabWidget.addTab(self.new_tab_forecasts, 'Прогнозы')
 
         self.tab_candles = CandlesPage(tokens_model=token_list_model, parent=self)  # Страница "Свечи".
         self.tabWidget.addTab(self.tab_candles, 'Свечи')

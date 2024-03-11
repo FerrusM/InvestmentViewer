@@ -157,7 +157,7 @@ class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):
             self.label_info.reset()
         else:
             instrument_type = type(instrument)
-            if instrument_type == MyShareClass or instrument_type == MyBondClass:
+            if instrument_type is MyShareClass or instrument_type is MyBondClass:
                 self.label_info.setInstrument(instrument)
             else:
                 raise TypeError('Некорректный тип инструмента ({0})!'.format(instrument_type))

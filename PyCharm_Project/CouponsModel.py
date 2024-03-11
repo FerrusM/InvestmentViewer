@@ -144,7 +144,7 @@ class CouponsProxyModel(QSortFilterProxyModel):
     def sourceModel(self) -> CouponsModel:
         """Возвращает исходную модель."""
         source_model = super().sourceModel()
-        assert type(source_model) == CouponsModel
+        assert type(source_model) is CouponsModel
         return typing.cast(CouponsModel, source_model)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:

@@ -18,7 +18,7 @@ class MyCoupon:
     """Класс, объединяющий функции для работы с купонами."""
     def __eq__(self: Coupon, other: Coupon) -> bool:
         """self == other"""
-        if not type(other) == Coupon:
+        if not type(other) is Coupon:
             raise TypeError('Правый операнд должен иметь тип Coupon, а передан тип {0}!'.format(type(other)))
         if self.figi == other.figi and self.coupon_date == other.coupon_date and \
                 self.coupon_number == other.coupon_number and self.fix_date == other.fix_date and \
