@@ -3,6 +3,7 @@ from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from CandlesPage import CandlesPage
 from Classes import MyConnection
+from ConsensusesPage import ConsensusesPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
 from SharesPage import SharesPage
@@ -61,8 +62,11 @@ class InvestmentForm(QtWidgets.QMainWindow):
         self.new_tab_bonds = new_BondsPage(tokens_model=token_list_model, parent=self)  # Страница "Облигации".
         self.tabWidget.addTab(self.new_tab_bonds, 'new_Облигации')
 
-        self.new_tab_forecasts = ForecastsPage(tokens_model=token_list_model, parent=self)  # Страница "Прогнозы".
-        self.tabWidget.addTab(self.new_tab_forecasts, 'Прогнозы')
+        self.tab_forecasts = ForecastsPage(tokens_model=token_list_model, parent=self)  # Страница "Прогнозы".
+        self.tabWidget.addTab(self.tab_forecasts, 'Прогнозы')
+
+        self.tab_consensuses = ConsensusesPage(tokens_model=token_list_model, parent=self)  # Страница "Консенсусы".
+        self.tabWidget.addTab(self.tab_consensuses, 'Консенсусы')
 
         self.tab_candles = CandlesPage(tokens_model=token_list_model, parent=self)  # Страница "Свечи".
         self.tabWidget.addTab(self.tab_candles, 'Свечи')

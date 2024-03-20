@@ -4,7 +4,7 @@ from datetime import datetime
 from PyQt6 import QtWidgets, QtGui, QtSql, QtCore
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, \
-    ConsensusItem, Recommendation, TargetItem, GetForecastResponse
+    ConsensusItem, Recommendation, TargetItem, GetForecastResponse, ConsensusForecastsItem
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
 
@@ -741,3 +741,25 @@ class MyConnection(ABC):
                           recommendation_date=recommendation_date, currency=currency, current_price=current_price,
                           target_price=target_price, price_change=price_change, price_change_rel=price_change_rel,
                           show_name=show_name)
+
+    @classmethod
+    def getConsensusForecastsItem(cls, query: QtSql.QSqlQuery) -> ConsensusForecastsItem:
+        """Создаёт и возвращает экземпляр класса ConsensusForecastsItem."""
+        uid: str = query.value('uid')
+        asset_uid: str = query.value('asset_uid')
+        created_at: datetime = cls.convertTextToDateTime(query.value('created_at'))
+        best_target_price: Quotation = cls.convertTextToQuotation(query.value('best_target_price'))
+        best_target_low: Quotation = cls.convertTextToQuotation(query.value('best_target_low'))
+        best_target_high: Quotation = cls.convertTextToQuotation(query.value('best_target_high'))
+        total_buy_recommend: int = query.value('total_buy_recommend')
+        total_hold_recommend: int = query.value('total_hold_recommend')
+        total_sell_recommend: int = query.value('total_sell_recommend')
+        currency: str = query.value('currency')
+        consensus: Recommendation = Recommendation.from_string(query.value('consensus'))
+        prognosis_date: datetime = cls.convertTextToDateTime(query.value('prognosis_date'))
+        return ConsensusForecastsItem(uid=uid, asset_uid=asset_uid, created_at=created_at,
+                                      best_target_price=best_target_price, best_target_low=best_target_low,
+                                      best_target_high=best_target_high, total_buy_recommend=total_buy_recommend,
+                                      total_hold_recommend=total_hold_recommend,
+                                      total_sell_recommend=total_sell_recommend, currency=currency, consensus=consensus,
+                                      prognosis_date=prognosis_date)

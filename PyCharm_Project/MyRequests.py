@@ -4,7 +4,7 @@ from tinkoff.invest import RequestError, Account, Client, UnaryLimit, StreamLimi
     InstrumentStatus, Share, LastPrice, Dividend, Bond, InstrumentType, Asset, AssetFull, HistoricCandle, \
     CandleInterval, Coupon
 from tinkoff.invest.schemas import GetForecastRequest, GetForecastResponse, GetConsensusForecastsRequest, \
-    GetConsensusForecastsResponse
+    GetConsensusForecastsResponse, Page
 from tinkoff.invest.services import InstrumentsService
 
 
@@ -343,7 +343,7 @@ def getForecast(token: str, uid: str) -> MyResponse:
                       request_error=request_error)
 
 
-def getConsensusForecasts(token: str) -> MyResponse:
+def getConsensusForecasts(token: str, page: Page | None) -> MyResponse:
     """Получает и возвращает консенсус-прогнозы."""
     forecasts: GetConsensusForecastsResponse | None = None
     request_occurred: bool = False  # Флаг произведённого запроса.
@@ -353,7 +353,7 @@ def getConsensusForecasts(token: str) -> MyResponse:
     request_error: RequestError | None = None  # RequestError.
     with Client(token) as client:
         try:
-            forecasts = client.instruments.get_consensus_forecasts(request=GetConsensusForecastsRequest())
+            forecasts = client.instruments.get_consensus_forecasts(request=GetConsensusForecastsRequest(paging=page))
         except RequestError as error:
             request_error_flag = True  # Флаг наличия RequestError.
             request_error = error  # RequestError.

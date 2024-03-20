@@ -4,7 +4,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrument, Share, InstrumentStatus, AssetType, \
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
-    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem, Recommendation
+    AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem, Recommendation, ConsensusForecastsItem
 from Classes import TokenClass, MyConnection, partition, ConsensusFull, getForecastResponseEq
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
@@ -750,7 +750,7 @@ class MainConnection(MyConnection):
             \"currency\" TEXT NOT NULL,
             {1},
             \"prognosis_date\" TEXT NOT NULL,
-            PRIMARY KEY (\"uid\", \"created_at\")
+            PRIMARY KEY (\"uid\")
             );'''.format(
                 MyConnection.CONSENSUS_FORECASTS_TABLE,
                 consensus_column
@@ -1678,6 +1678,71 @@ class MainConnection(MyConnection):
             raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
 
     @classmethod
+    def getConsensusForecastsItems(cls, instrument_uid: str) -> list[ConsensusForecastsItem]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __sql_command: str = '''SELECT \"uid\", \"asset_uid\", \"created_at\", \"best_target_price\", 
+            \"best_target_low\", \"best_target_high\", \"total_buy_recommend\", \"total_hold_recommend\", 
+            \"total_sell_recommend\", \"currency\", \"consensus\", \"prognosis_date\" FROM \"{0}\" WHERE \"asset_uid\" 
+            IN (SELECT \"asset_uid\" FROM \"{1}\" WHERE \"uid\" = :instrument_uid);'''.format(
+                MyConnection.CONSENSUS_FORECASTS_TABLE,
+                MyConnection.ASSET_INSTRUMENTS_TABLE
+            )
+
+            cfi_query = QtSql.QSqlQuery(db)
+            cfi_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            cfi_prepare_flag: bool = cfi_query.prepare(__sql_command)
+            assert cfi_prepare_flag, cfi_query.lastError().text()
+            cfi_query.bindValue(':instrument_uid', instrument_uid)
+            cfi_exec_flag: bool = cfi_query.exec()
+            assert cfi_exec_flag, cfi_query.lastError().text()
+
+            consensuses: list[ConsensusForecastsItem] = []
+            while cfi_query.next():
+                cfi: ConsensusForecastsItem = MyConnection.getConsensusForecastsItem(cfi_query)
+                consensuses.append(cfi)
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return consensuses
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def getLastConsensusForecastsItems(cls, instrument_uid: str) -> list[ConsensusForecastsItem]:
+        db: QtSql.QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __sql_command: str = '''SELECT \"uid\", \"asset_uid\", MAX(\"created_at\") AS \"created_at\", 
+            \"best_target_price\", \"best_target_low\", \"best_target_high\", \"total_buy_recommend\", 
+            \"total_hold_recommend\", \"total_sell_recommend\", \"currency\", \"consensus\", \"prognosis_date\" FROM 
+            \"{0}\" WHERE \"asset_uid\" IN (SELECT \"asset_uid\" FROM \"{1}\" WHERE \"uid\" = :instrument_uid) GROUP BY 
+            \"asset_uid\";'''.format(
+                MyConnection.CONSENSUS_FORECASTS_TABLE,
+                MyConnection.ASSET_INSTRUMENTS_TABLE
+            )
+
+            cfi_query = QtSql.QSqlQuery(db)
+            cfi_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+            cfi_prepare_flag: bool = cfi_query.prepare(__sql_command)
+            assert cfi_prepare_flag, cfi_query.lastError().text()
+            cfi_query.bindValue(':instrument_uid', instrument_uid)
+            cfi_exec_flag: bool = cfi_query.exec()
+            assert cfi_exec_flag, cfi_query.lastError().text()
+
+            consensuses: list[ConsensusForecastsItem] = []
+            while cfi_query.next():
+                cfi: ConsensusForecastsItem = MyConnection.getConsensusForecastsItem(cfi_query)
+                consensuses.append(cfi)
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+
+            return consensuses
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
     def insertHistoricCandles(cls, uid: str, interval: CandleInterval, candles: list[HistoricCandle]):
         """Добавляет свечи в таблицу исторических свечей."""
         if candles:  # Если список не пуст.
@@ -2068,6 +2133,50 @@ class MainConnection(MyConnection):
                 insert_target_query.bindValue(':show_name', target.show_name)
                 insert_target_exec_flag: bool = insert_target_query.exec()
                 assert insert_target_exec_flag, insert_target_query.lastError().text()
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    def insertConsensusForecasts(cls, consensuses: list[ConsensusForecastsItem]):
+        db: QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            __insert_command: str = '''INSERT INTO \"{0}\" (\"uid\", \"asset_uid\", \"created_at\", 
+            \"best_target_price\", \"best_target_low\", \"best_target_high\", \"total_buy_recommend\", 
+            \"total_hold_recommend\", \"total_sell_recommend\", \"currency\", \"consensus\", \"prognosis_date\") VALUES 
+            (:uid, :asset_uid, :created_at, :best_target_price, :best_target_low, :best_target_high, 
+            :total_buy_recommend, :total_hold_recommend, :total_sell_recommend, :currency, :consensus, :prognosis_date) 
+            ON CONFLICT(\"uid\") DO UPDATE SET \"asset_uid\" = {1}.\"asset_uid\", \"created_at\" = {1}.\"created_at\", 
+            \"best_target_price\" = {1}.\"best_target_price\", \"best_target_low\" = {1}.\"best_target_low\", 
+            \"best_target_high\" = {1}.\"best_target_high\", \"total_buy_recommend\" = {1}.\"total_buy_recommend\", 
+            \"total_hold_recommend\" = {1}.\"total_hold_recommend\", \"total_sell_recommend\" = 
+            {1}.\"total_sell_recommend\", \"currency\" = {1}.\"currency\", \"consensus\" = {1}.\"consensus\", 
+            \"prognosis_date\" = {1}.\"prognosis_date\";'''.format(
+                MyConnection.CONSENSUS_FORECASTS_TABLE,
+                '\"excluded\"'
+            )
+
+            for consensus in consensuses:
+                insert_query = QtSql.QSqlQuery(db)
+                insert_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
+                insert_prepare_flag: bool = insert_query.prepare(__insert_command)
+                assert insert_prepare_flag, insert_query.lastError().text()
+                insert_query.bindValue(':uid', consensus.uid)
+                insert_query.bindValue(':asset_uid', consensus.asset_uid)
+                insert_query.bindValue(':created_at', MyConnection.convertDateTimeToText(consensus.created_at))
+                insert_query.bindValue(':best_target_price', MyQuotation.__repr__(consensus.best_target_price))
+                insert_query.bindValue(':best_target_low', MyQuotation.__repr__(consensus.best_target_low))
+                insert_query.bindValue(':best_target_high', MyQuotation.__repr__(consensus.best_target_high))
+                insert_query.bindValue(':total_buy_recommend', consensus.total_buy_recommend)
+                insert_query.bindValue(':total_hold_recommend', consensus.total_hold_recommend)
+                insert_query.bindValue(':total_sell_recommend', consensus.total_sell_recommend)
+                insert_query.bindValue(':currency', consensus.currency)
+                insert_query.bindValue(':consensus', consensus.consensus.name)
+                insert_query.bindValue(':prognosis_date', MyConnection.convertDateTimeToText(consensus.prognosis_date))
+                insert_exec_flag: bool = insert_query.exec()
+                assert insert_exec_flag, insert_query.lastError().text()
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()

@@ -7,12 +7,10 @@ from grpc import StatusCode
 from tinkoff.invest.schemas import GetForecastResponse, TargetItem, Quotation, Recommendation
 from Classes import TokenClass, Header, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
-from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
 from MyDateTime import getUtcDateTime, reportSignificantInfoFromDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getForecast
-from MyShareClass import MyShareClass
 from PagesClasses import TitleWithCount, ProgressBar_DataReceiving, TitleLabel
 from ReceivingThread import ManagedReceivingThread
 from TokenModel import TokenListModel
@@ -74,7 +72,6 @@ class InstrumentsModel(QtCore.QAbstractListModel):
 
         self.__instruments.clear()
 
-        """========================================Новый поиск инструментов========================================"""
         __select_consensuses_uids: str = 'SELECT DISTINCT \"instrument_uid\" AS \"uid\" FROM \"{0}\"'.format(
             MyConnection.CONSENSUS_ITEMS_TABLE
         )
@@ -275,7 +272,7 @@ class InstrumentsModel(QtCore.QAbstractListModel):
                     assert commit_flag, db.lastError().text()
                 else:
                     raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
-        """========================================================================================================"""
+
         self.endResetModel()
 
     def getUid(self, index: int) -> str | None:
@@ -342,7 +339,7 @@ class ComboBox_Instrument(QtWidgets.QComboBox):
 
     @staticmethod
     def __model_update(decorated_function):
-        def wrapper_function(self: ComboBox_Instrument, parameter):
+        def wrapper_function(self: ComboBox_Instrument, parameter=None):
             self.currentIndexChanged.disconnect(self.__instrument_changed_connection)
             decorated_function(self, parameter)
             '''---------------Устанавливаем текущий элемент---------------'''
@@ -383,24 +380,15 @@ class ComboBox_Instrument(QtWidgets.QComboBox):
         return self.instruments_model.getInstrumentsCount()
 
     @property
-    def uid(self) -> str | None:
-        return None if self.__current_item is None else self.__current_item.uid
-
-    @property
     def uids(self) -> list[str]:
         return self.instruments_model.uids
 
 
 class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
-    """Панель выбора инструмента."""
-    bondSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyBondClass)  # Сигнал испускается при выборе облигации.
-    shareSelected: QtCore.pyqtSignal = QtCore.pyqtSignal(MyShareClass)  # Сигнал испускается при выборе акции.
-    instrumentReset: QtCore.pyqtSignal = QtCore.pyqtSignal()  # Сигнал испускается при сбросе выбранного инструмента.
-
+    """Панель выбора инструментов."""
     instrumentsListChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(list)  # Сигнал испускается при изменении списка инструментов.
 
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
-        self.__instruments_uids: list[str] = []
         super().__init__(parent=parent)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
@@ -479,7 +467,7 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
                                                          instrument_type=self.instrument_type,
                                                          only_with_forecasts_flag=self.only_with_forecasts_flag,
                                                          parent=self)
-        self.__setCount(self.__comboBox_instrument.instruments_count)
+        self.__label_count.setText(str(self.__comboBox_instrument.instruments_count))
 
         @QtCore.pyqtSlot(int)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __stateChanged(state: int):
@@ -509,10 +497,6 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
         verticalLayout_main.addStretch(1)
 
     @property
-    def only_with_forecasts_flag(self) -> bool:
-        return self.__checkBox.isChecked()
-
-    @property
     def token(self) -> TokenClass | None:
         return self.__token_bar.token
 
@@ -524,13 +508,14 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
     def instrument_type(self) -> str | None:
         return self.__comboBox_instrument_type.instrument_type
 
-    def __onInstrumentsListChanged(self, uids: list[str]):
-        self.__setCount(len(uids))
-        self.instrumentsListChanged.emit(uids)
+    @property
+    def only_with_forecasts_flag(self) -> bool:
+        return self.__checkBox.isChecked()
 
-    @QtCore.pyqtSlot(int)
-    def __setCount(self, count: int):
-        self.__label_count.setText(str(count))
+    @QtCore.pyqtSlot(list)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+    def __onInstrumentsListChanged(self, uids: list[str]):
+        self.__label_count.setText(str(len(uids)))
+        self.instrumentsListChanged.emit(uids)
 
     @property
     def uids(self) -> list[str]:
@@ -578,15 +563,6 @@ class ForecastsModel(QtCore.QAbstractItemModel):
             self.__header: Header = header
             self.consensus_column: ColumnWithoutHeader = consensus_column
             self.target_column: ColumnWithoutHeader = target_column
-
-        # def consensus_column(self, consensus_full: ConsensusFull, role: int = QtCore.Qt.ItemDataRole.UserRole):
-        #     return self.__consensus_column(role, consensus_full)
-
-        # def consensus_lessThan(self):
-        #     return self.__consensus_column.lessThan
-
-        # def target_column(self, target_item: TargetItem, role: int = QtCore.Qt.ItemDataRole.UserRole):
-        #     return self.__target_column(role, target_item)
 
         def header(self, role: int = QtCore.Qt.ItemDataRole.UserRole):
             return self.__header(role=role)
@@ -899,6 +875,7 @@ class ForecastsThread(ManagedReceivingThread):
         '''------------Статистические переменные------------'''
         self.request_count: int = 0  # Общее количество запросов.
         self.control_point: datetime | None = None  # Начальная точка отсчёта времени.
+        self.consensuses_count: int = 0  # Количество полученных прогнозов.
         '''-------------------------------------------------'''
 
     def receivingFunction(self):
@@ -934,7 +911,7 @@ class ForecastsThread(ManagedReceivingThread):
                 '''-----------------------------------------------------------------'''
 
                 response = getForecast(token=self.token.token, uid=uid)
-                assert response.request_occurred, 'Запрос прогнозов не был произведён.'
+                assert response.request_occurred, 'Запрос прогнозов не был произведён!'
                 self.request_count += 1  # Подсчитываем запрос.
 
                 self.releaseSemaphore_signal.emit(self.semaphore, 1)  # Освобождаем ресурсы семафора из основного потока.
@@ -945,6 +922,8 @@ class ForecastsThread(ManagedReceivingThread):
                         self.printInConsole('RequestError {0}'.format(response.request_error))
                 elif response.exception_flag:
                     self.printInConsole('Exception {0}'.format(response.exception))
+                elif response.ifDataSuccessfullyReceived():
+                    self.consensuses_count += 1  # Подсчитываем полученный прогноз.
                 '''----------------------------------------------------------------'''
                 """=============================================================================="""
                 try_count += 1
@@ -956,6 +935,11 @@ class ForecastsThread(ManagedReceivingThread):
                     break
                 continue  # Если поток был прерван или если информация не была получена.
             self.forecastsReceived.emit(forecasts)
+
+    @property
+    def instruments_count(self) -> int:
+        """Количество инструментов."""
+        return len(self.__instruments_uids)
 
 
 class ProgressThreadManagerBar(QtWidgets.QHBoxLayout):
@@ -1086,6 +1070,7 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
     @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
     def __onFinishedThread(self):
         """Выполняется после завершения потока."""
+        print('{0}: Прогнозы получены по {1} инструментам из {2}.'.format(self.__forecasts_receiving_thread.__class__.__name__, self.__forecasts_receiving_thread.consensuses_count, self.__forecasts_receiving_thread.instruments_count))
         self.current_status = self.Status.FINISHED
     '''--------------------------------------------------------------------------------------------'''
 
@@ -1404,7 +1389,6 @@ class ForecastsTitle(QtWidgets.QHBoxLayout):
     def __init__(self, title: str, count_text: str = '0', parent: QtWidgets.QWidget | None = None):
         super().__init__(parent)
         self.setSpacing(0)
-
         self.addSpacing(10)
 
         def __stateChanged(state: int):
@@ -1417,6 +1401,7 @@ class ForecastsTitle(QtWidgets.QHBoxLayout):
                     raise ValueError('Неизвестное значение checkBox\'а!')
 
         self.__checkBox = QtWidgets.QCheckBox(text='Только последние', parent=parent)
+        self.__checkBox.setChecked(True)
         self.__checkBox.stateChanged.connect(__stateChanged)
         self.addWidget(self.__checkBox, 1)
 
@@ -1438,7 +1423,7 @@ class ForecastsTitle(QtWidgets.QHBoxLayout):
 class ForecastsPage(QtWidgets.QWidget):
     """Страница прогнозов."""
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent)
+        super().__init__(parent=parent)
 
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
@@ -1495,7 +1480,7 @@ class ForecastsPage(QtWidgets.QWidget):
 
         self.groupBox_instrument_selection.instrumentsListChanged.connect(forecasts_model.setInstrumentsUids)
 
-        @QtCore.pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        @QtCore.pyqtSlot(QtCore.QModelIndex)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
         def __onExpanded(index: QtCore.QModelIndex):
             self.forecasts_view.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
 
