@@ -1,9 +1,8 @@
 from __future__ import annotations
 import typing
 from PyQt6 import QtCore, QtWidgets, QtSql, QtGui
-from tinkoff.invest.schemas import GetConsensusForecastsResponse, PageResponse, Page, ConsensusForecastsItem, \
-    Recommendation
-from Classes import TokenClass, MyConnection, ColumnWithHeader, Header
+from tinkoff.invest.schemas import GetConsensusForecastsResponse, PageResponse, Page, Recommendation
+from Classes import TokenClass, MyConnection, ColumnWithHeader, Header, print_function_runtime, MyConsensusForecastsItem
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
 from MyDatabase import MainConnection
 from MyDateTime import reportSignificantInfoFromDateTime
@@ -644,7 +643,7 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
         super().__init__(parent=parent)
         self.__instruments_uids: list[str] = instruments_uids
         self.__last_consensuses_flag: bool = last_consensuses_flag  # Если True, то модель должна отображать только последние прогнозы.
-        self.__consensuses: list[ConsensusForecastsItem] = []
+        self.__consensuses: list[MyConsensusForecastsItem] = []
 
         POSITIVE_COLOR: QtGui.QBrush = QtGui.QBrush(QtCore.Qt.GlobalColor.darkGreen)
         NEUTRAL_COLOR: QtGui.QBrush = QtGui.QBrush(QtCore.Qt.GlobalColor.darkYellow)
@@ -755,17 +754,17 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
         )
         self.__update()
 
+    @print_function_runtime
     def __update(self):
         """Обновляет модель."""
         self.beginResetModel()
 
         self.__consensuses.clear()
+
         if self.__last_consensuses_flag:
-            for uid in self.__instruments_uids:
-                self.__consensuses.extend(MainConnection.getLastConsensusForecastsItems(instrument_uid=uid))
+            self.__consensuses = MainConnection.getLastConsensusesForecastsItems(self.__instruments_uids)
         else:
-            for uid in self.__instruments_uids:
-                self.__consensuses.extend(MainConnection.getConsensusForecastsItems(instrument_uid=uid))
+            self.__consensuses = MainConnection.getConsensusesForecastsItems(self.__instruments_uids)
 
         self.endResetModel()
 
@@ -777,7 +776,7 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
 
     def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
         column: ColumnWithHeader = self.columns[index.column()]
-        consensus: ConsensusForecastsItem = self.__consensuses[index.row()]
+        consensus: MyConsensusForecastsItem = self.__consensuses[index.row()]
         return column(role, consensus)
 
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:

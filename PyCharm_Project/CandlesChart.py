@@ -3,7 +3,7 @@ from PyQt6 import QtCore, QtWidgets, QtCharts, QtSql
 from tinkoff.invest import CandleInterval, HistoricCandle
 from Classes import MyConnection
 from MyDatabase import MainConnection
-from MyDateTime import getUtcDateTime
+from MyDateTime import getUtcDateTime, getMoscowDateTime
 from MyQuotation import MyQuotation
 from PagesClasses import TitleLabel
 
@@ -64,7 +64,7 @@ class CandlesChart(QtCharts.QChart):
         def __getInterval(interval: CandleInterval) -> timedelta:
             """Возвращает временной интервал, отображаемый на графике."""
             minute_td: timedelta = timedelta(hours=2)
-            day_td: timedelta = timedelta(days=12)
+            day_td: timedelta = timedelta(days=30)
 
             match interval:
                 case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:
@@ -130,7 +130,6 @@ class CandlesChart(QtCharts.QChart):
             query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.
             prepare_flag: bool = query.prepare(select_candles_command)
             assert prepare_flag, query.lastError().text()
-
             query.bindValue(':instrument_id', self.__instrument_uid)
             query.bindValue(':interval', self.__interval.name)
             query.bindValue(':min_dt', MyConnection.convertDateTimeToText(self.min_datetime))
@@ -200,13 +199,20 @@ class CandlesChart(QtCharts.QChart):
         attachAxisY_flag: bool = self.__candlestick_series.attachAxis(axisY)
         assert attachAxisY_flag, 'Не удалось прикрепить ось Y к series.'
 
+        # if self.__candlestick_series.sets():
+        #     print('Свечи:')
+        #     for i, cs in enumerate(self.__candlestick_series.sets()):
+        #         hc: HistoricCandle = cs.historic_candle
+        #         ts: datetime = datetime.fromtimestamp(cs.timestamp() / 1000)
+        #         print('{0}. time={1}, timestamp={2}, low={3}, high={4}'.format(i, hc.time, ts, MyQuotation.__repr__(hc.low), MyQuotation.__repr__(hc.high)))
+
     def setInstrument(self, instrument_uid: str | None):
         self.__instrument_uid = instrument_uid
-        self.max_datetime = getUtcDateTime()
+        self.max_datetime = getMoscowDateTime()
 
     def setInterval(self, interval: CandleInterval):
         self.__interval = interval
-        self.max_datetime = getUtcDateTime()
+        self.max_datetime = getMoscowDateTime()
 
 
 class GroupBox_Chart(QtWidgets.QGroupBox):
