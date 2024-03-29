@@ -179,9 +179,10 @@ class ColumnWithoutHeader:
 
 class Header:
     """Класс заголовка."""
-    def __init__(self, title: str | None = None, tooltip: str | None = None):
+    def __init__(self, title: str | None = None, tooltip: str | None = None, text_color: QtGui.QBrush | None = None):
         self.__title: str | None = title  # Название столбца.
         self.__tooltip: str | None = tooltip  # Подсказка в заголовке.
+        self.__text_color: QtGui.QBrush | None = text_color  # Цвет текста.
 
     def __call__(self, role: int = ...) -> typing.Any:
         match role:
@@ -189,6 +190,8 @@ class Header:
                 return QtCore.QVariant() if self.__title is None else self.__title
             case QtCore.Qt.ItemDataRole.ToolTipRole:
                 return QtCore.QVariant() if self.__tooltip is None else self.__tooltip
+            case QtCore.Qt.ItemDataRole.ForegroundRole:
+                return QtCore.QVariant() if self.__text_color is None else self.__text_color
 
 
 class ColumnWithHeader:

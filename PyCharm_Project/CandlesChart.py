@@ -64,7 +64,7 @@ class CandlesChart(QtCharts.QChart):
         def __getInterval(interval: CandleInterval) -> timedelta:
             """Возвращает временной интервал, отображаемый на графике."""
             minute_td: timedelta = timedelta(hours=2)
-            day_td: timedelta = timedelta(days=30)
+            day_td: timedelta = timedelta(days=45)
 
             match interval:
                 case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:

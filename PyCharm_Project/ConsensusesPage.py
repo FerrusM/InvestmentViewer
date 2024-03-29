@@ -656,17 +656,29 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
         self.columns: tuple[ColumnWithHeader, ...] = (
             ColumnWithHeader(
                 header=Header(
-                    title='consensus_uid',
-                    tooltip='uid идентификатор'
+                    title='Тикер',
+                    tooltip='Тикер инструмента.'
                 ),
-                data_function=lambda cf: cf.uid
+                data_function=lambda mcf: mcf.ticker
             ),
             ColumnWithHeader(
                 header=Header(
-                    title='asset_uid',
-                    tooltip='uid идентификатор актива'
+                    title='Консенсус',
+                    tooltip='Консенсус-прогноз'
                 ),
-                data_function=lambda cf: cf.asset_uid
+                data_function=lambda cf: cf.consensus,
+                display_function=lambda cf: BUY if cf.consensus == Recommendation.RECOMMENDATION_BUY else SELL if cf.consensus == Recommendation.RECOMMENDATION_SELL else HOLD if cf.consensus == Recommendation.RECOMMENDATION_HOLD else cf.consensus.name,
+                foreground_function=lambda cf: POSITIVE_COLOR if cf.consensus == Recommendation.RECOMMENDATION_BUY else NEGATIVE_COLOR if cf.consensus == Recommendation.RECOMMENDATION_SELL else NEUTRAL_COLOR if cf.consensus == Recommendation.RECOMMENDATION_HOLD else QtCore.QVariant()
+            ),
+            ColumnWithHeader(
+                header=Header(
+                    title='Дата прогноза',
+                    tooltip='Дата прогноза'
+                ),
+                data_function=lambda cf: cf.prognosis_date,
+                display_function=lambda cf: reportSignificantInfoFromDateTime(cf.prognosis_date),
+                sort_role=QtCore.Qt.ItemDataRole.UserRole,
+                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
             ),
             ColumnWithHeader(
                 header=Header(
@@ -675,6 +687,39 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
                 ),
                 data_function=lambda cf: cf.created_at,
                 display_function=lambda cf: str(cf.created_at),
+                sort_role=QtCore.Qt.ItemDataRole.UserRole,
+                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
+            ),
+            ColumnWithHeader(
+                header=Header(
+                    title='Покупать',
+                    tooltip='Количество аналитиков рекомендующих покупать',
+                    text_color=QtGui.QBrush(QtCore.Qt.GlobalColor.darkGreen)
+                ),
+                data_function=lambda cf: cf.total_buy_recommend,
+                display_function=lambda cf: str(cf.total_buy_recommend),
+                sort_role=QtCore.Qt.ItemDataRole.UserRole,
+                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
+            ),
+            ColumnWithHeader(
+                header=Header(
+                    title='Держать',
+                    tooltip='Количество аналитиков рекомендующих держать',
+                    text_color=QtGui.QBrush(QtCore.Qt.GlobalColor.darkYellow)
+                ),
+                data_function=lambda cf: cf.total_hold_recommend,
+                display_function=lambda cf: str(cf.total_hold_recommend),
+                sort_role=QtCore.Qt.ItemDataRole.UserRole,
+                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
+            ),
+            ColumnWithHeader(
+                header=Header(
+                    title='Продавать',
+                    tooltip='Количество аналитиков рекомендующих продавать',
+                    text_color=QtGui.QBrush(QtCore.Qt.GlobalColor.darkRed)
+                ),
+                data_function=lambda cf: cf.total_sell_recommend,
+                display_function=lambda cf: str(cf.total_sell_recommend),
                 sort_role=QtCore.Qt.ItemDataRole.UserRole,
                 lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
             ),
@@ -704,52 +749,17 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
             ),
             ColumnWithHeader(
                 header=Header(
-                    title='Покупать',
-                    tooltip='Количество аналитиков рекомендующих покупать'
+                    title='consensus_uid',
+                    tooltip='uid идентификатор'
                 ),
-                data_function=lambda cf: cf.total_buy_recommend,
-                display_function=lambda cf: str(cf.total_buy_recommend),
-                sort_role=QtCore.Qt.ItemDataRole.UserRole,
-                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
+                data_function=lambda cf: cf.uid
             ),
             ColumnWithHeader(
                 header=Header(
-                    title='Держать',
-                    tooltip='Количество аналитиков рекомендующих держать'
+                    title='asset_uid',
+                    tooltip='uid идентификатор актива'
                 ),
-                data_function=lambda cf: cf.total_hold_recommend,
-                display_function=lambda cf: str(cf.total_hold_recommend),
-                sort_role=QtCore.Qt.ItemDataRole.UserRole,
-                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
-            ),
-            ColumnWithHeader(
-                header=Header(
-                    title='Продавать',
-                    tooltip='Количество аналитиков рекомендующих продавать'
-                ),
-                data_function=lambda cf: cf.total_sell_recommend,
-                display_function=lambda cf: str(cf.total_sell_recommend),
-                sort_role=QtCore.Qt.ItemDataRole.UserRole,
-                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
-            ),
-            ColumnWithHeader(
-                header=Header(
-                    title='Консенсус',
-                    tooltip='Консенсус-прогноз'
-                ),
-                data_function=lambda cf: cf.consensus,
-                display_function=lambda cf: BUY if cf.consensus == Recommendation.RECOMMENDATION_BUY else SELL if cf.consensus == Recommendation.RECOMMENDATION_SELL else HOLD if cf.consensus == Recommendation.RECOMMENDATION_HOLD else cf.consensus.name,
-                foreground_function=lambda cf: POSITIVE_COLOR if cf.consensus == Recommendation.RECOMMENDATION_BUY else NEGATIVE_COLOR if cf.consensus == Recommendation.RECOMMENDATION_SELL else NEUTRAL_COLOR if cf.consensus == Recommendation.RECOMMENDATION_HOLD else QtCore.QVariant()
-            ),
-            ColumnWithHeader(
-                header=Header(
-                    title='Дата прогноза',
-                    tooltip='Дата прогноза'
-                ),
-                data_function=lambda cf: cf.prognosis_date,
-                display_function=lambda cf: reportSignificantInfoFromDateTime(cf.prognosis_date),
-                sort_role=QtCore.Qt.ItemDataRole.UserRole,
-                lessThan=lambda left, right, role: left.data(role=role) < right.data(role=role)
+                data_function=lambda cf: cf.asset_uid
             )
         )
         self.__update()
@@ -758,14 +768,11 @@ class ConsensusesModel(QtCore.QAbstractTableModel):
     def __update(self):
         """Обновляет модель."""
         self.beginResetModel()
-
         self.__consensuses.clear()
-
         if self.__last_consensuses_flag:
             self.__consensuses = MainConnection.getLastConsensusesForecastsItems(self.__instruments_uids)
         else:
             self.__consensuses = MainConnection.getConsensusesForecastsItems(self.__instruments_uids)
-
         self.endResetModel()
 
     def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
