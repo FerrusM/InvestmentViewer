@@ -5,7 +5,8 @@ from enum import Enum, StrEnum
 from PyQt6 import QtCore, QtWidgets, QtGui, QtSql
 from grpc import StatusCode
 from tinkoff.invest.schemas import GetForecastResponse, TargetItem, Quotation, Recommendation
-from Classes import TokenClass, Header, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection
+from Classes import TokenClass, Header, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection, \
+    print_function_runtime
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
 from MyDatabase import MainConnection
 from MyDateTime import getUtcDateTime, reportSignificantInfoFromDateTime
@@ -1422,6 +1423,8 @@ class ForecastsTitle(QtWidgets.QHBoxLayout):
 
 class ForecastsPage(QtWidgets.QWidget):
     """Страница прогнозов."""
+
+    @print_function_runtime
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
 

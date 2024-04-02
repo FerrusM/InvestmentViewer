@@ -19,6 +19,13 @@ class Candlestick(QtCharts.QCandlestickSet):
                          parent=parent)
         assert self.low() <= self.open() and self.low() <= self.close() and self.low() <= self.high() and self.high() >= self.open() and self.high() >= self.close()
 
+        @QtCore.pyqtSlot(bool)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
+        def __onHovered(status: bool):
+            if status:
+                print('Свеча: {0}'.format(self.__historic_candle.time))
+
+        self.hovered.connect(__onHovered)
+
     @property
     def historic_candle(self) -> HistoricCandle:
         return self.__historic_candle
@@ -30,6 +37,7 @@ class CandlesChart(QtCharts.QChart):
             super().__init__(parent=parent)
             self.setDecreasingColor(QtCore.Qt.GlobalColor.red)
             self.setIncreasingColor(QtCore.Qt.GlobalColor.green)
+            self.setBodyOutlineVisible(False)
 
     def __init__(self, instrument_uid: str | None, interval: CandleInterval, parent: QtWidgets.QGraphicsItem | None = None):
         super().__init__(parent=parent)

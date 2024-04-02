@@ -857,6 +857,8 @@ class ForecastsTitle(QtWidgets.QHBoxLayout):
 
 class ConsensusesPage(QtWidgets.QWidget):
     """Страница консенсус-прогнозов."""
+
+    @print_function_runtime
     def __init__(self, tokens_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
 

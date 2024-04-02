@@ -2,11 +2,11 @@ from __future__ import annotations
 import typing
 from datetime import datetime, timedelta
 from enum import Enum
-from PyQt6 import QtCore, QtWidgets, QtSql, QtCharts
+from PyQt6 import QtCore, QtWidgets, QtCharts
 from tinkoff.invest import HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
-from CandlesChart import GroupBox_Chart
-from Classes import TokenClass, MyConnection, Column, print_slot
+from CandlesChart import CandlesChart
+from Classes import TokenClass, print_slot, print_function_runtime
 from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
@@ -15,7 +15,7 @@ from MyDateTime import ifDateTimeIsEmpty, getUtcDateTime, getMoscowDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getCandles
 from MyShareClass import MyShareClass
-from PagesClasses import GroupBox_InstrumentInfo, TitleLabel, ProgressBar_DataReceiving, TitleWithCount
+from PagesClasses import GroupBox_InstrumentInfo, TitleLabel, ProgressBar_DataReceiving
 from TokenModel import TokenListModel
 
 
@@ -692,445 +692,65 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         self.instrument = instrument
 
 
-class CandlesChart(QtCharts.QChart):
-    def __init__(self, interval: CandleInterval = CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent: QtWidgets.QGraphicsItem | None = None):
-        super().__init__(parent=parent)
+class Candlestick(QtCharts.QCandlestickSet):
+    def __init__(self, candle: HistoricCandle, parent: QtCore.QObject | None = None):
+        self.__historic_candle: HistoricCandle = candle
+        super().__init__(open=MyQuotation.getFloat(candle.open),
+                         high=MyQuotation.getFloat(candle.high),
+                         low=MyQuotation.getFloat(candle.low),
+                         close=MyQuotation.getFloat(candle.close),
+                         timestamp=(candle.time.timestamp() * 1000),
+                         parent=parent)
 
-        self.setAnimationOptions(QtCharts.QChart.AnimationOption.SeriesAnimations)
-
-        self.setContentsMargins(-10.0, -10.0, -10.0, -10.0)  # Скрываем поля содержимого виджета.
-        self.layout().setContentsMargins(0, 0, 0, 0)  # Раздвигаем поля содержимого макета.
-        self.legend().hide()  # Скрываем легенду диаграммы.
-
-        self.max_data = getMoscowDateTime()
-        self.min_data = self.max_data - self.__getInterval(interval)
-
-        axisY: QtCharts.QValueAxis = self.__createAxisY()
-        self.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-
-        axisX: QtCharts.QDateTimeAxis = self.__createAxisX(self.min_data, self.max_data)
-        self.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-
-    @staticmethod
-    def __getInterval(interval: CandleInterval) -> timedelta:
-        """Возвращает временной интервал, отображаемый на графике."""
-        minute_td: timedelta = timedelta(hours=2)
-        day_td: timedelta = timedelta(days=60)
-
-        match interval:
-            case CandleInterval.CANDLE_INTERVAL_UNSPECIFIED:
-                return day_td
-            case CandleInterval.CANDLE_INTERVAL_1_MIN:
-                return minute_td
-            case CandleInterval.CANDLE_INTERVAL_5_MIN:
-                return minute_td * 5
-            case CandleInterval.CANDLE_INTERVAL_15_MIN:
-                return minute_td * 15
-            case CandleInterval.CANDLE_INTERVAL_HOUR:
-                return minute_td * 60
-            case CandleInterval.CANDLE_INTERVAL_DAY:
-                return day_td
-            case CandleInterval.CANDLE_INTERVAL_2_MIN:
-                return minute_td * 2
-            case CandleInterval.CANDLE_INTERVAL_3_MIN:
-                return minute_td * 3
-            case CandleInterval.CANDLE_INTERVAL_10_MIN:
-                return minute_td * 10
-            case CandleInterval.CANDLE_INTERVAL_30_MIN:
-                return minute_td * 30
-            case CandleInterval.CANDLE_INTERVAL_2_HOUR:
-                return minute_td * 120
-            case CandleInterval.CANDLE_INTERVAL_4_HOUR:
-                return minute_td * 240
-            case CandleInterval.CANDLE_INTERVAL_WEEK:
-                return day_td * 7
-            case CandleInterval.CANDLE_INTERVAL_MONTH:
-                return day_td * 31
-            case _:
-                raise ValueError('Некорректный временной интервал свечей!')
-
-    def removeAllAxes(self):
-        """Удаляет все оси диаграммы."""
-        for axis in self.axes(QtCore.Qt.Orientation.Vertical, None):
-            self.removeAxis(axis)
-        for axis in self.axes(QtCore.Qt.Orientation.Horizontal, None):
-            self.removeAxis(axis)
-
-    def __createAxisX(self, min_: QtCore.QDateTime | datetime, max_: QtCore.QDateTime | datetime) -> QtCharts.QDateTimeAxis:
-        axisX = QtCharts.QDateTimeAxis(parent=self)
-        # axisX.setFormat()
-        axisX.setRange(min_, max_)
-        axisX.setTitleText('Дата и время')
-        return axisX
-
-    def __createAxisY(self, min_: float = 0, max_: float = 110) -> QtCharts.QValueAxis:
-        axisY = QtCharts.QValueAxis(parent=self)
-        axisY.setRange(min_, max_)
-        # axisY.setTickCount(11)
-        axisY.setTitleText('Цена')
-        return axisY
-
-    # def setCandles(self, candles: list[HistoricCandle], interval: CandleInterval):
-    #     """Обновляем данные графика."""
-    #     self.removeAllSeries()
-    #     self.removeAllAxes()  # Удаляет все оси диаграммы.
-    #
-    #     candlestick_series = QtCharts.QCandlestickSeries(self)
-    #     candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
-    #     candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
-    #
-    #     self.max_data = getMoscowDateTime()
-    #     self.min_data = self.max_data - self.__getInterval(interval)
-    #
-    #     '''==============================Если надо отображать все свечи=============================='''
-    #     # if candles:
-    #     #     min_timestamp: float = self.min_data.timestamp()
-    #     #     max_timestamp: float = self.max_data.timestamp()
-    #     #     interval_candles: list[QtCharts.QCandlestickSet] = []
-    #     #
-    #     #     '''------------------------------------Заполняем серию свечей------------------------------------'''
-    #     #     for candle in candles:
-    #     #         assert candle.low <= candle.open and candle.low <= candle.close and candle.low <= candle.high
-    #     #         assert candle.high >= candle.open and candle.high >= candle.close
-    #     #
-    #     #         candlestick = getQCandlestickSetFromHistoricCandle(candle=candle, parent=self)
-    #     #         candlestick_series.append(candlestick)
-    #     #
-    #     #         if min_timestamp <= candle.time.timestamp() <= max_timestamp:
-    #     #             interval_candles.append(candlestick)
-    #     #     '''----------------------------------------------------------------------------------------------'''
-    #     #
-    #     #     if interval_candles:
-    #     #         '''---Определяем минимальную цену на выбранном отрезке времени---'''
-    #     #         min_price: float = min(candle.low() for candle in interval_candles)
-    #     #         max_price: float = max(candle.high() for candle in interval_candles)
-    #     #         '''--------------------------------------------------------------'''
-    #     #         axisY: QtCharts.QValueAxis = self.__createAxisY(min_price, max_price)
-    #     #     else:
-    #     #         axisY: QtCharts.QValueAxis = self.__createAxisY()
-    #     # else:
-    #     #     axisY: QtCharts.QValueAxis = self.__createAxisY()
-    #     '''=========================================================================================='''
-    #
-    #     '''========================Если надо отображать только последние свечи========================'''
-    #     if candles:
-    #         min_timestamp: float = self.min_data.timestamp()
-    #         max_timestamp: float = self.max_data.timestamp()
-    #
-    #         '''------------------------------------Заполняем серию свечей------------------------------------'''
-    #         for candle in candles:
-    #             assert candle.low <= candle.open and candle.low <= candle.close and candle.low <= candle.high
-    #             assert candle.high >= candle.open and candle.high >= candle.close
-    #
-    #             if min_timestamp <= candle.time.timestamp() <= max_timestamp:
-    #                 candlestick = getQCandlestickSetFromHistoricCandle(candle=candle, parent=self)
-    #                 candlestick_series.append(candlestick)
-    #         '''----------------------------------------------------------------------------------------------'''
-    #
-    #         if candlestick_series.sets():
-    #             '''---Определяем минимальную цену на выбранном отрезке времени---'''
-    #             min_price: float = min(candle.low() for candle in candlestick_series.sets())
-    #             max_price: float = max(candle.high() for candle in candlestick_series.sets())
-    #             '''--------------------------------------------------------------'''
-    #             axisY: QtCharts.QValueAxis = self.__createAxisY(min_price, max_price)
-    #         else:
-    #             axisY: QtCharts.QValueAxis = self.__createAxisY()
-    #     else:
-    #         axisY: QtCharts.QValueAxis = self.__createAxisY()
-    #     '''==========================================================================================='''
-    #
-    #     self.addAxis(axisY, QtCore.Qt.AlignmentFlag.AlignLeft)
-    #
-    #     axisX: QtCharts.QDateTimeAxis = self.__createAxisX(self.min_data, self.max_data)
-    #     self.addAxis(axisX, QtCore.Qt.AlignmentFlag.AlignBottom)
-    #
-    #     self.addSeries(candlestick_series)
-    #
-    #     attachAxisX_flag: bool = candlestick_series.attachAxis(axisX)
-    #     assert attachAxisX_flag, 'Не удалось прикрепить ось X к series.'
-    #     attachAxisY_flag: bool = candlestick_series.attachAxis(axisY)
-    #     assert attachAxisY_flag, 'Не удалось прикрепить ось Y к series.'
+    @property
+    def historic_candle(self) -> HistoricCandle:
+        return self.__historic_candle
 
 
-class CandlesViewAndGraphic(QtWidgets.QWidget):
-    class Candlestick(QtCharts.QCandlestickSet):
-        def __init__(self, candle: HistoricCandle, parent: QtCore.QObject | None = None):
-            self.__historic_candle: HistoricCandle = candle
-            super().__init__(open=MyQuotation.getFloat(candle.open),
-                             high=MyQuotation.getFloat(candle.high),
-                             low=MyQuotation.getFloat(candle.low),
-                             close=MyQuotation.getFloat(candle.close),
-                             timestamp=(candle.time.timestamp() * 1000),
-                             parent=parent)
-
-        @property
-        def historic_candle(self) -> HistoricCandle:
-            return self.__historic_candle
-
-    class __CandlesQueryModel(QtSql.QSqlQueryModel):
-        __select_candles_command: str = 'SELECT \"open\", \"high\", \"low\", \"close\", \"volume\", \"time\", \"is_complete\" FROM \"'+MyConnection.CANDLES_TABLE+'\" WHERE \"instrument_id\" = \'{uid}\' and \"interval\" = \'{interval}\';'
-
-        def __init__(self, instrument_uid: str | None, interval: CandleInterval, parent: QtCore.QObject | None = None):
-            # self.__columns: tuple[Column, ...] = (
-            #     Column(header='Открытие',
-            #            header_tooltip='Цена открытия за 1 инструмент.',
-            #            data_function=lambda candle: candle.open,
-            #            display_function=lambda candle: MyQuotation.__str__(candle.open, ndigits=8, delete_decimal_zeros=True)),
-            #     Column(header='Макс. цена',
-            #            header_tooltip='Максимальная цена за 1 инструмент.',
-            #            data_function=lambda candle: candle.high,
-            #            display_function=lambda candle: MyQuotation.__str__(candle.high, ndigits=8, delete_decimal_zeros=True)),
-            #     Column(header='Мин. цена',
-            #            header_tooltip='Минимальная цена за 1 инструмент.',
-            #            data_function=lambda candle: candle.low,
-            #            display_function=lambda candle: MyQuotation.__str__(candle.low, ndigits=8, delete_decimal_zeros=True)),
-            #     Column(header='Закрытие',
-            #            header_tooltip='Цена закрытия за 1 инструмент.',
-            #            data_function=lambda candle: candle.close,
-            #            display_function=lambda candle: MyQuotation.__str__(candle.close, ndigits=8, delete_decimal_zeros=True)),
-            #     Column(header='Объём',
-            #            header_tooltip='Объём торгов в лотах.',
-            #            data_function=lambda candle: candle.volume,
-            #            display_function=lambda candle: str(candle.volume)),
-            #     Column(header='Время',
-            #            header_tooltip='Время свечи в часовом поясе UTC.',
-            #            data_function=lambda candle: candle.time,
-            #            display_function=lambda candle: str(candle.time)),
-            #     Column(header='Завершённость',
-            #            header_tooltip='Признак завершённости свечи. False значит, что свеча за текущий интервал ещё сформирована не полностью.',
-            #            data_function=lambda candle: candle.is_complete,
-            #            display_function=lambda candle: str(candle.is_complete))
-            # )
-            super().__init__(parent=parent)
-            self.__interval: CandleInterval = interval
-            self.instrument_uid = instrument_uid
-
-        def __updateQuery(self):
-            if self.instrument_uid is None:
-                self.clear()
-            else:
-                self.setQuery(
-                    self.__select_candles_command.format(uid=self.instrument_uid, interval=self.interval.name),
-                    MainConnection.getDatabase()
-                )
-                assert not self.lastError().isValid(), 'Не получилось выполнить setQuery! lastError().text(): \'{0}\'.'.format(self.lastError().text())
-
-        @property
-        def instrument_uid(self) -> str | None:
-            return self.__instrument_uid
-
-        @instrument_uid.setter
-        def instrument_uid(self, instrument_uid: str | None):
-            self.__instrument_uid = instrument_uid
-            self.__updateQuery()
-
-        @property
-        def interval(self) -> CandleInterval:
-            return self.__interval
-
-        @interval.setter
-        def interval(self, interval: CandleInterval):
-            self.__interval = interval
-            self.__updateQuery()
-
-        # def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
-        #     return len(self.__columns)
-        #
-        # def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
-        #     column: Column = self.__columns[index.column()]
-        #
-        #     row: int = index.row()
-        #     open_: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('open'))
-        #     high: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('high'))
-        #     low: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('low'))
-        #     close: Quotation = MyConnection.convertTextToQuotation(self.record(row).value('close'))
-        #     volume: int = self.record(row).value('volume')
-        #     time: datetime = MyConnection.convertTextToDateTime(self.record(row).value('time'))
-        #     is_complete: bool = MyConnection.convertBlobToBool(self.record(row).value('is_complete'))
-        #     candle: HistoricCandle = HistoricCandle(open=open_, high=high, low=low, close=close, volume=volume,
-        #                                             time=time, is_complete=is_complete)
-        #
-        #     return column(role, candle)
-
-        # def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
-        #     if orientation == QtCore.Qt.Orientation.Vertical:
-        #         if role == QtCore.Qt.ItemDataRole.DisplayRole:
-        #             return section + 1  # Проставляем номера строк.
-        #     elif orientation == QtCore.Qt.Orientation.Horizontal:
-        #         if role == QtCore.Qt.ItemDataRole.DisplayRole:
-        #             return self.__columns[section].header
-        #         elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
-        #             return self.__columns[section].header_tooltip
-
-    class __CandlesModel(QtCore.QAbstractTableModel):
-        def __init__(self, parent: QtCore.QObject | None = None):
-            self.__columns: tuple[Column, ...] = (
-                Column(header='Открытие',
-                       header_tooltip='Цена открытия за 1 инструмент.',
-                       data_function=lambda candle: candle.open,
-                       display_function=lambda candle: MyQuotation.__str__(candle.open, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Макс. цена',
-                       header_tooltip='Максимальная цена за 1 инструмент.',
-                       data_function=lambda candle: candle.high,
-                       display_function=lambda candle: MyQuotation.__str__(candle.high, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Мин. цена',
-                       header_tooltip='Минимальная цена за 1 инструмент.',
-                       data_function=lambda candle: candle.low,
-                       display_function=lambda candle: MyQuotation.__str__(candle.low, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Закрытие',
-                       header_tooltip='Цена закрытия за 1 инструмент.',
-                       data_function=lambda candle: candle.close,
-                       display_function=lambda candle: MyQuotation.__str__(candle.close, ndigits=8, delete_decimal_zeros=True)),
-                Column(header='Объём',
-                       header_tooltip='Объём торгов в лотах.',
-                       data_function=lambda candle: candle.volume,
-                       display_function=lambda candle: str(candle.volume)),
-                Column(header='Время',
-                       header_tooltip='Время свечи в часовом поясе UTC.',
-                       data_function=lambda candle: candle.time,
-                       display_function=lambda candle: str(candle.time)),
-                Column(header='Завершённость',
-                       header_tooltip='Признак завершённости свечи. False значит, что свеча за текущий интервал ещё сформирована не полностью.',
-                       data_function=lambda candle: candle.is_complete,
-                       display_function=lambda candle: str(candle.is_complete))
-            )
-            super().__init__(parent=parent)
-            self.__candlestick_series: QtCharts.QCandlestickSeries = QtCharts.QCandlestickSeries(parent=self)
-            self.__candlestick_series.setDecreasingColor(QtCore.Qt.GlobalColor.red)
-            self.__candlestick_series.setIncreasingColor(QtCore.Qt.GlobalColor.green)
-
-        def columnCount(self, parent: QtCore.QModelIndex = ...) -> int:
-            return len(self.__columns)
-
-        def rowCount(self, parent: QtCore.QModelIndex = ...) -> int:
-            return len(self.__candlestick_series.sets())
-
-        def data(self, index: QtCore.QModelIndex, role: int = ...) -> typing.Any:
-            column: Column = self.__columns[index.column()]
-            candlestick: CandlesViewAndGraphic.Candlestick = self.candles[index.row()]
-            return column(role, candlestick.historic_candle)
-
-        def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
-            if orientation == QtCore.Qt.Orientation.Vertical:
-                if role == QtCore.Qt.ItemDataRole.DisplayRole:
-                    return section + 1  # Проставляем номера строк.
-            elif orientation == QtCore.Qt.Orientation.Horizontal:
-                if role == QtCore.Qt.ItemDataRole.DisplayRole:
-                    return self.__columns[section].header
-                elif role == QtCore.Qt.ItemDataRole.ToolTipRole:  # Подсказки.
-                    return self.__columns[section].header_tooltip
-
-        def setCandles(self, candles: list[HistoricCandle]):
-            self.beginResetModel()
-            self.__candlestick_series.clear()
-            self.__candlestick_series.append(CandlesViewAndGraphic.Candlestick(candle=candle, parent=self) for candle in candles)
-            self.endResetModel()
-
-        @property
-        def candles(self) -> list[CandlesViewAndGraphic.Candlestick]:
-            return self.__candlestick_series.sets()
-
-        def appendCandle(self, candle: HistoricCandle):
-            candles_count: int = self.__candlestick_series.count()
-            self.beginInsertRows(QtCore.QModelIndex(), candles_count, candles_count)
-            self.__candlestick_series.append(CandlesViewAndGraphic.Candlestick(candle=candle, parent=self))
-            self.endInsertRows()
-
-    class GroupBox_CandlesView(QtWidgets.QGroupBox):
-        """Панель отображения свечей."""
-        def __init__(self, candles_model, parent: QtWidgets.QWidget | None = None):
-            super().__init__(parent=parent)
-            self.setEnabled(False)
-
-            verticalLayout_main = QtWidgets.QVBoxLayout(self)
-            verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-            verticalLayout_main.setSpacing(2)
-
-            '''------------------------Заголовок------------------------'''
-            self.titlebar = TitleWithCount(title='СВЕЧИ', count_text='0', parent=self)
-            verticalLayout_main.addLayout(self.titlebar, 0)
-            '''---------------------------------------------------------'''
-
-            self.tableView = QtWidgets.QTableView(parent=self)
-            self.tableView.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.tableView.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-            self.tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-            self.tableView.setSortingEnabled(True)
-            self.tableView.setModel(candles_model)
-            verticalLayout_main.addWidget(self.tableView, 1)
-            self.setEnabled(True)
-
-    class GroupBox_Chart(QtWidgets.QGroupBox):
-        """Панель с диаграммой."""
-        def __init__(self, parent: QtWidgets.QWidget | None = None):
-            super().__init__(parent=parent)
-            self.setEnabled(False)
-
-            verticalLayout_main = QtWidgets.QVBoxLayout(self)
-            verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-            verticalLayout_main.setSpacing(2)
-
-            verticalLayout_main.addWidget(TitleLabel(text='ГРАФИК', parent=self), 0)
-
-            '''---------------------QChartView---------------------'''
-            self.chart_view = QtCharts.QChartView(parent=self)
-            self.chart_view.setRubberBand(QtCharts.QChartView.RubberBand.RectangleRubberBand)
-            chart = CandlesChart()
-            self.chart_view.setChart(chart)
-            verticalLayout_main.addWidget(self.chart_view, 1)
-            '''----------------------------------------------------'''
-
-            self.setEnabled(True)
-
+class CandlesGraphic(QtWidgets.QWidget):
+    """Виджет, отображающий график свечей."""
     def __init__(self, instrument_uid: str | None, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
         self.setEnabled(False)
 
-        # self.__instrument_uid: str | None = None
-        # self.__candles_model = self.__CandlesModel(parent=self)
-        # self.__candles_model = self.__CandlesQueryModel(instrument_uid=None, interval=CandleInterval.CANDLE_INTERVAL_UNSPECIFIED, parent=self)
-
         verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        verticalLayout_main.setContentsMargins(0, 0, 0, 0)
-        verticalLayout_main.setSpacing(0)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        splitter_horizontal = QtWidgets.QSplitter(orientation=QtCore.Qt.Orientation.Horizontal, parent=self)
+        '''------------------------------------Заголовок------------------------------------'''
+        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title.addSpacing(10)
 
-        '''---------------------------------Левая часть---------------------------------'''
-        layoutWidget = QtWidgets.QWidget(parent=splitter_horizontal)
-
-        verticalLayout = QtWidgets.QVBoxLayout(layoutWidget)
-        verticalLayout.setContentsMargins(0, 3, 0, 0)
-        verticalLayout.setSpacing(3)
-
-        '''--------------------Выбор интервала свечей--------------------'''
-        horizontalLayout_interval = QtWidgets.QHBoxLayout(layoutWidget)
-        horizontalLayout_interval.addSpacing(2)
-        horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=layoutWidget), 0)
+        '''------------------Выбор интервала------------------'''
+        horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self), 0)
         horizontalLayout_interval.addSpacing(4)
-        self.comboBox_interval = ComboBox_Interval(parent=layoutWidget)
+        self.comboBox_interval = ComboBox_Interval(parent=self)
         horizontalLayout_interval.addWidget(self.comboBox_interval, 0)
         horizontalLayout_interval.addStretch(1)
-        verticalLayout.addLayout(horizontalLayout_interval, 0)
-        '''--------------------------------------------------------------'''
+        horizontalLayout_title.addLayout(horizontalLayout_interval, 1)
+        '''---------------------------------------------------'''
 
-        self.__candles_model = self.__CandlesQueryModel(instrument_uid=instrument_uid,
-                                                        interval=self.interval,
-                                                        parent=self)
-        self.groupBox_view = self.GroupBox_CandlesView(candles_model=self.__candles_model, parent=layoutWidget)
-        verticalLayout.addWidget(self.groupBox_view, 1)
-        '''-----------------------------------------------------------------------------'''
+        horizontalLayout_title.addWidget(TitleLabel(text='ГРАФИК', parent=self), 0)
+        horizontalLayout_title.addStretch(1)
+        horizontalLayout_title.addSpacing(10)
+        verticalLayout_main.addLayout(horizontalLayout_title, 0)
+        '''---------------------------------------------------------------------------------'''
 
-        # self.groupBox_chart = self.GroupBox_Chart(parent=splitter_horizontal)
-        self.groupBox_chart = GroupBox_Chart(instrument_uid=instrument_uid, interval=self.interval, parent=splitter_horizontal)
-
-        verticalLayout_main.addWidget(splitter_horizontal)
+        '''---------------------QChartView---------------------'''
+        self.chart_view = QtCharts.QChartView(parent=self)
+        self.chart_view.setRubberBand(QtCharts.QChartView.RubberBand.RectangleRubberBand)
+        self.chart = CandlesChart(instrument_uid=instrument_uid, interval=self.interval)
+        self.chart_view.setChart(self.chart)
+        verticalLayout_main.addWidget(self.chart_view, 1)
+        '''----------------------------------------------------'''
 
         @QtCore.pyqtSlot(CandleInterval)
         def __onIntervalChanged(interval: CandleInterval):
             self.interval = interval
 
         self.comboBox_interval.intervalSelected.connect(__onIntervalChanged)
+
         self.setEnabled(True)
 
     @property
@@ -1139,107 +759,16 @@ class CandlesViewAndGraphic(QtWidgets.QWidget):
 
     @interval.setter
     def interval(self, interval: CandleInterval):
-        self.__candles_model.interval = interval
-        # self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=interval)
-        self.groupBox_chart.setInterval(interval)
-
-    # @property
-    # def candles(self) -> list[HistoricCandle]:
-    #     return self.__candles_model.candles
-
-    # @candles.setter
-    # def candles(self, candles: list[HistoricCandle]):
-    #     self.__candles_model.setCandles(candles)
-    #
-    #     self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-    #     self.groupBox_view.label_count.setText(str(self.groupBox_view.tableView.model().rowCount()))  # Отображаем количество облигаций.
-    #
-    #     # self.groupBox_chart.setCandles(candles=self.candles, interval=self.interval)
-
-    # def appendCandle(self, candle: HistoricCandle):
-    #     self.__candles_model.appendCandle(candle)
-    #
-    #     # self.groupBox_view.tableView.resizeColumnsToContents()  # Авторазмер столбцов под содержимое.
-    #     # self.groupBox_view.label_count.setText(str(self.groupBox_view.tableView.model().rowCount()))  # Отображаем количество облигаций.
-    #
-    #     # self.groupBox_chart.setCandles(candles=self.candles, interval=self.interval)
-
-    @property
-    def instrument_uid(self) -> str | None:
-        return self.__candles_model.instrument_uid
-
-    @instrument_uid.setter
-    def instrument_uid(self, instrument_uid: str | None):
-        # self.__instrument_uid = instrument_uid
-        self.__candles_model.instrument_uid = instrument_uid
-        # self.candles = [] if self.instrument_uid is None else MainConnection.getCandles(uid=self.instrument_uid, interval=self.interval)
-        self.groupBox_chart.setInstrument(instrument_uid)
+        self.chart.setInterval(interval)
 
     def setInstrumentUid(self, instrument_uid: str | None = None):
-        self.instrument_uid = instrument_uid
-
-    # @QtCore.pyqtSlot(int)
-    # def onCandlesChanges(self, rowid: int):
-    #     db: QtSql.QSqlDatabase = MainConnection.getDatabase()
-    #     if db.transaction():
-    #         __select_candle: str = '''SELECT \"instrument_id\", \"interval\", \"open\", \"high\", \"low\", \"close\",
-    #         \"volume\", \"time\", \"is_complete\" FROM \"{0}\" WHERE \"rowid\" = :rowid;'''.format(
-    #             MyConnection.CANDLES_TABLE
-    #         )
-    #
-    #         select_candle_query = QtSql.QSqlQuery(db)
-    #         select_candle_prepare_flag: bool = select_candle_query.prepare(__select_candle)
-    #         assert select_candle_prepare_flag, select_candle_query.lastError().text()
-    #         select_candle_query.bindValue(':rowid', rowid)
-    #         select_candle_exec_flag: bool = select_candle_query.exec()
-    #         assert select_candle_exec_flag, select_candle_query.lastError().text()
-    #
-    #         candle: HistoricCandle
-    #         candles_count: int = 0
-    #         while select_candle_query.next():
-    #             candles_count += 1
-    #             if candles_count > 1:
-    #                 raise SystemError('Таблица {0} не должна содержать больше одной строки с rowid = \'{1}\'!'.format(MyConnection.CANDLES_TABLE, rowid))
-    #
-    #             if select_candle_query.value('instrument_id') != self.instrument_uid:
-    #                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-    #                 assert commit_flag, db.lastError().text()
-    #                 return
-    #
-    #             interval: CandleInterval = CandleInterval.from_string(select_candle_query.value('interval'))
-    #             if interval != self.interval:
-    #                 commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-    #                 assert commit_flag, db.lastError().text()
-    #                 return
-    #
-    #             candle = MyConnection.getHistoricCandle(select_candle_query)
-    #
-    #         commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
-    #         assert commit_flag, db.lastError().text()
-    #
-    #         if candles_count == 0:
-    #             """Свеча была удалена."""
-    #             ...
-    #         else:
-    #             """Свеча была добавлена или обновлена."""
-    #             time_indexes: list[int] = [i for i, cndl in enumerate(self.candles) if cndl.time == candle.time]
-    #             indexes_count: int = len(time_indexes)
-    #             if indexes_count == 0:
-    #                 """Свеча была добавлена."""
-    #                 self.appendCandle(candle)
-    #             elif indexes_count == 1:
-    #                 """Свеча была обновлена."""
-    #                 new_candles: list[HistoricCandle] = self.candles.copy()
-    #                 new_candles[time_indexes[0]] = candle
-    #                 self.candles = new_candles
-    #             else:
-    #                 raise SystemError('Список свечей не должен содержать несколько свечей, относящихся к одному и тому же времени!')
-    #     else:
-    #         raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'!'.format(db.lastError().text()))
+        """Задаёт отображаемый инструмент."""
+        self.chart.setInstrument(instrument_uid)
 
 
 class CandlesPage_new(QtWidgets.QWidget):
     """Страница свечей."""
+    @print_function_runtime
     def __init__(self, token_model: TokenListModel, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
         self.setEnabled(False)
@@ -1276,8 +805,7 @@ class CandlesPage_new(QtWidgets.QWidget):
         """============================================================="""
 
         """========================Нижняя часть========================"""
-        # self.groupBox_candles_view = GroupBox_CandlesView(parent=splitter_vertical)
-        self.groupBox_candles_view = CandlesViewAndGraphic(instrument_uid=self.instrument_uid, parent=splitter_vertical)
+        self.candles_graphic = CandlesGraphic(instrument_uid=self.instrument_uid, parent=splitter_vertical)
         splitter_vertical.setStretchFactor(1, 1)
         """============================================================"""
 
@@ -1302,7 +830,6 @@ class CandlesPage_new(QtWidgets.QWidget):
 
     @instrument.setter
     def instrument(self, instrument: MyShareClass | MyBondClass | None):
-        self.groupBox_candles_view.setInstrumentUid(None if instrument is None else instrument.uid)
         self.groupBox_instrument_info.setInstrument(instrument)
         self.groupBox_candles_receiving.setInstrument(instrument)
-        self.groupBox_candles_view.setInstrumentUid(self.instrument_uid)
+        self.candles_graphic.setInstrumentUid(self.instrument_uid)

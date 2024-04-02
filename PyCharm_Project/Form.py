@@ -2,7 +2,7 @@ from PyQt6 import QtCore, QtWidgets, QtSql
 from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from CandlesPage import CandlesPage
-from Classes import MyConnection
+from Classes import MyConnection, print_function_runtime
 from ConsensusesPage import ConsensusesPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
@@ -18,6 +18,7 @@ class InvestmentForm(QtWidgets.QMainWindow):
     """Главная форма."""
     candlesChanged: QtCore.pyqtSignal = QtCore.pyqtSignal(int)
 
+    @print_function_runtime
     def __init__(self, parent: QtWidgets.QWidget | None = None):
         super().__init__(parent=parent)
         self.setObjectName('InvestmentWindow')
@@ -71,7 +72,7 @@ class InvestmentForm(QtWidgets.QMainWindow):
         self.tab_candles = CandlesPage(tokens_model=token_list_model, parent=self)  # Страница "Свечи".
         self.tabWidget.addTab(self.tab_candles, 'Свечи')
 
-        self.tab_candles_new = CandlesPage_new(token_model=token_list_model, parent=self)
+        self.tab_candles_new = CandlesPage_new(token_model=token_list_model, parent=self)  # Страница "Свечи".
         self.tabWidget.addTab(self.tab_candles_new, 'Свечи_new')
 
         self.tab_assets = AssetsPage(tokens_model=token_list_model, parent=self)  # Страница "Активы".
