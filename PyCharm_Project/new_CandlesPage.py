@@ -2,7 +2,7 @@ from __future__ import annotations
 import typing
 from datetime import datetime, timedelta
 from enum import Enum
-from PyQt6 import QtCore, QtWidgets, QtCharts
+from PyQt6 import QtCore, QtWidgets, QtCharts, QtGui
 from tinkoff.invest import HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesChart import CandlesChart
@@ -707,6 +707,40 @@ class Candlestick(QtCharts.QCandlestickSet):
         return self.__historic_candle
 
 
+class MyChartView(QtCharts.QChartView):
+    """Отображение графика."""
+    def __init__(self, parent: QtWidgets.QWidget | None = None):
+        self.__lastMousePos: QtCore.QPoint
+        super().__init__(parent=parent)
+        self.setDragMode(QtWidgets.QGraphicsView.DragMode.NoDrag)
+        self.setRubberBand(QtCharts.QChartView.RubberBand.NoRubberBand)
+
+    def mousePressEvent(self, event: QtGui.QMouseEvent | None = None) -> None:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            QtWidgets.QApplication.setOverrideCursor(QtGui.QCursor(QtCore.Qt.CursorShape.SizeHorCursor))
+            self.__lastMousePos = event.pos()  # Положение курсора основного экрана в глобальных координатах экрана.
+            event.accept()
+
+    def mouseMoveEvent(self, event: QtGui.QMouseEvent | None = None) -> None:
+        if event.buttons() & QtCore.Qt.MouseButton.LeftButton:
+            # bounds: QtCore.QRectF = QtCore.QRectF(0, 0, 0, 0)
+            # for series in self.chart().series():
+            #     bounds.united(series.bounds)
+
+            dPos: QtCore.QPoint = event.pos() - self.__lastMousePos
+            # self.chart().scroll(-dPos.x(), dPos.y())
+            self.chart().scroll(-dPos.x(), 0)
+
+            self.__lastMousePos = event.pos()
+            event.accept()  # Устанавливает флаг принятия объекта события.
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event: QtGui.QMouseEvent | None = None) -> None:
+        if event.button() == QtCore.Qt.MouseButton.LeftButton:
+            QtWidgets.QApplication.restoreOverrideCursor()
+
+
 class CandlesGraphic(QtWidgets.QWidget):
     """Виджет, отображающий график свечей."""
     def __init__(self, instrument_uid: str | None, parent: QtWidgets.QWidget | None = None):
@@ -738,8 +772,14 @@ class CandlesGraphic(QtWidgets.QWidget):
         '''---------------------------------------------------------------------------------'''
 
         '''---------------------QChartView---------------------'''
-        self.chart_view = QtCharts.QChartView(parent=self)
-        self.chart_view.setRubberBand(QtCharts.QChartView.RubberBand.RectangleRubberBand)
+        # self.chart_view = QtCharts.QChartView(parent=self)
+        # # self.chart_view.setRubberBand(QtCharts.QChartView.RubberBand.HorizontalRubberBand)
+        # # self.chart_view.setDragMode(QtWidgets.QGraphicsView.DragMode.ScrollHandDrag)
+        # self.chart = CandlesChart(instrument_uid=instrument_uid, interval=self.interval)
+        # self.chart_view.setChart(self.chart)
+        # verticalLayout_main.addWidget(self.chart_view, 1)
+
+        self.chart_view = MyChartView(parent=self)
         self.chart = CandlesChart(instrument_uid=instrument_uid, interval=self.interval)
         self.chart_view.setChart(self.chart)
         verticalLayout_main.addWidget(self.chart_view, 1)
