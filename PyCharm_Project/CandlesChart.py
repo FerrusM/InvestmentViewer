@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from PyQt6 import QtCore, QtWidgets, QtCharts, QtSql
 from tinkoff.invest import CandleInterval, HistoricCandle
-from Classes import MyConnection
+from Classes import MyConnection, print_function_runtime
 from MyDatabase import MainConnection
 from MyDateTime import getUtcDateTime, getMoscowDateTime
 from MyQuotation import MyQuotation
@@ -57,27 +57,17 @@ class CandlesChart(QtCharts.QChart):
         self.__instrument_uid: str | None = instrument_uid
         self.__interval: CandleInterval = interval
 
-        max_dt: datetime = getUtcDateTime()
-        min_dt: datetime = max_dt - self.__getDefaultInterval(self.__interval)
-
         '''---------------------Создание оси абсцисс---------------------'''
         def __createAxisX(min_: datetime, max_: datetime) -> QtCharts.QDateTimeAxis:
             axisX = QtCharts.QDateTimeAxis(parent=self)
             # axisX.setFormat()
             axisX.setRange(min_, max_)
             axisX.setTitleText('Дата и время')
-
-            '''---------------Сигналы---------------'''
-            def __onRangeChanged(mn_dt: QtCore.QDateTime, mx_dt: QtCore.QDateTime):
-                self.range_datetime = (mn_dt.toPyDateTime(), mx_dt.toPyDateTime())
-                print('range: [{0}, {1}]'.format(mn_dt.toString('dd.MM.yyyy hh:mm:ss.zzz'), mx_dt.toString('dd.MM.yyyy hh:mm:ss.zzz')))
-
-            axisX.rangeChanged.connect(__onRangeChanged)
-            '''-------------------------------------'''
-
             return axisX
 
-        self.__horizontal_axis: QtCharts.QDateTimeAxis = __createAxisX(min_dt, max_dt)
+        current_dt: datetime = getUtcDateTime()
+        self.__horizontal_axis: QtCharts.QDateTimeAxis = __createAxisX(current_dt - self.__getDefaultInterval(self.__interval), current_dt)
+        self.__range_changed_connection: QtCore.QMetaObject.Connection = self.__horizontal_axis.rangeChanged.connect(self.__onRangeChanged)
         '''--------------------------------------------------------------'''
 
         self.__candlestick_series: CandlesChart.CandlestickSeries = self.CandlestickSeries(self)
@@ -99,6 +89,8 @@ class CandlesChart(QtCharts.QChart):
         self.addAxis(self.__vertical_axis, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.addSeries(self.__candlestick_series)
 
+        self.__realtime: bool = True
+
     def addSeries(self, series) -> None:
         self.__candlestick_series = series
         super().addSeries(series)
@@ -107,6 +99,19 @@ class CandlesChart(QtCharts.QChart):
         assert attachAxisX_flag, 'Не удалось прикрепить ось X к series.'
         attachAxisY_flag: bool = self.__candlestick_series.attachAxis(self.__vertical_axis)
         assert attachAxisY_flag, 'Не удалось прикрепить ось Y к series.'
+
+    def __onRangeChanged(self, mn_dt: QtCore.QDateTime, mx_dt: QtCore.QDateTime):
+        self.setDateTimeRange(mn_dt.toPyDateTime(), mx_dt.toPyDateTime())
+        # print('range: [{0}, {1}]'.format(mn_dt.toString('dd.MM.yyyy hh:mm:ss.zzz'), mx_dt.toString('dd.MM.yyyy hh:mm:ss.zzz')))
+
+    @print_function_runtime
+    def setDateTimeRange(self, min_dt: datetime, max_dt: datetime):
+        """Устанавливает новый диапазон дат."""
+        self.__updateCandles(min_dt, max_dt)  # Обновляет список свечей в соответствии с текущим диапазоном дат.
+        self.__horizontal_axis.rangeChanged.disconnect(self.__range_changed_connection)
+        self.__horizontal_axis.setRange(min_dt, max_dt)
+        self.__range_changed_connection: QtCore.QMetaObject.Connection = self.__horizontal_axis.rangeChanged.connect(self.__onRangeChanged)
+        self.range_value = (self.min_value, self.max_value)
 
     def __updateCandles(self, min_dt: datetime, max_dt: datetime):
         """Обновляет список свечей в соответствии с текущим диапазоном дат."""
@@ -159,16 +164,6 @@ class CandlesChart(QtCharts.QChart):
                 return day_td * 31
             case _:
                 raise ValueError('Некорректный временной интервал свечей!')
-
-    @property
-    def range_datetime(self) -> tuple[datetime, datetime]:
-        return self.min_datetime, self.max_datetime
-
-    @range_datetime.setter
-    def range_datetime(self, range_: tuple[datetime, datetime]):
-        self.__updateCandles(range_[0], range_[1])  # Обновляет список свечей в соответствии с текущим диапазоном дат.
-        self.__horizontal_axis.setRange(range_[0], range_[1])
-        self.range_value = (self.min_value, self.max_value)
 
     @property
     def min_value(self) -> float:
@@ -234,4 +229,4 @@ class CandlesChart(QtCharts.QChart):
     def setInterval(self, interval: CandleInterval):
         self.__interval = interval
         current_dt: datetime = getMoscowDateTime()
-        self.range_datetime = (current_dt - self.__getDefaultInterval(self.__interval), current_dt)
+        self.setDateTimeRange(current_dt - self.__getDefaultInterval(self.__interval), current_dt)
