@@ -222,64 +222,6 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         return convertDateToDateTime(self.getDate())
 
 
-class GroupBox_Request(QtWidgets.QGroupBox):
-    """GroupBox с параметрами запроса."""
-    currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass)  # Сигнал испускается при изменении текущего токена.
-    currentTokenReset: pyqtSignal = pyqtSignal()  # Сигнал испускается при выборе пустого значения.
-
-    def __init__(self, object_name: str, parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent=parent)
-        self.setObjectName(object_name)
-
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
-
-        """------------------------Заголовок------------------------"""
-        self.title_widget = TitleWithCount(title='ЗАПРОС', count_text='0', parent=self)
-        self.verticalLayout_main.addLayout(self.title_widget, 0)
-        """---------------------------------------------------------"""
-
-        """---------------------------Токен---------------------------"""
-        horizontalLayout_token = QtWidgets.QHBoxLayout()
-        horizontalLayout_token.setSpacing(0)
-
-        self.label_token = QtWidgets.QLabel(self)
-        self.label_token.setToolTip('Токен доступа.')
-        self.label_token.setText('Токен:')
-        horizontalLayout_token.addWidget(self.label_token)
-
-        horizontalLayout_token.addSpacing(4)
-
-        self.comboBox_token = QtWidgets.QComboBox(self)
-        self.comboBox_token.addItem('Не выбран')
-        horizontalLayout_token.addWidget(self.comboBox_token)
-
-        horizontalLayout_token.addStretch(1)
-
-        self.verticalLayout_main.addLayout(horizontalLayout_token)
-        """-----------------------------------------------------------"""
-
-        @pyqtSlot()  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
-        def onTokenChangedSlot():
-            current_token: TokenClass | None = self.getCurrentToken()
-            self.currentTokenReset.emit() if current_token is None else self.currentTokenChanged.emit(current_token)
-
-        self.comboBox_token.currentIndexChanged.connect(lambda index: onTokenChangedSlot())
-
-    def setTokensModel(self, token_list_model: TokenListModel):
-        """Устанавливает модель токенов для ComboBox'а."""
-        self.comboBox_token.setModel(token_list_model)
-
-    def getCurrentToken(self) -> TokenClass | None:
-        """Возвращает выбранный в ComboBox'е токен."""
-        return self.comboBox_token.currentData(role=Qt.ItemDataRole.UserRole)
-
-    def setCount(self, count: int):
-        """Устанавливает полученное количество."""
-        self.title_widget.setCount(str(count))
-
-
 class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
     """GroupBox с параметрами запроса инструментов."""
     currentTokenChanged: pyqtSignal = pyqtSignal(TokenClass, InstrumentStatus)  # Сигнал испускается при изменении текущего токена.

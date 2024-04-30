@@ -7,6 +7,7 @@ from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCan
     AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem, Recommendation, ConsensusForecastsItem
 from Classes import TokenClass, MyConnection, partition, ConsensusFull, getForecastResponseEq, print_function_runtime, \
     MyConsensusForecastsItem
+from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
@@ -840,6 +841,59 @@ class MainConnection(MyConnection):
             query.bindValue(':token', token)
             exec_flag: bool = query.exec()
             assert exec_flag, query.lastError().text()
+
+            commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
+            assert commit_flag, db.lastError().text()
+        else:
+            raise SystemError('Не получилось начать транзакцию! db.lastError().text(): \'{0}\'.'.format(db.lastError().text()))
+
+    @classmethod
+    @print_function_runtime
+    def updateTokenLimits(cls, token: str, unary_limits: list[MyUnaryLimit], stream_limits: list[MyStreamLimit]):
+        """Обновляет лимиты токена."""
+        delete_sql_command: str = 'DELETE FROM \"{0}\" WHERE \"token\" = :token;'
+        insert_unary_limit_command: str = '''INSERT INTO \"{0}\" (\"token\", \"limit_per_minute\", \"methods\") VALUES 
+        (:token, :limit_per_minute, :methods);'''.format(MyConnection.UNARY_LIMITS_TABLE)
+        insert_stream_limit_command: str = '''INSERT INTO \"{0}\" (\"token\", \"limit_count\", \"streams\", \"open\") 
+        VALUES (:token, :limit_count, :streams, :open);'''.format(MyConnection.STREAM_LIMITS_TABLE)
+        db: QSqlDatabase = cls.getDatabase()
+        if db.transaction():
+            '''------------------------------------Удаляем старые лимиты токена------------------------------------'''
+            delete_unary_query = QSqlQuery(db)
+            delete_unary_prepare_flag: bool = delete_unary_query.prepare(delete_sql_command.format(MyConnection.UNARY_LIMITS_TABLE))
+            assert delete_unary_prepare_flag, delete_unary_query.lastError().text()
+            delete_unary_query.bindValue(':token', token)
+            delete_unary_exec_flag: bool = delete_unary_query.exec()
+            assert delete_unary_exec_flag, delete_unary_query.lastError().text()
+
+            delete_stream_query = QSqlQuery(db)
+            delete_stream_prepare_flag: bool = delete_stream_query.prepare(delete_sql_command.format(MyConnection.STREAM_LIMITS_TABLE))
+            assert delete_stream_prepare_flag, delete_stream_query.lastError().text()
+            delete_stream_query.bindValue(':token', token)
+            delete_stream_exec_flag: bool = delete_stream_query.exec()
+            assert delete_stream_exec_flag, delete_stream_query.lastError().text()
+            '''----------------------------------------------------------------------------------------------------'''
+
+            for unary_limit in unary_limits:
+                unary_limit_query = QSqlQuery(db)
+                unary_limit_prepare_flag: bool = unary_limit_query.prepare(insert_unary_limit_command)
+                assert unary_limit_prepare_flag, unary_limit_query.lastError().text()
+                unary_limit_query.bindValue(':token', token)
+                unary_limit_query.bindValue(':limit_per_minute', unary_limit.limit_per_minute)
+                unary_limit_query.bindValue(':methods', cls.convertStrListToStr([method.full_method for method in unary_limit.methods]))
+                unary_limit_exec_flag: bool = unary_limit_query.exec()
+                assert unary_limit_exec_flag, unary_limit_query.lastError().text()
+
+            for stream_limit in stream_limits:
+                stream_limit_query = QSqlQuery(db)
+                stream_limit_prepare_flag: bool = stream_limit_query.prepare(insert_stream_limit_command)
+                assert stream_limit_prepare_flag, stream_limit_query.lastError().text()
+                stream_limit_query.bindValue(':token', token)
+                stream_limit_query.bindValue(':limit_count', stream_limit.limit)
+                stream_limit_query.bindValue(':streams', cls.convertStrListToStr([method.full_method for method in stream_limit.methods]))
+                stream_limit_query.bindValue(':open', stream_limit.open)
+                stream_limit_exec_flag: bool = stream_limit_query.exec()
+                assert stream_limit_exec_flag, stream_limit_query.lastError().text()
 
             commit_flag: bool = db.commit()  # Фиксирует транзакцию в базу данных.
             assert commit_flag, db.lastError().text()

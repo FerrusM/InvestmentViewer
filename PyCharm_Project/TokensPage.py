@@ -57,11 +57,11 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
                 case QtWidgets.QMessageBox.StandardButton.No:
                     return
                 case QtWidgets.QMessageBox.StandardButton.Yes:
-                    """------------------------------Удаление токена------------------------------"""
+                    '''-----------------Удаление токена-----------------'''
                     deleted_flag: bool = tree_model.deleteToken(index)
                     if not deleted_flag:
                         raise ValueError('Проблема с удалением токена!')
-                    """---------------------------------------------------------------------------"""
+                    '''-------------------------------------------------'''
                     return
                 case _:
                     assert False, 'Неверное значение нажатой кнопки в окне удаления токена ({0})!'.format(clicked_button)
