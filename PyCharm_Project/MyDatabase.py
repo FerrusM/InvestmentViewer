@@ -15,7 +15,7 @@ from MyShareClass import MyShareClass
 
 
 class MainConnection(MyConnection):
-    CONNECTION_NAME: str = 'InvestmentViewer'
+    CONNECTION_NAME = 'InvestmentViewer'
 
     def __init__(self):
         self.open()  # Открываем соединение с базой данных.
@@ -1703,11 +1703,16 @@ class MainConnection(MyConnection):
     def getLastConsensusFulls(cls, instrument_uid: str) -> list[ConsensusFull]:
         db: QtSql.QSqlDatabase = cls.getDatabase()
         if db.transaction():
-            __select_last_consensuses: str = '''SELECT \"instrument_uid\", \"consensus_number\", \"ticker\", 
-            \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\", 
-            \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid AND 
-            \"consensus_number\" = (SELECT MAX(\"consensus_number\") FROM \"{0}\" WHERE \"instrument_uid\" = 
-            :instrument_uid);'''.format(MyConnection.CONSENSUS_ITEMS_TABLE)
+            # __select_last_consensuses: str = '''SELECT \"instrument_uid\", \"consensus_number\", \"ticker\",
+            # \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", \"max_target\",
+            # \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = :instrument_uid AND
+            # \"consensus_number\" = (SELECT MAX(\"consensus_number\") FROM \"{0}\" WHERE \"instrument_uid\" =
+            # :instrument_uid);'''.format(MyConnection.CONSENSUS_ITEMS_TABLE)
+
+            __select_last_consensuses = '''SELECT \"instrument_uid\", MAX(\"consensus_number\") AS \"consensus_number\", 
+            \"ticker\", \"recommendation\", \"currency\", \"current_price\", \"consensus\", \"min_target\", 
+            \"max_target\", \"price_change\", \"price_change_rel\" FROM \"{0}\" WHERE \"instrument_uid\" = 
+            :instrument_uid GROUP BY \"instrument_uid\";'''.format(MyConnection.CONSENSUS_ITEMS_TABLE)
 
             consensuses_query = QtSql.QSqlQuery(db)
             consensuses_query.setForwardOnly(True)  # Возможно, это ускоряет извлечение данных.

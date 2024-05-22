@@ -5,7 +5,7 @@ from Classes import MyConnection, TokenClass
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
 from MyShareClass import MyShareClass
-from PagesClasses import TitleWithCount
+from common.pyqt6_widgets import TitleWithCount
 from TokenModel import TokenListModel
 
 

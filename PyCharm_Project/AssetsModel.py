@@ -6,7 +6,7 @@ from tinkoff.invest import AssetInstrument, AssetType, InstrumentType, Asset, As
 from Classes import Column, TokenClass, print_slot
 from LimitClasses import LimitPerMinuteSemaphore
 from MyDatabase import MainConnection
-from MyDateTime import getMoscowDateTime, getUtcDateTime
+from common.datetime_functions import getMoscowDateTime, getUtcDateTime
 from MyRequests import MyResponse, getAssetBy, RequestTryClass
 
 

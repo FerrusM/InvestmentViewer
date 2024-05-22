@@ -4,7 +4,7 @@ from LimitClasses import MyUnaryLimit, MyStreamLimit
 from LimitsModel import LimitsTreeModel
 from MyDatabase import MainConnection
 from MyRequests import RequestTryClass, MyResponse, getUserTariff
-from PagesClasses import TitleLabel
+from common.pyqt6_widgets import TitleLabel
 from TokenModel import TokenListModel
 
 

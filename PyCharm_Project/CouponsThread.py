@@ -3,7 +3,7 @@ from PyQt6 import QtCore
 from tinkoff.invest import Coupon, RequestError
 from Classes import TokenClass
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDateTime import getUtcDateTime
+from common.datetime_functions import getUtcDateTime
 from MyBondClass import MyBondClass
 from MyRequests import getCoupons, MyResponse, RequestTryClass
 

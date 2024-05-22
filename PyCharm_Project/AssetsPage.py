@@ -6,7 +6,8 @@ from Classes import TokenClass, MyTreeView
 from DatabaseWidgets import TokenSelectionBar
 from MyDatabase import MainConnection
 from MyRequests import MyResponse, getAssets, RequestTryClass
-from PagesClasses import ProgressBar_DataReceiving, TitleWithCount, TitleLabel
+from PagesClasses import ProgressBar_DataReceiving
+from common.pyqt6_widgets import TitleLabel, TitleWithCount
 from TokenModel import TokenListModel
 
 

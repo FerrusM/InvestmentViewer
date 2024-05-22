@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from PyQt6 import QtCharts, QtWidgets, QtCore
 from tinkoff.invest import HistoricCandle, CandleInterval
-from MyDateTime import getMoscowDateTime
+from common.datetime_functions import getMoscowDateTime
 from MyQuotation import MyQuotation
 
 

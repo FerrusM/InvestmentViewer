@@ -3,42 +3,15 @@ from datetime import datetime, date, timezone
 from PyQt6 import QtCore, QtWidgets, QtGui
 from PyQt6.QtCore import Qt, pyqtSignal, pyqtSlot
 from tinkoff.invest import InstrumentStatus, Share, Bond, LastPrice
-from Classes import TokenClass, partition, TITLE_FONT
+from Classes import TokenClass, partition
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
-from MyDateTime import getMoscowDateTime, getCountOfDaysBetweenTwoDates
+from common.datetime_functions import getMoscowDateTime, getCountOfDaysBetweenTwoDates
 from MyMoneyValue import MyMoneyValue
 from MyRequests import MyResponse, getLastPrices, RequestTryClass
 from MyShareClass import MyShareClass
 from TokenModel import TokenListModel
-
-
-class TitleLabel(QtWidgets.QLabel):
-    """Класс QLabel'а-заголовка."""
-    def __init__(self, text: str, parent: QtWidgets.QWidget | None = None):
-        super().__init__(text=text, parent=parent)
-        self.setFont(TITLE_FONT)
-        self.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter | QtCore.Qt.AlignmentFlag.AlignVCenter)
-
-
-class TitleWithCount(QtWidgets.QHBoxLayout):
-    """Виджет, представляющий собой отцентрированный заголовок с QLabel'ом количества чего-либо в правом углу."""
-    def __init__(self, title: str, count_text: str = '0', parent: QtWidgets.QWidget | None = None):
-        super().__init__(parent)
-        self.setSpacing(0)
-
-        self.addSpacing(10)
-        self.addStretch(1)
-        self.addWidget(TitleLabel(text=title, parent=parent), 0)
-
-        self.__label_count = QtWidgets.QLabel(text=count_text, parent=parent)
-        self.__label_count.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-        self.addWidget(self.__label_count, 1)
-
-        self.addSpacing(10)
-
-    def setCount(self, count_text: str | None):
-        self.__label_count.setText(count_text)
+from common.pyqt6_widgets import TitleLabel, TitleWithCount
 
 
 class GroupBox_InstrumentInfo(QtWidgets.QGroupBox):

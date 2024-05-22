@@ -4,7 +4,7 @@ from PyQt6 import QtCore
 from tinkoff.invest import Dividend, RequestError
 from Classes import TokenClass
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDateTime import getUtcDateTime
+from common.datetime_functions import getUtcDateTime
 from MyRequests import MyResponse, getDividends, RequestTryClass
 from MyShareClass import MyShareClass
 

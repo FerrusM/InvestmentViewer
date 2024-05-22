@@ -6,8 +6,9 @@ from tinkoff.invest.schemas import RiskLevel, InstrumentStatus
 from Classes import TokenClass, MyConnection
 from CouponsModel import CouponsModel, CouponsProxyModel
 from MyBondClass import MyBondClass
-from MyDateTime import getUtcDateTime
-from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving, TitleLabel, TitleWithCount
+from common.datetime_functions import getUtcDateTime
+from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_CalculationDate, ProgressBar_DataReceiving
+from common.pyqt6_widgets import TitleLabel, TitleWithCount
 from TokenModel import TokenListModel
 from new_BondsModel import BondsModel, BondsProxyModel
 

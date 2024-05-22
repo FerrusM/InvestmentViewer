@@ -5,13 +5,15 @@ from enum import Enum, StrEnum
 from PyQt6 import QtCore, QtWidgets, QtGui, QtSql
 from grpc import StatusCode
 from tinkoff.invest.schemas import GetForecastResponse, TargetItem, Quotation, Recommendation
-from Classes import TokenClass, Header, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection, print_function_runtime
+from Classes import TokenClass, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection, print_function_runtime
+from common.pyqt6_columns import Header
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
 from MyDatabase import MainConnection
-from MyDateTime import getUtcDateTime, reportSignificantInfoFromDateTime
+from common.datetime_functions import getUtcDateTime, reportSignificantInfoFromDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getForecast
-from PagesClasses import TitleWithCount, ProgressBar_DataReceiving, TitleLabel
+from PagesClasses import ProgressBar_DataReceiving
+from common.pyqt6_widgets import TitleLabel, TitleWithCount
 from ReceivingThread import ManagedReceivingThread
 from TokenModel import TokenListModel
 

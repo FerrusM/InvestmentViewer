@@ -11,11 +11,12 @@ from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
-from MyDateTime import ifDateTimeIsEmpty, getUtcDateTime, getMoscowDateTime
+from common.datetime_functions import ifDateTimeIsEmpty, getUtcDateTime, getMoscowDateTime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getCandles
 from MyShareClass import MyShareClass
-from PagesClasses import GroupBox_InstrumentInfo, TitleLabel, ProgressBar_DataReceiving
+from PagesClasses import GroupBox_InstrumentInfo, ProgressBar_DataReceiving
+from common.pyqt6_widgets import TitleLabel
 from TokenModel import TokenListModel
 
 

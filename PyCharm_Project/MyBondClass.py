@@ -4,7 +4,7 @@ from decimal import Decimal
 from PyQt6 import QtCore
 from tinkoff.invest import Bond, Coupon, LastPrice, CouponType, Quotation, HistoricCandle
 from tinkoff.invest.utils import decimal_to_quotation
-from MyDateTime import getUtcDateTime
+from common.datetime_functions import getUtcDateTime
 from MyLastPrice import MyLastPrice
 from MyMoneyValue import MyMoneyValue, ifCurrenciesAreEqual
 from MyQuotation import MyQuotation

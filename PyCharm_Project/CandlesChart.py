@@ -3,7 +3,7 @@ from PyQt6 import QtCore, QtWidgets, QtCharts, QtSql
 from tinkoff.invest import CandleInterval, HistoricCandle
 from Classes import MyConnection, print_function_runtime
 from MyDatabase import MainConnection
-from MyDateTime import getUtcDateTime, getMoscowDateTime
+from common.datetime_functions import getUtcDateTime, getMoscowDateTime
 from MyQuotation import MyQuotation
 
 

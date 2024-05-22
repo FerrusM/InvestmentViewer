@@ -1,0 +1,3 @@
+[submodule "PyCharm_Project/common"]
+	path = PyCharm_Project/common
+	url = https://github.com/FerrusM/common

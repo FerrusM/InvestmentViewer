@@ -2,13 +2,14 @@ from __future__ import annotations
 import typing
 from PyQt6 import QtCore, QtWidgets, QtSql, QtGui
 from tinkoff.invest.schemas import GetConsensusForecastsResponse, PageResponse, Page, Recommendation
-from Classes import TokenClass, MyConnection, ColumnWithHeader, Header, print_function_runtime, MyConsensusForecastsItem
+from Classes import TokenClass, MyConnection, ColumnWithHeader, print_function_runtime, MyConsensusForecastsItem
+from common.pyqt6_columns import Header
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
 from MyDatabase import MainConnection
-from MyDateTime import reportSignificantInfoFromDateTime
+from common.datetime_functions import reportSignificantInfoFromDateTime
 from MyQuotation import MyQuotation
 from MyRequests import getConsensusForecasts, MyResponse
-from PagesClasses import TitleLabel
+from common.pyqt6_widgets import TitleLabel
 from TokenModel import TokenListModel
 
 

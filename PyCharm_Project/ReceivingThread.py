@@ -1,7 +1,7 @@
 from PyQt6 import QtCore
 from Classes import print_slot, TokenClass
 from LimitClasses import LimitPerMinuteSemaphore
-from MyDateTime import getMoscowDateTime
+from common.datetime_functions import getMoscowDateTime
 
 
 class ReceivingThread(QtCore.QThread):

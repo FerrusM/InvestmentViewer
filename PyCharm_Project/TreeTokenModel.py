@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QPushButton, QStyledItemDelegate, QAbstractItemView
 from tinkoff.invest import Account
 from Classes import TokenClass, reportAccountAccessLevel, reportAccountType, reportAccountStatus, Column
 from MyDatabase import MainConnection
-from MyDateTime import reportSignificantInfoFromDateTime
+from common.datetime_functions import reportSignificantInfoFromDateTime
 from TokenModel import TokenModel
 
 

@@ -6,7 +6,7 @@ from PyQt6.QtGui import QBrush
 from tinkoff.invest import Coupon, CouponType
 from Classes import Column
 from MyBondClass import MyBondClass, MyCoupon
-from MyDateTime import reportSignificantInfoFromDateTime
+from common.datetime_functions import reportSignificantInfoFromDateTime
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyDecimal
 

@@ -10,7 +10,7 @@ from CouponsModel import CouponsModel, CouponsProxyModel
 from CouponsThread import CouponsThread
 from MyBondClass import MyBondClass, MyBond
 from MyDatabase import MainConnection
-from MyDateTime import getMoscowDateTime
+from common.datetime_functions import getMoscowDateTime
 from MyRequests import MyResponse, getBonds, RequestTryClass
 from PagesClasses import GroupBox_InstrumentsRequest, GroupBox_InstrumentsFilters, GroupBox_CalculationDate, \
     appFilter_Flag, zipWithLastPrices3000, ProgressBar_DataReceiving, TitleWithCount, TitleLabel

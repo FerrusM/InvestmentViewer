@@ -1,8 +1,10 @@
 # Ignored files.
-/.idea
+/.gitignore
+/.idea/
 /__pycache__
-/venv
+/venv/
 /tokens
 /tinkoff_invest.db
 /tinkoff_invest.db-journal
 /MySqlite.py
+/InvestmentViewer.cmd

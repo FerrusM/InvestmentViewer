@@ -3,11 +3,11 @@ import typing
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import pyqtSlot
 from tinkoff.invest import Share, InstrumentStatus, ShareType, Dividend
-from Classes import TokenClass, TITLE_FONT
+from Classes import TokenClass
 from DividendsModel import DividendsModel, DividendsProxyModel
 from DividendsThread import DividendsThread
 from MyDatabase import MainConnection
-from MyDateTime import getMoscowDateTime
+from common.datetime_functions import getMoscowDateTime
 from MyRequests import MyResponse, getShares, RequestTryClass
 from MyShareClass import MyShareClass
 from PagesClasses import GroupBox_InstrumentsFilters, GroupBox_InstrumentsRequest, GroupBox_CalculationDate, \
@@ -277,23 +277,16 @@ class GroupBox_DividendsReceiving(QtWidgets.QGroupBox):
         self.setSizePolicy(sizePolicy)
         self.setObjectName(object_name)
 
-        self.verticalLayout_main = QtWidgets.QVBoxLayout(self)
-        self.verticalLayout_main.setContentsMargins(2, 2, 2, 2)
-        self.verticalLayout_main.setSpacing(2)
+        verticalLayout_main = QtWidgets.QVBoxLayout(self)
+        verticalLayout_main.setContentsMargins(2, 2, 2, 2)
+        verticalLayout_main.setSpacing(2)
 
-        self.label_title = QtWidgets.QLabel(text='ПОЛУЧЕНИЕ ДИВИДЕНДОВ', parent=self)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.label_title.sizePolicy().hasHeightForWidth())
-        self.label_title.setSizePolicy(sizePolicy)
-        self.label_title.setFont(TITLE_FONT)
-        self.label_title.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.verticalLayout_main.addWidget(self.label_title)
+        self.label_title = TitleLabel(text='ПОЛУЧЕНИЕ ДИВИДЕНДОВ', parent=self)
+        verticalLayout_main.addWidget(self.label_title, 0)
 
         '''-------------------------ProgressBar-------------------------'''
         self.progressBar_dividends = ProgressBar_DataReceiving(parent=self)
-        self.verticalLayout_main.addWidget(self.progressBar_dividends)
+        verticalLayout_main.addWidget(self.progressBar_dividends)
         '''-------------------------------------------------------------'''
 
     def setRange(self, minimum: int, maximum: int):

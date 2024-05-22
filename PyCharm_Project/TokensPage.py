@@ -4,9 +4,9 @@ from tinkoff.invest import Account
 from Classes import TokenClass, MyTreeView, reportAccountType, reportAccountStatus, reportAccountAccessLevel
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyDatabase import MainConnection
-from MyDateTime import reportSignificantInfoFromDateTime
+from common.datetime_functions import reportSignificantInfoFromDateTime
 from MyRequests import MyResponse, getUserTariff, getAccounts, RequestTryClass
-from PagesClasses import TitleLabel, TitleWithCount
+from common.pyqt6_widgets import TitleLabel, TitleWithCount
 from TokenModel import TokenModel
 from TreeTokenModel import TreeProxyModel, TreeItem
 

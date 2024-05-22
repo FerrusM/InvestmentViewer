@@ -6,16 +6,18 @@ from tinkoff.invest import Bond, Quotation
 from tinkoff.invest.schemas import Share, HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesView import CandlesChartView
-from Classes import MyConnection, TokenClass, print_slot, ColumnWithHeader, Header
+from Classes import MyConnection, TokenClass, print_slot, ColumnWithHeader
+from common.pyqt6_columns import Header
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
-from MyDateTime import getUtcDateTime, getMoscowDateTime, ifDateTimeIsEmpty
+from common.datetime_functions import getUtcDateTime, getMoscowDateTime, ifDateTimeIsEmpty
 from MyMoneyValue import MyMoneyValue, MoneyValueToMyMoneyValue
 from MyQuotation import MyQuotation
 from MyRequests import getCandles, MyResponse, RequestTryClass
 from MyShareClass import MyShareClass
-from PagesClasses import ProgressBar_DataReceiving, GroupBox_InstrumentInfo, TitleLabel, TitleWithCount
+from PagesClasses import ProgressBar_DataReceiving, GroupBox_InstrumentInfo
+from common.pyqt6_widgets import TitleLabel, TitleWithCount
 from TokenModel import TokenListModel
 
 

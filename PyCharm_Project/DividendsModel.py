@@ -2,7 +2,7 @@ import typing
 from PyQt6.QtCore import QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Qt
 from tinkoff.invest import Dividend
 from Classes import Column
-from MyDateTime import reportSignificantInfoFromDateTime
+from common.datetime_functions import reportSignificantInfoFromDateTime
 from MyQuotation import MyQuotation
 from MyMoneyValue import MyMoneyValue
 

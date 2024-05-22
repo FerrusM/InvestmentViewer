@@ -1,17 +1,13 @@
 import typing
 from abc import ABC
 from datetime import datetime
-from PyQt6 import QtWidgets, QtGui, QtSql, QtCore
+from PyQt6 import QtWidgets, QtSql, QtCore
 from tinkoff.invest import Account, AccessLevel, AccountType, AccountStatus, SecurityTradingStatus, Quotation, MoneyValue, Bond, RealExchange
 from tinkoff.invest.schemas import RiskLevel, Share, ShareType, Coupon, CouponType, LastPrice, Dividend, HistoricCandle, \
     ConsensusItem, Recommendation, TargetItem, GetForecastResponse, ConsensusForecastsItem
 from LimitClasses import MyUnaryLimit, MyStreamLimit, UnaryLimitsManager
 from MyMoneyValue import MyMoneyValue
-
-
-TITLE_FONT = QtGui.QFont()
-TITLE_FONT.setPointSize(9)
-TITLE_FONT.setBold(True)
+from common.pyqt6_columns import Header
 
 
 class MyConsensusForecastsItem(ConsensusForecastsItem):
@@ -175,23 +171,6 @@ class ColumnWithoutHeader:
                 return QtCore.QVariant() if self.getBackground is None else self.getBackground(*data)
             case QtCore.Qt.ItemDataRole.ForegroundRole:
                 return QtCore.QVariant() if self.getForeground is None else self.getForeground(*data)
-
-
-class Header:
-    """Класс заголовка."""
-    def __init__(self, title: str | None = None, tooltip: str | None = None, text_color: QtGui.QBrush | None = None):
-        self.__title: str | None = title  # Название столбца.
-        self.__tooltip: str | None = tooltip  # Подсказка в заголовке.
-        self.__text_color: QtGui.QBrush | None = text_color  # Цвет текста.
-
-    def __call__(self, role: int = ...) -> typing.Any:
-        match role:
-            case QtCore.Qt.ItemDataRole.DisplayRole:
-                return QtCore.QVariant() if self.__title is None else self.__title
-            case QtCore.Qt.ItemDataRole.ToolTipRole:
-                return QtCore.QVariant() if self.__tooltip is None else self.__tooltip
-            case QtCore.Qt.ItemDataRole.ForegroundRole:
-                return QtCore.QVariant() if self.__text_color is None else self.__text_color
 
 
 class ColumnWithHeader:

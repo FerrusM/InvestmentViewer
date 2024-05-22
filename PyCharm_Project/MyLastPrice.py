@@ -1,6 +1,6 @@
 from datetime import datetime
 from tinkoff.invest import LastPrice, Quotation
-from MyDateTime import ifDateTimeIsEmpty
+from common.datetime_functions import ifDateTimeIsEmpty
 from MyQuotation import MyQuotation
 
 
