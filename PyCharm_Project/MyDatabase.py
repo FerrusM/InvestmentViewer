@@ -5,13 +5,13 @@ from tinkoff.invest import Bond, LastPrice, Asset, InstrumentLink, AssetInstrume
     InstrumentType, Coupon, Dividend, AccountType, AccountStatus, AccessLevel, SecurityTradingStatus, RealExchange
 from tinkoff.invest.schemas import RiskLevel, ShareType, CouponType, HistoricCandle, CandleInterval, AssetFull, Brand, \
     AssetCurrency, AssetSecurity, GetForecastResponse, ConsensusItem, TargetItem, Recommendation, ConsensusForecastsItem
-from Classes import TokenClass, MyConnection, partition, ConsensusFull, getForecastResponseEq, print_function_runtime, \
-    MyConsensusForecastsItem
+from Classes import TokenClass, MyConnection, partition, ConsensusFull, getForecastResponseEq, MyConsensusForecastsItem
 from LimitClasses import MyUnaryLimit, MyStreamLimit
 from MyBondClass import MyBondClass
 from MyMoneyValue import MyMoneyValue
 from MyQuotation import MyQuotation
 from MyShareClass import MyShareClass
+from common.datetime_functions import print_function_runtime
 
 
 class MainConnection(MyConnection):

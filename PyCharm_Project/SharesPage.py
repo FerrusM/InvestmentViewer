@@ -100,12 +100,12 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(0)
 
         """--------------------------Заголовок--------------------------"""
-        self.titlebar = TitleWithCount(title='ФИЛЬТРЫ', count_text='0', parent=parent)
+        self.titlebar = TitleWithCount(title='ФИЛЬТРЫ', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
         """-------------------------------------------------------------"""
 
         """---------------------Фильтры инструментов---------------------"""
-        horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instruments_filters = QtWidgets.QHBoxLayout()
         horizontalLayout_instruments_filters.setSpacing(0)
 
         self.groupBox_instruments_filters = GroupBox_InstrumentsFilters('groupBox_instruments_filters', self)
@@ -117,7 +117,7 @@ class GroupBox_SharesFilters(QtWidgets.QGroupBox):
         """--------------------------------------------------------------"""
 
         """------------------------Фильтры акций------------------------"""
-        horizontalLayout_share_filters = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_share_filters = QtWidgets.QHBoxLayout()
         horizontalLayout_share_filters.setSpacing(0)
 
         self.groupBox_shares_filters = GroupBox_OnlySharesFilters('groupBox_shares_filters', self)
@@ -155,7 +155,7 @@ class GroupBox_DividendsView(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         """------------------------Заголовок------------------------"""
-        self.titlebar = TitleWithCount(title='ДИВИДЕНДЫ', count_text='0', parent=self)
+        self.titlebar = TitleWithCount(title='ДИВИДЕНДЫ', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
         """---------------------------------------------------------"""
 
@@ -206,7 +206,7 @@ class GroupBox_SharesView(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         """------------------------Заголовок------------------------"""
-        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title = QtWidgets.QHBoxLayout()
         horizontalLayout_title.setSpacing(0)
 
         horizontalLayout_title.addSpacing(10)

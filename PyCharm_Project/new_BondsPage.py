@@ -533,7 +533,7 @@ class GroupBox_BondsFilters(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(0)
 
         """--------------------------Заголовок--------------------------"""
-        self.title_widget = TitleWithCount(title='ФИЛЬТРЫ', count_text='0', parent=self)
+        self.title_widget = TitleWithCount(title='ФИЛЬТРЫ', count_text='0')
         self.verticalLayout_main.addLayout(self.title_widget, 0)
         """-------------------------------------------------------------"""
 
@@ -597,7 +597,7 @@ class GroupBox_CouponsView(QtWidgets.QGroupBox):
         self.verticalLayout_main.setSpacing(2)
 
         """------------------------Заголовок------------------------"""
-        self.horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        self.horizontalLayout_title = QtWidgets.QHBoxLayout()
         self.horizontalLayout_title.setSpacing(0)
 
         self.horizontalLayout_title.addSpacing(10)

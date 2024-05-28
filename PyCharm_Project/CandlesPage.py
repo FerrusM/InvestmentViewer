@@ -373,7 +373,7 @@ class GroupBox_CandlesView(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------Заголовок------------------------'''
-        self.titlebar = TitleWithCount(title='СВЕЧИ', count_text='0', parent=self)
+        self.titlebar = TitleWithCount(title='СВЕЧИ', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
         '''---------------------------------------------------------'''
 
@@ -989,7 +989,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ', parent=self))
 
         '''-----------Выбор токена для получения исторических свечей-----------'''
-        horizontalLayout_token = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_token = QtWidgets.QHBoxLayout()
 
         horizontalLayout_token.addWidget(QtWidgets.QLabel(text='Токен:', parent=self), 0)
 
@@ -1004,7 +1004,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         '''--------------------------------------------------------------------'''
 
         '''-----------------------Выбор интервала свечей-----------------------'''
-        horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_interval = QtWidgets.QHBoxLayout()
 
         horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self), 0)
 
@@ -1031,7 +1031,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         '''--------------------------------------------------------------------'''
 
         '''---------------Прогресс получения исторических свечей---------------'''
-        horizontalLayout = QtWidgets.QHBoxLayout(self)
+        horizontalLayout = QtWidgets.QHBoxLayout()
 
         self.play_button = QtWidgets.QPushButton(self)
         self.play_button.setEnabled(False)
@@ -1141,7 +1141,7 @@ class CandlesPage(QtWidgets.QWidget):
         horizontalLayout_top.setSpacing(2)
 
         '''-----Выбор инструмента и отображение информации об инструменте-----'''
-        verticalLayout_instrument = QtWidgets.QVBoxLayout(self.layoutWidget)
+        verticalLayout_instrument = QtWidgets.QVBoxLayout()
         verticalLayout_instrument.setSpacing(2)
 
         self.groupBox_instrument = GroupBox_InstrumentSelection(self.layoutWidget)  # Панель выбора инструмента.
@@ -1157,7 +1157,7 @@ class CandlesPage(QtWidgets.QWidget):
         '''-------------------------------------------------------------------'''
 
         '''---------------Панели получения и отображения свечей---------------'''
-        verticalLayout_candles = QtWidgets.QVBoxLayout(self.layoutWidget)
+        verticalLayout_candles = QtWidgets.QVBoxLayout()
         verticalLayout_candles.setSpacing(2)
 
         self.groupBox_candles_receiving = GroupBox_CandlesReceiving(self.layoutWidget)

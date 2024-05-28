@@ -24,11 +24,11 @@ class GroupBox_AssetsRequest(QtWidgets.QGroupBox):
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         verticalLayout_main.setSpacing(2)
 
-        self.titlebar = TitleWithCount(title='ЗАПРОС', count_text='0', parent=self)
+        self.titlebar = TitleWithCount(title='ЗАПРОС', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
 
         '''---------------------------Токен---------------------------'''
-        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model)
         verticalLayout_main.addLayout(self.token_bar, 0)
         '''-----------------------------------------------------------'''
 

@@ -21,7 +21,7 @@ class GroupBox_SavedTokens(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         """------------Заголовок над отображением токенов------------"""
-        self.titlebar = TitleWithCount(title='СОХРАНЁННЫЕ ТОКЕНЫ', count_text='0', parent=self)
+        self.titlebar = TitleWithCount(title='СОХРАНЁННЫЕ ТОКЕНЫ', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
         """----------------------------------------------------------"""
 
@@ -109,7 +109,7 @@ class GroupBox_NewToken(QtWidgets.QGroupBox):
         verticalLayout_main.addWidget(TitleLabel(text='НОВЫЙ ТОКЕН', parent=self))  # Заголовок "Новый токен".
 
         """-------------Строка добавления нового токена-------------"""
-        horizontalLayout = QtWidgets.QHBoxLayout(self)
+        horizontalLayout = QtWidgets.QHBoxLayout()
         horizontalLayout.setSpacing(2)
 
         self.lineEdit_new_token = QtWidgets.QLineEdit(parent=self)
@@ -234,12 +234,12 @@ class TokensPage(QtWidgets.QWidget):
         verticalLayout_main.setSpacing(2)
 
         """------------Панель отображения сохранённых токенов------------"""
-        self.groupBox_saved_tokens: GroupBox_SavedTokens = GroupBox_SavedTokens(token_model, self)
+        self.groupBox_saved_tokens = GroupBox_SavedTokens(token_model, self)
         verticalLayout_main.addWidget(self.groupBox_saved_tokens)
         """--------------------------------------------------------------"""
 
         """----------------Панель добавления нового токена----------------"""
-        self.groupBox_new_token: GroupBox_NewToken = GroupBox_NewToken(self)
+        self.groupBox_new_token = GroupBox_NewToken(self)
         # self.groupBox_new_token.add_token_signal.connect(token_model.addToken)
         self.groupBox_new_token.add_token_signal.connect(MainConnection.addNewToken)
         verticalLayout_main.addWidget(self.groupBox_new_token)

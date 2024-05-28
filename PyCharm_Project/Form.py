@@ -2,13 +2,14 @@ from PyQt6 import QtCore, QtWidgets, QtSql
 from AssetsPage import AssetsPage
 from BondsPage import BondsPage
 from CandlesPage import CandlesPage
-from Classes import MyConnection, print_function_runtime
+from Classes import MyConnection
 from ConsensusesPage import ConsensusesPage
 from LimitsPage import LimitsPage
 from MyDatabase import MainConnection
 from SharesPage import SharesPage
 from TokenModel import TokenModel, TokenListModel
 from TokensPage import TokensPage
+from common.datetime_functions import print_function_runtime
 from new_BondsPage import new_BondsPage
 from new_CandlesPage import CandlesPage_new
 from ForecastsPage import ForecastsPage

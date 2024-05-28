@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta
 from PyQt6 import QtCore, QtWidgets, QtCharts, QtSql
 from tinkoff.invest import CandleInterval, HistoricCandle
-from Classes import MyConnection, print_function_runtime
+from Classes import MyConnection
 from MyDatabase import MainConnection
-from common.datetime_functions import getUtcDateTime, getMoscowDateTime
+from common.datetime_functions import getUtcDateTime, getMoscowDateTime, print_function_runtime
 from MyQuotation import MyQuotation
 
 

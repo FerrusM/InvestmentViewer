@@ -156,7 +156,7 @@ class GroupBox_CalculationDate(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''--------------------------Заголовок "Дата расчёта"--------------------------'''
-        self.title_widget = TitleWithCount(title='ДАТА РАСЧЁТА', count_text='0', parent=self)
+        self.title_widget = TitleWithCount(title='ДАТА РАСЧЁТА', count_text='0')
         verticalLayout_main.addLayout(self.title_widget, 0)
         '''----------------------------------------------------------------------------'''
 
@@ -210,7 +210,7 @@ class GroupBox_InstrumentsRequest(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------Заголовок------------------------'''
-        self.title_widget = TitleWithCount(title='ЗАПРОС', count_text='0', parent=self)
+        self.title_widget = TitleWithCount(title='ЗАПРОС', count_text='0')
         verticalLayout_main.addLayout(self.title_widget, 0)
         '''---------------------------------------------------------'''
 
@@ -590,7 +590,7 @@ class MyTableViewGroupBox(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------------Заголовок------------------------------'''
-        self.__titlebar = TitleWithCount(title=title, count_text='0', parent=self)
+        self.__titlebar = TitleWithCount(title=title, count_text='0')
         verticalLayout_main.addLayout(self.__titlebar, 0)
         '''---------------------------------------------------------------------'''
 

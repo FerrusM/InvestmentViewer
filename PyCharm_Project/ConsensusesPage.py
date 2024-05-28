@@ -2,11 +2,11 @@ from __future__ import annotations
 import typing
 from PyQt6 import QtCore, QtWidgets, QtSql, QtGui
 from tinkoff.invest.schemas import GetConsensusForecastsResponse, PageResponse, Page, Recommendation
-from Classes import TokenClass, MyConnection, ColumnWithHeader, print_function_runtime, MyConsensusForecastsItem
+from Classes import TokenClass, MyConnection, ColumnWithHeader, MyConsensusForecastsItem
 from common.pyqt6_columns import Header
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
 from MyDatabase import MainConnection
-from common.datetime_functions import reportSignificantInfoFromDateTime
+from common.datetime_functions import reportSignificantInfoFromDateTime, print_function_runtime
 from MyQuotation import MyQuotation
 from MyRequests import getConsensusForecasts, MyResponse
 from common.pyqt6_widgets import TitleLabel
@@ -399,7 +399,7 @@ class ForecastsRequest(QtWidgets.QGroupBox):
         titlebar = TitleLabel(text='ЗАПРОС', parent=self)
         verticalLayout_main.addWidget(titlebar, 0)
 
-        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model)
         self.__token: TokenClass | None = self.token_bar.token
 
         @QtCore.pyqtSlot(TokenClass)  # Декоратор, который помечает функцию как qt-слот и ускоряет её выполнение.
@@ -414,7 +414,7 @@ class ForecastsRequest(QtWidgets.QGroupBox):
         self.token_bar.tokenReset.connect(__onTokenReset)
         verticalLayout_main.addLayout(self.token_bar, 0)
 
-        horizontalLayout_limit = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_limit = QtWidgets.QHBoxLayout()
         limit_label = QtWidgets.QLabel(text='Кол-во записей:', parent=self)
         horizontalLayout_limit.addWidget(limit_label, 0)
         horizontalLayout_limit.addSpacing(4)
@@ -425,7 +425,7 @@ class ForecastsRequest(QtWidgets.QGroupBox):
         horizontalLayout_limit.addStretch(1)
         verticalLayout_main.addLayout(horizontalLayout_limit, 0)
 
-        horizontalLayout_page = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_page = QtWidgets.QHBoxLayout()
         page_label = QtWidgets.QLabel(text='Страница:', parent=self)
         horizontalLayout_page.addWidget(page_label, 0)
         horizontalLayout_page.addSpacing(4)
@@ -512,7 +512,7 @@ class InstrumentsSelectionGroupBox(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------------Заголовок------------------------------'''
-        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title = QtWidgets.QHBoxLayout()
         horizontalLayout_title.setSpacing(0)
 
         horizontalLayout_title.addSpacing(10)
@@ -531,12 +531,12 @@ class InstrumentsSelectionGroupBox(QtWidgets.QGroupBox):
         '''---------------------------------------------------------------------'''
 
         '''---------------------Строка выбора токена---------------------'''
-        self.__token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        self.__token_bar = TokenSelectionBar(tokens_model=tokens_model)
         verticalLayout_main.addLayout(self.__token_bar, 0)
         '''--------------------------------------------------------------'''
 
         '''---------------Строка выбора статуса инструмента---------------'''
-        horizontalLayout_status = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_status = QtWidgets.QHBoxLayout()
         horizontalLayout_status.setSpacing(0)
 
         horizontalLayout_status.addWidget(QtWidgets.QLabel(text='Статус:', parent=self), 0)
@@ -553,7 +553,7 @@ class InstrumentsSelectionGroupBox(QtWidgets.QGroupBox):
         '''---------------------------------------------------------------'''
 
         '''--------------Строка выбора типа инструмента--------------'''
-        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout()
         horizontalLayout_instrument_type.setSpacing(0)
 
         horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self), 0)
@@ -572,7 +572,7 @@ class InstrumentsSelectionGroupBox(QtWidgets.QGroupBox):
         '''----------------------------------------------------------'''
 
         '''---------------Строка выбора инструмента---------------'''
-        horizontalLayout_instrument = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument = QtWidgets.QHBoxLayout()
         horizontalLayout_instrument.setSpacing(0)
 
         horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self), 0)
@@ -885,7 +885,7 @@ class ConsensusesPage(QtWidgets.QWidget):
         verticalLayout_forecasts_view.setContentsMargins(2, 2, 2, 2)
         verticalLayout_forecasts_view.setSpacing(2)
 
-        __titlebar = ForecastsTitle(title='КОНСЕНСУС-ПРОГНОЗЫ', count_text='0', parent=bottom_groupBox)
+        __titlebar = ForecastsTitle(title='КОНСЕНСУС-ПРОГНОЗЫ', count_text='0')
         verticalLayout_forecasts_view.addLayout(__titlebar, 0)
 
         self.forecasts_view = QtWidgets.QTableView(parent=bottom_groupBox)

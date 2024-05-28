@@ -833,17 +833,17 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''-----------------------Строка заголовка-----------------------'''
-        self.titlebar = TitleWithCount(title='ВЫБОР ИНСТРУМЕНТА', count_text='0', parent=self)
+        self.titlebar = TitleWithCount(title='ВЫБОР ИНСТРУМЕНТА', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
         '''--------------------------------------------------------------'''
 
         '''---------------------Строка выбора токена---------------------'''
-        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model)
         verticalLayout_main.addLayout(self.token_bar, 0)
         '''--------------------------------------------------------------'''
 
         '''---------------Строка выбора статуса инструмента---------------'''
-        horizontalLayout_status = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_status = QtWidgets.QHBoxLayout()
         horizontalLayout_status.setSpacing(0)
 
         horizontalLayout_status.addWidget(QtWidgets.QLabel(text='Статус:', parent=self), 0)
@@ -860,7 +860,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         '''---------------------------------------------------------------'''
 
         '''--------------Строка выбора типа инструмента--------------'''
-        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout()
         horizontalLayout_instrument_type.setSpacing(0)
 
         horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self), 0)
@@ -879,7 +879,7 @@ class GroupBox_InstrumentSelection(QtWidgets.QGroupBox):
         '''----------------------------------------------------------'''
 
         '''---------------Строка выбора инструмента---------------'''
-        horizontalLayout_instrument = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument = QtWidgets.QHBoxLayout()
         horizontalLayout_instrument.setSpacing(0)
 
         horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self), 0)

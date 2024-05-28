@@ -6,12 +6,12 @@ from PyQt6 import QtCore, QtWidgets, QtCharts, QtGui
 from tinkoff.invest import HistoricCandle, CandleInterval
 from tinkoff.invest.utils import candle_interval_to_timedelta
 from CandlesChart import CandlesChart
-from Classes import TokenClass, print_slot, print_function_runtime
+from Classes import TokenClass, print_slot
 from DatabaseWidgets import GroupBox_InstrumentSelection, TokenSelectionBar
 from LimitClasses import LimitPerMinuteSemaphore
 from MyBondClass import MyBondClass
 from MyDatabase import MainConnection
-from common.datetime_functions import ifDateTimeIsEmpty, getUtcDateTime, getMoscowDateTime
+from common.datetime_functions import ifDateTimeIsEmpty, getUtcDateTime, getMoscowDateTime, print_function_runtime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getCandles
 from MyShareClass import MyShareClass
@@ -603,12 +603,12 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         verticalLayout_main.addWidget(TitleLabel(text='ПОЛУЧЕНИЕ ИСТОРИЧЕСКИХ СВЕЧЕЙ', parent=self), 0)
 
         '''-----------Выбор токена для получения исторических свечей-----------'''
-        self.token_bar = TokenSelectionBar(tokens_model=token_model, parent=self)
+        self.token_bar = TokenSelectionBar(tokens_model=token_model)
         verticalLayout_main.addLayout(self.token_bar, 0)
         '''--------------------------------------------------------------------'''
 
         '''-----------------------Выбор интервала свечей-----------------------'''
-        horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_interval = QtWidgets.QHBoxLayout()
         horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self), 0)
         horizontalLayout_interval.addSpacing(4)
         self.comboBox_interval = ComboBox_Interval(parent=self)
@@ -618,7 +618,7 @@ class GroupBox_CandlesReceiving(QtWidgets.QGroupBox):
         '''--------------------------------------------------------------------'''
 
         '''---------------Прогресс получения исторических свечей---------------'''
-        horizontalLayout = QtWidgets.QHBoxLayout(self)
+        horizontalLayout = QtWidgets.QHBoxLayout()
 
         self.play_button = QtWidgets.QPushButton(text=self.PLAY, parent=self)
         self.play_button.setEnabled(False)
@@ -753,11 +753,11 @@ class CandlesGraphic(QtWidgets.QWidget):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------------------Заголовок------------------------------------'''
-        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title = QtWidgets.QHBoxLayout()
         horizontalLayout_title.addSpacing(10)
 
         '''------------------Выбор интервала------------------'''
-        horizontalLayout_interval = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_interval = QtWidgets.QHBoxLayout()
         horizontalLayout_interval.addWidget(QtWidgets.QLabel(text='Интервал:', parent=self), 0)
         horizontalLayout_interval.addSpacing(4)
         self.comboBox_interval = ComboBox_Interval(parent=self)

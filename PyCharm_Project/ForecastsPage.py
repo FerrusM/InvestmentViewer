@@ -5,11 +5,11 @@ from enum import Enum, StrEnum
 from PyQt6 import QtCore, QtWidgets, QtGui, QtSql
 from grpc import StatusCode
 from tinkoff.invest.schemas import GetForecastResponse, TargetItem, Quotation, Recommendation
-from Classes import TokenClass, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection, print_function_runtime
+from Classes import TokenClass, MyTreeView, ColumnWithoutHeader, ConsensusFull, MyConnection
 from common.pyqt6_columns import Header
 from DatabaseWidgets import TokenSelectionBar, ComboBox_Status, ComboBox_InstrumentType
 from MyDatabase import MainConnection
-from common.datetime_functions import getUtcDateTime, reportSignificantInfoFromDateTime
+from common.datetime_functions import getUtcDateTime, reportSignificantInfoFromDateTime, print_function_runtime
 from MyQuotation import MyQuotation
 from MyRequests import MyResponse, RequestTryClass, getForecast
 from PagesClasses import ProgressBar_DataReceiving
@@ -398,7 +398,7 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
         verticalLayout_main.setSpacing(2)
 
         '''------------------------------Заголовок------------------------------'''
-        horizontalLayout_title = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_title = QtWidgets.QHBoxLayout()
         horizontalLayout_title.setSpacing(0)
 
         horizontalLayout_title.addSpacing(10)
@@ -417,12 +417,12 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
         '''---------------------------------------------------------------------'''
 
         '''---------------------Строка выбора токена---------------------'''
-        self.__token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        self.__token_bar = TokenSelectionBar(tokens_model=tokens_model)
         verticalLayout_main.addLayout(self.__token_bar, 0)
         '''--------------------------------------------------------------'''
 
         '''---------------Строка выбора статуса инструмента---------------'''
-        horizontalLayout_status = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_status = QtWidgets.QHBoxLayout()
         horizontalLayout_status.setSpacing(0)
 
         horizontalLayout_status.addWidget(QtWidgets.QLabel(text='Статус:', parent=self), 0)
@@ -439,7 +439,7 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
         '''---------------------------------------------------------------'''
 
         '''--------------Строка выбора типа инструмента--------------'''
-        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument_type = QtWidgets.QHBoxLayout()
         horizontalLayout_instrument_type.setSpacing(0)
 
         horizontalLayout_instrument_type.addWidget(QtWidgets.QLabel(text='Тип инструмента:', parent=self), 0)
@@ -458,7 +458,7 @@ class ForecastsInstrumentSelectionGroupBox(QtWidgets.QGroupBox):
         '''----------------------------------------------------------'''
 
         '''---------------Строка выбора инструмента---------------'''
-        horizontalLayout_instrument = QtWidgets.QHBoxLayout(self)
+        horizontalLayout_instrument = QtWidgets.QHBoxLayout()
         horizontalLayout_instrument.setSpacing(0)
 
         horizontalLayout_instrument.addWidget(QtWidgets.QLabel(text='Инструмент:', parent=self), 0)
@@ -999,13 +999,13 @@ class ForecastsReceivingGroupBox(QtWidgets.QGroupBox):
         verticalLayout_main.setContentsMargins(2, 2, 2, 2)
         verticalLayout_main.setSpacing(2)
 
-        self.titlebar = TitleWithCount(title='ПОЛУЧЕНИЕ ПРОГНОЗОВ', count_text='0', parent=self)
+        self.titlebar = TitleWithCount(title='ПОЛУЧЕНИЕ ПРОГНОЗОВ', count_text='0')
         verticalLayout_main.addLayout(self.titlebar, 0)
 
-        self.token_bar = TokenSelectionBar(tokens_model=tokens_model, parent=self)
+        self.token_bar = TokenSelectionBar(tokens_model=tokens_model)
         verticalLayout_main.addLayout(self.token_bar, 0)
 
-        self.progressBar = ProgressThreadManagerBar(parent=self)
+        self.progressBar = ProgressThreadManagerBar()
         verticalLayout_main.addLayout(self.progressBar, 0)
 
         verticalLayout_main.addStretch(1)
@@ -1439,7 +1439,7 @@ class ForecastsPage(QtWidgets.QWidget):
         self.groupBox_instrument_selection = ForecastsInstrumentSelectionGroupBox(tokens_model=tokens_model, parent=self)
         horizontalLayout_top.addWidget(self.groupBox_instrument_selection, 1)
 
-        verticalLayout_progressBar = QtWidgets.QVBoxLayout(self)
+        verticalLayout_progressBar = QtWidgets.QVBoxLayout()
         verticalLayout_progressBar.setSpacing(0)
         self.progressBar = ForecastsReceivingGroupBox(tokens_model=tokens_model, parent=self)
         self.progressBar.setInstruments(self.groupBox_instrument_selection.uids)
@@ -1451,13 +1451,13 @@ class ForecastsPage(QtWidgets.QWidget):
         verticalLayout_main.addLayout(horizontalLayout_top, 0)
 
         '''---------------------------------------Нижняя часть---------------------------------------'''
-        layoutWidget = QtWidgets.QGroupBox(parent=self)
+        layoutWidget = QtWidgets.QGroupBox()
 
         verticalLayout_forecasts_view = QtWidgets.QVBoxLayout(layoutWidget)
         verticalLayout_forecasts_view.setContentsMargins(2, 2, 2, 2)
         verticalLayout_forecasts_view.setSpacing(2)
 
-        __titlebar = ForecastsTitle(title='ПРОГНОЗЫ', count_text='0', parent=layoutWidget)
+        __titlebar = ForecastsTitle(title='ПРОГНОЗЫ', count_text='0')
         verticalLayout_forecasts_view.addLayout(__titlebar, 0)
 
         self.forecasts_view = MyTreeView(parent=layoutWidget)
